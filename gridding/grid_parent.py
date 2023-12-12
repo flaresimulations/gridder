@@ -41,8 +41,10 @@ def main():
 
     # Decompose the simulation cells into slices
     gridder.domain_decomp()
+    print("Decomposed the grid")
 
     # Perform the gridding
+    print("Gridding the simulation...")
     gridder.get_grid()
 
     comm.Barrier()
