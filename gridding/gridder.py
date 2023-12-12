@@ -255,7 +255,7 @@ class GridGenerator:
 
         # Set up the grid for this rank's slice
         mass_grid = np.zeros(
-            (self.x_cells_rank, self.sim_cdim, self.sim_cdim),
+            (self.x_cells_rank, self.sim_cdim[1], self.sim_cdim[2]),
             dtype=np.float32,
         )
 
