@@ -138,13 +138,17 @@ class GridGenerator:
         self.grid_ncells = self.grid_cdim * self.grid_cdim * self.grid_cdim
 
         if self.rank == 0:
+            print("PARENT METADATA:")
             print("Boxsize:", self.boxsize)
+            print("CDim:", self.cdim)
             print("Redshift:", self.redshift)
             print("Npart:", self.nparts)
             print("Particle Mass:", self.pmass)
             print("Number of simulation cells:", self.ncells)
             print("Mean Density:", self.mean_density)
             print("Sim Cell Width:", self.cell_width)
+            print()
+            print("GRID METADATA:")
             print("Grid Cell Width:", self.grid_cell_width)
             print(
                 "Grid Cell Volume:",
@@ -154,6 +158,7 @@ class GridGenerator:
             )
             print("N grid cell per simulation cell", self.grid_per_sim_cells)
             print("Parent Grid NCells:", self.grid_cdim)
+            print()
 
     def get_sim_cell_ijk(self, cid):
         """
@@ -277,7 +282,7 @@ class GridGenerator:
                 ]
 
                 # Shift the positions to account for the slice edge
-                poss[:, 0] -= my_edges[:, 0]
+                poss[:, 0] -= my_edges[0]
 
                 # Get particle masses
                 masses = hdf["/PartType1/Masses"][my_offset : my_offset + my_count]
