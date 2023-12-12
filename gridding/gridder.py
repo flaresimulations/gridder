@@ -310,7 +310,10 @@ class GridGenerator:
         hdf.close()
 
         # Open the output file
-        hdf_out = h5py.File(self.outpath, "r+")
+        hdf_out = h5py.File(
+            f"{self.out_dir}{self.out_basename}_rank{self.rank}{self.out_ext}",
+            "r+",
+        )
 
         # Store the x edge of this rank (we'll need this to combine the grids
         # later on)
