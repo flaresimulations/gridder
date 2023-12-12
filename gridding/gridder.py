@@ -140,7 +140,7 @@ class GridGenerator:
         if self.rank == 0:
             print("PARENT METADATA:")
             print("Boxsize:", self.boxsize)
-            print("CDim:", self.cdim)
+            print("CDim:", self.sim_cdim)
             print("Redshift:", self.redshift)
             print("Npart:", self.nparts)
             print("Particle Mass:", self.pmass)
