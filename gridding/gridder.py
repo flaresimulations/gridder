@@ -121,7 +121,8 @@ class GridGenerator:
         self.half_cell_width = self.cell_width / 2
         hdf.close()
 
-        # Calculate the (comoving) mean density of the universe
+        # Calculate the (comoving) mean density of the universe in
+        # 10 ** 10 Msun / Mpc ** 3
         tot_mass = self.nparts * self.pmass
         self.mean_density = tot_mass / (
             self.boxsize[0] * self.boxsize[1] * self.boxsize[2]
