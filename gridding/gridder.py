@@ -290,7 +290,7 @@ class GridGenerator:
                 ]
 
                 # Shift the positions to account for the slice edge
-                poss[:, 0] -= my_edges[0] - (self.pad_region * self.grid_cell_width)
+                poss[:, 0] -= my_edges[0] - (self.pad_region * self.grid_cell_width[0])
 
                 # Get particle masses
                 masses = hdf["/PartType1/Masses"][my_offset : my_offset + my_count]
