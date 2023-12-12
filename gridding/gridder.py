@@ -268,7 +268,7 @@ class GridGenerator:
 
         # Set up the grid for this rank's slice
         mass_grid = np.zeros(
-            (self.x_cells_rank, self.sim_cdim[1], self.sim_cdim[2]),
+            (self.x_cells_rank + self.pad_ncells, self.sim_cdim[1], self.sim_cdim[2]),
             dtype=np.float32,
         )
 
@@ -290,14 +290,14 @@ class GridGenerator:
                 ]
 
                 # Shift the positions to account for the slice edge
-                poss[:, 0] -= my_edges[0]
+                poss[:, 0] -= my_edges[0] - (self.pad_region * self.grid_cell_width)
 
                 # Get particle masses
                 masses = hdf["/PartType1/Masses"][my_offset : my_offset + my_count]
 
                 # Wrap the particles around the periodic boundary
-                poss[poss > self.boxsize] -= self.boxsize[0]
-                poss[poss < 0] += self.boxsize[0]
+                poss[poss[:, (1, 2)] > self.boxsize, (1, 2)] -= self.boxsize[0]
+                poss[poss[:, (1, 2)] < 0, (1, 2)] += self.boxsize[0]
 
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
@@ -379,6 +379,11 @@ class GridGenerator:
             "A 3D mass histogram of a slice of the parent "
             "simulation dark matter distribution in 10 ** 10 Msun."
         )
+
+        # We have to add the lower pad cells to the end of the array at the end
+        # so define this variable now
+        ini_low_pad = None
+
         # Loop over the other ranks adding slices to the array
         for other_rank in range(self.nranks):
             # Open this ranks file
@@ -392,15 +397,35 @@ class GridGenerator:
             grid_slice = hdf_rank["MassGrid"][...]
 
             # Get the current size of the dataset
-            slice_ind = dset.shape[0]
+            if dset.shape[0] > 0:
+                slice_ind = dset.shape[0] - self.pad_region
+            else:
+                slice_ind = 0
+
+            # Get the padded areas of the slice
+            pad_low = grid_slice[:self.pad_region:, :, :]
+            slice_mid = grid_slice[self.pad_region:-self.pad_region, :, :]
+            pad_up = grid_slice[-self.pad_region:, :, :]
 
             # Resize the dataset to accommodate the new chunk
             dset.resize(
-                (slice_ind + grid_slice.shape[0],) + full_grid_shape[1:],
+                (slice_ind + grid_slice.shape[0] - self.pad_region,) + full_grid_shape[1:],
             )
 
-            # Add the chunk data to the dataset
-            dset[slice_ind : slice_ind + grid_slice.shape[0], ...] = grid_slice
+            # Add the slice itself
+            dset[slice_ind : slice_ind + slide_mid.shape[0], :, :] = slice_mid
+
+            # Add the lower padded region if we aren't at the bow boundary
+            if slice_ind > 0:
+                dset[slice_ind - self.pad_region: slice_ind + pad_low.shape[0], :, :] += pad_low
+            else:
+                ini_low_pad = pad_low
+
+            # Add the upper padded region, handling if we are at the boundary
+            if slice_ind + slice_mid.shape[0] + pad_up.shape[0] < full_grid_shape[0]:
+                dset[slice_ind + slice_mid.shape[0]: slice_ind + slice_mid.shape[0] + pad_up.shape[0], :, :] = pad_up
+            else:
+                dset[0: pad_up.shape[0], :, :] += pad_up
 
             hdf_rank.close()
 
