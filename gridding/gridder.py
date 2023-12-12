@@ -296,8 +296,10 @@ class GridGenerator:
                 masses = hdf["/PartType1/Masses"][my_offset : my_offset + my_count]
 
                 # Wrap the particles around the periodic boundary
-                poss[poss[:, 1:] > self.boxsize[0]] -= self.boxsize[0]
-                poss[poss[:, 1:] < 0] += self.boxsize[0]
+                poss[poss[:, 0] > self.boxsize[0]] -= self.boxsize[0]
+                poss[poss[:, 0] < 0] += self.boxsize[0]
+                poss[poss[:, 1] > self.boxsize[1]] -= self.boxsize[1]
+                poss[poss[:, 1] < 0] += self.boxsize[1]
 
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
