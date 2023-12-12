@@ -6,26 +6,15 @@ produce a distributed set of files followed by a single combined file.
 
 Examples usage:
 
-    # Create the grid instance
-    smoother = GridSmoother(float(sys.argv[4]), out_dir + metafile)
-
-    # Decompose the grid
-    smoother.decomp_cells(rank, nranks)
-
-    # Compute the smoothed grid
-    smoother.smooth_grid_cells(rank)
-
-    # Output the grid from each rank to the distributed files
-    smoother.write_smoothed_grid_rankfile(outpath, rank)
-
-    comm.Barrier()
-
-    # Convert the distributed files into a single file
-    smoother.write_smoothed_grid_meta(outpath, metafile, rank, nranks)
+    smoother = GridSmoother(25, "grid.hdf5")
+    smoother.decomp_cells()
+    smoother.smooth_grid_cells()
+    smoother.write_smoothed_grid_rankfile(outpath)
 
 """
 import h5py
 import numpy as np
+from mpi4py import MPI
 
 
 class GridSmoother:
@@ -76,7 +65,7 @@ class GridSmoother:
 
     """
 
-    def __init__(self, kernel_width, grid_file, rank):
+    def __init__(self, kernel_width, grid_file):
         """
         Set up the grid and kernel to be applied.
 
@@ -90,6 +79,12 @@ class GridSmoother:
 
         """
 
+        # Get the MPI information we need
+        self.comm = None
+        self.nranks = None
+        self.rank = None
+        self._setup_mpi()
+
         # Set up the grid
         self.grid_file = grid_file
 
@@ -101,7 +96,7 @@ class GridSmoother:
         self.cdim = None
 
         # Read the grid attributes
-        self._read_attrs(rank)
+        self._read_attrs()
 
         # The mass grid dataset
         self.mass_gird = None
@@ -123,7 +118,7 @@ class GridSmoother:
         self.region_inds = None
         self.centres = None
 
-    def _read_attrs(self, rank):
+    def _read_attrs(self):
         """
         Read the grid file for attributes.
 
@@ -140,16 +135,24 @@ class GridSmoother:
         self.cell_width = hdf["Delta_grid"].attrs["Cell_Width"]
 
         # Print some nice things
-        if rank == 0:
+        if self.rank == 0:
             print("Boxsize:", self.boxsize)
             print("Mean Density:", self.mean_density)
             print("Grid Cell Width:", self.cell_width)
             print("Grid cells total:", self.ngrid_cells)
 
         # Get results array dimensions
-        self.cdim = hdf["Parent_Grid"].shape
+        self.cdim = hdf["MassGrid"].shape
 
         hdf.close()
+
+    def _setup_mpi(self):
+        """
+        Sets up MPI communication.
+        """
+        self.comm = MPI.COMM_WORLD
+        self.rank = self.comm.Get_rank()
+        self.nranks = self.comm.Get_size()
 
     def _apply_spherical_top_hat(self, subset, func, centre):
         """
@@ -210,34 +213,28 @@ class GridSmoother:
         """
         return k + self.cdim[2] * (j + self.cdim[1] * i)
 
-    def decomp_cells(self, rank, nranks):
+    def decomp_cells(self):
         """
         Decompose the grid cells over N ranks.
-
-        Args:
-            rank (int)
-                The rank id of this rank.
-            nranks (int)
-                The number of ranks.
         """
         # Find the cells and simulation ijk grid references
         # that this rank has to work on
         self.rank_cells = np.linspace(
             0,
             self.ngrid_cells,
-            nranks + 1,
+            self.nranks + 1,
             dtype=int,
         )
-        self.rank_ncells = self.rank_cells[rank + 1] - self.rank_cells[rank]
+        self.rank_ncells = self.rank_cells[self.rank + 1] - self.rank_cells[self.rank]
 
         print(
-            f"Rank {rank} has {self.rank_ncells} cells",
+            f"Rank {self.rank} has {self.rank_ncells} cells",
         )
 
         # Find the minimum and maximum i, j and k to slice main grid
         min_i, min_j, min_k = np.inf, np.inf, np.inf
         max_i, max_j, max_k = 0, 0, 0
-        for cid in range(self.rank_cells[rank], self.rank_cells[rank + 1]):
+        for cid in range(self.rank_cells[self.rank], self.rank_cells[self.rank + 1]):
             i, j, k = self.get_cell_ijk(cid)
             if i < min_i:
                 min_i = i
@@ -253,7 +250,7 @@ class GridSmoother:
                 max_k = k
 
         print(
-            f"Rank = {rank} has cells in range "
+            f"Rank = {self.rank} has cells in range "
             "[{min_i}-{max_i}, {min_j}-{max_j}, {min_k}-{max_k}]"
         )
 
@@ -296,16 +293,16 @@ class GridSmoother:
                     indices[i, j, k, 2] = kk
 
         # Open file to get the relevant grid cells
-        hdf = h5py.File(path, "r")
+        hdf = h5py.File(self.grid_file, "r")
 
         # Get the mass grid
-        self.mass_grid = hdf["Parent_Grid"][
+        self.mass_grid = hdf["MassGrid"][
             indices[:, :, :, 0], indices[:, :, :, 1], indices[:, :, :, 2]
         ]
 
         hdf.close()
 
-    def smooth_grid_cells(self, rank):
+    def smooth_grid_cells(self):
         """ """
 
         # Set up the outputs to write out
@@ -316,7 +313,7 @@ class GridSmoother:
 
         # Loop over this ranks cells
         ind = 0
-        for cid in range(self.rank_cells[rank], self.rank_cells[rank + 1]):
+        for cid in range(self.rank_cells[self.rank], self.rank_cells[self.rank + 1]):
             # Get the i j k coordinates
             i, j, k = self.get_cell_ijk(cid)
 
@@ -370,10 +367,10 @@ class GridSmoother:
 
             ind += 1
 
-    def write_smoothed_grid_rankfile(self, outpath, rank):
+    def write_smoothed_grid_rankfile(self, outpath):
         """ """
         # Write out the results of smoothing
-        outpath = outpath.split(".")[0] + f"_rank{rank}." + outpath.split(".")[-1]
+        outpath = outpath.split(".")[0] + f"_rank{self.rank}." + outpath.split(".")[-1]
         hdf = h5py.File(outpath, "w")
         hdf.attrs["Kernel_Width"] = self.kernel_width
         hdf.create_dataset(
@@ -418,10 +415,10 @@ class GridSmoother:
 
         hdf.close()
 
-    def write_smoothed_grid_meta(self, outpath, metafile, rank, nranks):
+    def combine_distributed_files(self, outpath, metafile, delete_distributed=False):
         """ """
 
-        if rank == 0:
+        if self.rank == 0:
             # Define arrays to store the collected results
 
             # Set up arrays for the smoothed grid
@@ -444,7 +441,7 @@ class GridSmoother:
 
             hdf_rank0.close()
 
-            for other_rank in range(nranks):
+            for other_rank in range(self.nranks):
                 # Set up the outpath for each rank file
                 rank_outpath = (
                     outpath.split(".")[0]

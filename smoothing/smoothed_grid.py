@@ -50,21 +50,21 @@ def main():
     )
 
     # Create the grid instance
-    smoother = GridSmoother(args.kernel_width, out_dir + metafile, rank)
+    smoother = GridSmoother(args.kernel_width, out_dir + metafile)
 
     # Decompose the grid
-    smoother.decomp_cells(rank, nranks)
+    smoother.decomp_cells()
 
     # Compute the smoothed grid
-    smoother.smooth_grid_cells(rank)
+    smoother.smooth_grid_cells()
 
     # Output the grid from each rank to the distributed files
-    smoother.write_smoothed_grid_rankfile(outpath, rank)
+    smoother.write_smoothed_grid_rankfile(outpath)
 
     comm.Barrier()
 
     # Convert the distributed files into a single file
-    smoother.write_smoothed_grid_meta(outpath, metafile, rank, nranks)
+    smoother.combine_distributed_files(outpath, metafile, delete_distributed=False)
 
 
 if __name__ == "__main__":
