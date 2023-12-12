@@ -142,7 +142,7 @@ class GridGenerator:
         )
         self.grid_ncells = self.grid_cdim * self.grid_cdim * self.grid_cdim
 
-        if self.grid_ncells > 0:
+        if self.grid_ncells[0] == 0:
             raise ValueError("Found 0 grid cells, decrease your cell_width")
 
         if self.rank == 0:
@@ -403,13 +403,14 @@ class GridGenerator:
                 slice_ind = 0
 
             # Get the padded areas of the slice
-            pad_low = grid_slice[:self.pad_region:, :, :]
-            slice_mid = grid_slice[self.pad_region:-self.pad_region, :, :]
-            pad_up = grid_slice[-self.pad_region:, :, :]
+            pad_low = grid_slice[: self.pad_region :, :, :]
+            slice_mid = grid_slice[self.pad_region : -self.pad_region, :, :]
+            pad_up = grid_slice[-self.pad_region :, :, :]
 
             # Resize the dataset to accommodate the new chunk
             dset.resize(
-                (slice_ind + grid_slice.shape[0] - self.pad_region,) + full_grid_shape[1:],
+                (slice_ind + grid_slice.shape[0] - self.pad_region,)
+                + full_grid_shape[1:],
             )
 
             # Add the slice itself
@@ -417,15 +418,24 @@ class GridGenerator:
 
             # Add the lower padded region if we aren't at the bow boundary
             if slice_ind > 0:
-                dset[slice_ind - self.pad_region: slice_ind + pad_low.shape[0], :, :] += pad_low
+                dset[
+                    slice_ind - self.pad_region : slice_ind + pad_low.shape[0], :, :
+                ] += pad_low
             else:
                 ini_low_pad = pad_low
 
             # Add the upper padded region, handling if we are at the boundary
             if slice_ind + slice_mid.shape[0] + pad_up.shape[0] < full_grid_shape[0]:
-                dset[slice_ind + slice_mid.shape[0]: slice_ind + slice_mid.shape[0] + pad_up.shape[0], :, :] = pad_up
+                dset[
+                    slice_ind
+                    + slice_mid.shape[0] : slice_ind
+                    + slice_mid.shape[0]
+                    + pad_up.shape[0],
+                    :,
+                    :,
+                ] = pad_up
             else:
-                dset[0: pad_up.shape[0], :, :] += pad_up
+                dset[0 : pad_up.shape[0], :, :] += pad_up
 
             hdf_rank.close()
 
