@@ -35,6 +35,7 @@ class GridGenerator:
         inpath,
         outpath,
         target_grid_width,
+        pad_region=5,
     ):
         """
         Initializes the OverdensityGridGenerator.
@@ -66,6 +67,10 @@ class GridGenerator:
         self.nranks = None
         self.rank = None
         self._setup_mpi()
+
+        # How much are we padding to capture particles outside their cells?
+        self.pad_region = pad_region
+        self.pad_ncells = 2 * pad_region
 
         # The target grid cell width (later refined to tesselated the parent
         # volume)
@@ -136,6 +141,9 @@ class GridGenerator:
             self.grid_cell_width[0] * self.grid_cell_width[1] * self.grid_cell_width[2]
         )
         self.grid_ncells = self.grid_cdim * self.grid_cdim * self.grid_cdim
+
+        if self.grid_ncells > 0:
+            raise ValueError("Found 0 grid cells, decrease your cell_width")
 
         if self.rank == 0:
             print("PARENT METADATA:")
