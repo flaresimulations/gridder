@@ -317,7 +317,7 @@ class GridGenerator:
 
         # Store the x edge of this rank (we'll need this to combine the grids
         # later on)
-        hdf_out.attrs["SliceEdge"] = my_edges[0, 0]
+        hdf_out.attrs["SliceEdge"] = my_edges[0]
 
         # Write out this slice of the mass file
         dset = hdf_out.create_dataset(
