@@ -418,10 +418,6 @@ class GridGenerator:
             "simulation dark matter distribution in 10 ** 10 Msun."
         )
 
-        # We have to add the lower pad cells to the end of the array at the end
-        # so define this variable now
-        ini_low_pad = None
-
         # Loop over the other ranks adding slices to the array
         slice_ind = 0
         for other_rank in range(self.nranks):
@@ -439,21 +435,17 @@ class GridGenerator:
             slice_mid = grid_slice[self.pad_region : -self.pad_region, :, :]
             pad_up = grid_slice[-self.pad_region :, :, :]
 
-            # Resize the dataset to accommodate the new chunk
-            dset.resize(
-                (slice_ind + grid_slice.shape[0] - self.pad_region,)
-                + full_grid_shape[1:],
-            )
-
             # Add the slice itself
-            dset[slice_ind : slice_ind + slice_mid.shape[0], :, :] = slice_mid
+            dset[slice_ind : slice_ind + slice_mid.shape[0], :, :] += slice_mid
 
             # Add the lower padded region if we aren't at the bow boundary
             if slice_ind > 0:
                 low_ind = slice_ind - self.pad_region
+                print(low_ind, pad_low.shape)
                 dset[low_ind : low_ind + pad_low.shape[0], :, :] += pad_low
             else:
-                ini_low_pad = pad_low
+                # Add in the wrapped pad cells from the first slice
+                dset[-self.pad_region :, :, :] = pad_low
 
             # Add the upper padded region, handling if we are at the boundary
             if slice_ind + slice_mid.shape[0] + pad_up.shape[0] < full_grid_shape[0]:
@@ -464,12 +456,9 @@ class GridGenerator:
                     + pad_up.shape[0],
                     :,
                     :,
-                ] = pad_up
+                ] += pad_up
             else:
                 dset[0 : pad_up.shape[0], :, :] += pad_up
-
-                # Add in the wrapped pad cells from the first slice
-                dset[-self.pad_region :, :, :] = ini_low_pad
 
             hdf_rank.close()
 
