@@ -295,7 +295,7 @@ class GridGenerator:
             cells["pointers"][ind] = len(cells["indices"])
 
             # Store the count
-            cells["count"][ind] = my_count
+            cells["counts"][ind] = my_count
 
             # Store the edges
             cells["edges"][ind, :] = my_edges
