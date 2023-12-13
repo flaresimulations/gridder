@@ -60,7 +60,7 @@ class GridGenerator:
         self.outpath = outpath
         self.out_basename = outpath.split("/")[-1].split(".")[0]
         self.out_ext = outpath.split("/")[-1].split(".")[-1]
-        self.out_dir = "/".join(outpath.split("/")[:-1])
+        self.out_dir = "/".join(outpath.split("/")[:-1]) + "/"
 
         # Get the MPI information we need
         self.comm = None
@@ -427,8 +427,7 @@ class GridGenerator:
         for other_rank in range(self.nranks):
             # Open this ranks file
             rankfile = (
-                f"{self.out_dir}{self.out_basename}_rank"
-                f"{str(other_rank).zfill(4)}.{self.out_ext}"
+                f"{self.out_dir}{self.out_basename}_rank" f"{other_rank}.{self.out_ext}"
             )
             hdf_rank = h5py.File(rankfile, "r")
 
