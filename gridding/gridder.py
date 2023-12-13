@@ -444,7 +444,7 @@ class GridGenerator:
 
             # Add the lower padded region if we aren't at the bow boundary
             if slice_ind > 0:
-                low_ind = slice_ind - self.pad_region
+                low_ind = slice_ind - self.pad_region - 1
                 print(
                     low_ind, slice_ind, pad_low.shape, slice_mid.shape, grid_slice.shape
                 )
