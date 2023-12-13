@@ -277,31 +277,65 @@ class GridGenerator:
         # Open the input file
         hdf = h5py.File(self.filepath, "r")
 
-        # Loop over the cells on this rank
-        for my_cell in self.my_cells:
+        # Lets get the indices of all the particles we will need and do one big
+        # read at once
+        cells = {
+            "indices": [],
+            "pointers": np.zeros(len(self.my_cells)),
+            "counts": np.zeros(len(self.my_cells)),
+            "edges": np.zeros((len(self.my_cells), 3)),
+        }
+        for ind, my_cell in enumerate(self.my_cells):
             # Get the cell look up table data
             my_offset = hdf["/Cells/OffsetsInFile/PartType1"][my_cell]
             my_count = hdf["/Cells/Counts/PartType1"][my_cell]
             my_edges = hdf["/Cells/Centres"][my_cell, :] - self.half_cell_width
 
+            # Store the pointer
+            cells["pointers"][ind] = len(cells["indices"])
+
+            # Store the count
+            cells["count"][ind] = my_count
+
+            # Store the edges
+            cells["edges"][ind, :] = my_edges
+
+            # Store the indices
+            if my_count > 0:
+                cells["indices"].extend(list(range(my_offset, my_offset + my_count)))
+
+        # Read the particle data
+        all_poss = hdf["/PartType1/Coordinates"][cells["indices"], :]
+        all_masses = hdf["/PartType1/Masses"][cells["indices"]]
+
+        # No longer need the indices
+        del cells["indices"]
+
+        # Loop over the cells on this rank and grid the particles
+        for ind, my_cell in self.my_cells:
+            # Get the cell look up table data
+            my_edges = cells["edges"][ind]
+            my_count = cells["counts"][ind]
+            start = cells["pointers"][ind]
+            end = start + my_count
+
             # No point look for particles if the cell is empty
             if my_count > 0:
                 # Get particle positions
-                poss = hdf["/PartType1/Coordinates"][
-                    my_offset : my_offset + my_count, :
-                ]
+                poss = all_poss[start:end, :]
 
                 # Shift the positions to account for the slice edge
                 poss[:, 0] -= my_edges[0] - (self.pad_region * self.grid_cell_width[0])
 
                 # Get particle masses
-                masses = hdf["/PartType1/Masses"][my_offset : my_offset + my_count]
+                masses = all_masses[start:end]
 
                 # Wrap the particles around the periodic boundary
-                poss[poss[:, 0] > self.boxsize[0]] -= self.boxsize[0]
-                poss[poss[:, 0] < 0] += self.boxsize[0]
+                # No need to do the x axis as it is padded anyway
                 poss[poss[:, 1] > self.boxsize[1]] -= self.boxsize[1]
                 poss[poss[:, 1] < 0] += self.boxsize[1]
+                poss[poss[:, 2] > self.boxsize[2]] -= self.boxsize[2]
+                poss[poss[:, 2] < 2] += self.boxsize[2]
 
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
