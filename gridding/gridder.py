@@ -332,10 +332,10 @@ class GridGenerator:
 
                 # Wrap the particles around the periodic boundary
                 # No need to do the x axis as it is padded anyway
-                poss[poss[:, 1] > self.boxsize[1]] -= self.boxsize[1]
-                poss[poss[:, 1] < 0] += self.boxsize[1]
-                poss[poss[:, 2] > self.boxsize[2]] -= self.boxsize[2]
-                poss[poss[:, 2] < 2] += self.boxsize[2]
+                poss[poss[:, 1] > self.boxsize[1], 1] -= self.boxsize[1]
+                poss[poss[:, 1] < 0, 1] += self.boxsize[1]
+                poss[poss[:, 2] > self.boxsize[2], 2] -= self.boxsize[2]
+                poss[poss[:, 2] < 2, 2] += self.boxsize[2]
 
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
