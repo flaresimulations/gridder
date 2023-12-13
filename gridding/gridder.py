@@ -419,7 +419,7 @@ class GridGenerator:
             )
 
             # Add the slice itself
-            dset[slice_ind : slice_ind + slide_mid.shape[0], :, :] = slice_mid
+            dset[slice_ind : slice_ind + slice_mid.shape[0], :, :] = slice_mid
 
             # Add the lower padded region if we aren't at the bow boundary
             if slice_ind > 0:
@@ -441,6 +441,9 @@ class GridGenerator:
                 ] = pad_up
             else:
                 dset[0 : pad_up.shape[0], :, :] += pad_up
+
+                # Add in the wrapped pad cells from the first slice
+                dset[-self.pad_region :, :, :] = ini_low_pad
 
             hdf_rank.close()
 
