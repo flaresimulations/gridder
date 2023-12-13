@@ -400,7 +400,7 @@ class GridGenerator:
         hdf_rank0.close()
 
         # Define the full grid shape
-        full_grid_shape = self.grid_cdim
+        full_grid_shape = tuple(self.grid_cdim)
 
         # Create an empty resizable dataset to store the full mass grid.
         # This lets us only load a slice at the time but write a single
