@@ -334,8 +334,8 @@ class GridGenerator:
                 ijk = np.int64(poss / self.grid_cell_width)
 
                 # Wrap the x and y indices, the x axis is padded
-                ijk[:, 1] = (ijk[:, 1] + self.grid_cdim) % self.grid_cdim
-                ijk[:, 2] = (ijk[:, 2] + self.grid_cdim) % self.grid_cdim
+                ijk[:, 1] = (ijk[:, 1] + self.grid_cdim[1]) % self.grid_cdim[1]
+                ijk[:, 2] = (ijk[:, 2] + self.grid_cdim[2]) % self.grid_cdim[2]
 
                 # Add the particle mass to the grid cells
                 mass_grid[ijk[:, 0], ijk[:, 1], ijk[:, 2]] += masses
