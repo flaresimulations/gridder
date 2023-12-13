@@ -198,7 +198,9 @@ class GridGenerator:
         about the exact weight of each slice.
         """
 
-        assert self.nranks < self.sim_cdim[0], "Can't have more ranks than SWIFT cells."
+        assert (
+            self.nranks <= self.sim_cdim[0]
+        ), "Can't have more ranks than SWIFT cells."
 
         # Split the x direction amongst all ranks
         rank_cells = np.linspace(
