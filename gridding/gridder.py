@@ -400,7 +400,7 @@ class GridGenerator:
         hdf_rank0.close()
 
         # Define the full grid shape
-        full_grid_shape = (self.grid_cdim, self.grid_cdim, self.grid_cdim)
+        full_grid_shape = self.grid_cdim
 
         # Create an empty resizable dataset to store the full mass grid.
         # This lets us only load a slice at the time but write a single
@@ -409,7 +409,7 @@ class GridGenerator:
             "MassGrid",
             shape=full_grid_shape,
             maxshape=(None,) + full_grid_shape[1:],
-            chunks=(self.x_cells_rank, self.grid_cdim, self.grid_cdim),
+            chunks=(self.x_cells_rank, self.grid_cdim[1], self.grid_cdim[2]),
             compression="gzip",
         )
         dset.attrs["Units"] = "1e10 Msun"
