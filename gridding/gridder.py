@@ -362,7 +362,7 @@ class GridGenerator:
         hdf_out = h5py.File(self.outpath, "w")
 
         # Loop over all root keys apart from the mass grid itself
-        for root_key in {list(hdf_rank0.keys())} - set(["MassGrid"]):
+        for root_key in {set(hdf_rank0.keys())} - set(["MassGrid"]):
             grp = hdf_out.create_group(root_key)
             for key in hdf_rank0[root_key].attrs.keys():
                 grp.attrs[key] = hdf_rank0[root_key].attrs[key]
