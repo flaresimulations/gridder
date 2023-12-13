@@ -319,6 +319,8 @@ class GridGenerator:
             start = cells["pointers"][ind]
             end = start + my_count
 
+            print(start, end)
+
             # No point look for particles if the cell is empty
             if my_count > 0:
                 # Get particle positions
