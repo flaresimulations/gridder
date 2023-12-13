@@ -60,7 +60,7 @@ class GridGenerator:
         self.outpath = outpath
         self.out_basename = outpath.split("/")[-1].split(".")[0]
         self.out_ext = outpath.split("/")[-1].split(".")[-1]
-        self.out_dir = outpath.split("/")[:-1]
+        self.out_dir = "/".join(outpath.split("/")[:-1])
 
         # Get the MPI information we need
         self.comm = None
@@ -230,7 +230,7 @@ class GridGenerator:
 
         # Create the output file
         hdf_out = h5py.File(
-            f"{self.out_dir}{self.out_basename}_rank{self.rank}{self.out_ext}", "w"
+            f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}", "w"
         )
 
         # Write out attributes about the parent simulation
@@ -344,7 +344,7 @@ class GridGenerator:
 
         # Open the output file
         hdf_out = h5py.File(
-            f"{self.out_dir}{self.out_basename}_rank{self.rank}{self.out_ext}",
+            f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}",
             "r+",
         )
 
@@ -386,7 +386,7 @@ class GridGenerator:
             return
 
         # Open the rank 0 distributed file to get attributes
-        rank0file = f"{self.out_dir}{self.out_basename}_rank0{self.out_ext}"
+        rank0file = f"{self.out_dir}{self.out_basename}_rank0.{self.out_ext}"
         hdf_rank0 = h5py.File(rank0file, "r")
 
         # Create the single output file
@@ -428,7 +428,7 @@ class GridGenerator:
             # Open this ranks file
             rankfile = (
                 f"{self.out_dir}{self.out_basename}_rank"
-                f"{str(other_rank).zfill(4)}{self.out_ext}"
+                f"{str(other_rank).zfill(4)}.{self.out_ext}"
             )
             hdf_rank = h5py.File(rankfile, "r")
 
