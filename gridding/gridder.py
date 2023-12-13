@@ -330,15 +330,12 @@ class GridGenerator:
                 # Get particle masses
                 masses = all_masses[start:end]
 
-                # Wrap the particles around the periodic boundary
-                # No need to do the x axis as it is padded anyway
-                poss[poss[:, 1] > self.boxsize[1], 1] -= self.boxsize[1]
-                poss[poss[:, 1] < 0, 1] += self.boxsize[1]
-                poss[poss[:, 2] > self.boxsize[2], 2] -= self.boxsize[2]
-                poss[poss[:, 2] < 2, 2] += self.boxsize[2]
-
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
+
+                # Wrap the x and y indices, the x axis is padded
+                ijk[:, 1] = (ijk[:, 1] + self.grid_cdim) % self.grid_cdim
+                ijk[:, 2] = (ijk[:, 2] + self.grid_cdim) % self.grid_cdim
 
                 # Add the particle mass to the grid cells
                 mass_grid[ijk[:, 0], ijk[:, 1], ijk[:, 2]] += masses
