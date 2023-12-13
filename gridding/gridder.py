@@ -407,9 +407,9 @@ class GridGenerator:
         # grid
         dset = hdf_out.create_dataset(
             "MassGrid",
-            shape=(0,) + full_grid_shape[1:],
+            shape=full_grid_shape,
             maxshape=(None,) + full_grid_shape[1:],
-            chunks=True,
+            chunks=(self.x_cells_rank, self.grid_cdim, self.grid_cdim),
             compression="gzip",
         )
         dset.attrs["Units"] = "1e10 Msun"
@@ -423,6 +423,7 @@ class GridGenerator:
         ini_low_pad = None
 
         # Loop over the other ranks adding slices to the array
+        slice_ind = 0
         for other_rank in range(self.nranks):
             # Open this ranks file
             rankfile = (
@@ -433,12 +434,6 @@ class GridGenerator:
 
             # Get this ranks slice of the mass grid
             grid_slice = hdf_rank["MassGrid"][...]
-
-            # Get the current size of the dataset
-            if dset.shape[0] > 0:
-                slice_ind = dset.shape[0] - self.pad_region
-            else:
-                slice_ind = 0
 
             # Get the padded areas of the slice
             pad_low = grid_slice[: self.pad_region :, :, :]
@@ -479,6 +474,9 @@ class GridGenerator:
                 dset[-self.pad_region :, :, :] = ini_low_pad
 
             hdf_rank.close()
+
+            # Update the current slice
+            slice_ind += slice_mid.shape[0]
 
             # Delete the distributed file if we have been told to
             if delete_distributed:
