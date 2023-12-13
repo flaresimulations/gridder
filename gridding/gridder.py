@@ -281,8 +281,8 @@ class GridGenerator:
         # read at once
         cells = {
             "indices": [],
-            "pointers": np.zeros(len(self.my_cells)),
-            "counts": np.zeros(len(self.my_cells)),
+            "pointers": np.zeros(len(self.my_cells), dtype=int),
+            "counts": np.zeros(len(self.my_cells), dtype=int),
             "edges": np.zeros((len(self.my_cells), 3)),
         }
         for ind, my_cell in enumerate(self.my_cells):
@@ -318,8 +318,6 @@ class GridGenerator:
             my_count = cells["counts"][ind]
             start = cells["pointers"][ind]
             end = start + my_count
-
-            print(start, end)
 
             # No point look for particles if the cell is empty
             if my_count > 0:
