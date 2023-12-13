@@ -450,9 +450,8 @@ class GridGenerator:
 
             # Add the lower padded region if we aren't at the bow boundary
             if slice_ind > 0:
-                dset[
-                    slice_ind - self.pad_region : slice_ind + pad_low.shape[0], :, :
-                ] += pad_low
+                low_ind = slice_ind - self.pad_region
+                dset[low_ind : low_ind + pad_low.shape[0], :, :] += pad_low
             else:
                 ini_low_pad = pad_low
 
