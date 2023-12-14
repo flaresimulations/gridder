@@ -336,7 +336,7 @@ class GridGenerator:
 
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
-                print(np.min(ijk[:, 0]), np.max(ijk[:, 1]))
+                print(np.min(ijk[:, 0]), np.max(ijk[:,]))
 
                 # Wrap the x and y indices, the x axis is padded
                 ijk[:, 1] = (ijk[:, 1] + self.grid_cdim[1]) % self.grid_cdim[1]
