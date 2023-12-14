@@ -271,7 +271,7 @@ class GridGenerator:
         # Set up the grid for this rank's slice
         mass_grid = np.zeros(
             (
-                (self.x_cells_rank * self.grid_per_sim_cells[0]) + self.pad_ncells,
+                (self.x_cells_rank * self.grid_per_sim_cells[0]),
                 self.grid_cdim[1],
                 self.grid_cdim[2],
             ),
@@ -329,14 +329,13 @@ class GridGenerator:
                 poss = all_poss[start:end, :]
 
                 # Shift the positions to account for the slice edge
-                poss[:, 0] -= my_edges[0] - (self.pad_region * self.grid_cell_width[0])
+                poss[:, 0] -= my_edges[0]
 
                 # Get particle masses
                 masses = all_masses[start:end]
 
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
-                print(np.min(ijk[:, 0]), np.max(ijk[:, 0]))
 
                 # Wrap the x and y indices, the x axis is padded
                 ijk[:, 1] = (ijk[:, 1] + self.grid_cdim[1]) % self.grid_cdim[1]
@@ -424,11 +423,7 @@ class GridGenerator:
         )
 
         # Loop over the other ranks adding slices to the array
-        low_start = -self.pad_region
-        low_end = grid_shape[0] if self.pad_region != 0 else 0
         slice_start = 0
-        high_start = 0
-        high_end = 0
         for other_rank in range(self.nranks):
             # Open this ranks file
             rankfile = (
@@ -439,33 +434,16 @@ class GridGenerator:
             # Get this ranks slice of the mass grid
             grid_slice = hdf_rank["MassGrid"][...]
 
-            # Get the padded areas of the slice
-            pad_low = grid_slice[: self.pad_region :, :, :]
-            slice_mid = grid_slice[self.pad_region : -self.pad_region, :, :]
-            pad_up = grid_slice[-self.pad_region :, :, :]
-
             # Calculate indices
-            slice_end = slice_start + slice_mid.shape[0]
-            high_start += slice_mid.shape[0]
-            high_end = high_start + pad_up.shape[0]
-            high_start %= grid_shape[0]
-            high_end %= grid_shape[0]
-
-            print(
-                f"{low_start}-{low_end}, {slice_start}-{slice_end}, {high_start}-{high_end}"
-            )
+            slice_end = slice_start + grid_slice.shape[0]
 
             # Add the low pad and slice itself
-            dset[low_start:low_end, :, :] += pad_low
-            dset[slice_start:slice_end, :, :] += slice_mid
-            dset[high_start:high_end, :, :] += pad_up
+            dset[slice_start:slice_end, :, :] += grid_slice
 
             hdf_rank.close()
 
             # Update the indices
             slice_start = slice_end
-            low_start = slice_start - self.pad_region
-            low_end = slice_start
 
             # Delete the distributed file if we have been told to
             if delete_distributed:
