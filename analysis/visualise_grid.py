@@ -86,7 +86,7 @@ ax.set_xlabel("$x / [\mathrm{cMpc}]$")
 ax.set_ylabel("$y / [\mathrm{cMpc}]$")
 
 fig.savefig(
-    f"{'/'.join(outpath.split('.')[-1])}_log.png",
+    f"{'/'.join(outpath.split('.png')[-1])}_log.png",
     bbox_inches="tight",
 )
 
