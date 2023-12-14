@@ -211,7 +211,7 @@ class GridGenerator:
         )
 
         # How many x cells are on this rank?
-        self.x_cells_rank = rank_cells[self.rank + 1] - rank_cells[self.rank]
+        self.x_cells_rank = rank_cells[self.rank + 1] - rank_cells[self.rank] + 1
 
         # Loop over all cells and construct lists to be sliced
         for i in range(rank_cells[self.rank], rank_cells[self.rank + 1]):
