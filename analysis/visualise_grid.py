@@ -55,7 +55,7 @@ else:
     kernel_width = cells_per_kernel * grid_cell_width
 
     # Get grid
-    grid = np.sum(hdf["Parent_Grid"][:, :, 0:cells_per_kernel], axis=-1)
+    grid = np.sum(hdf["MassGrid"][:, :, 0:cells_per_kernel], axis=-1)
     log_grid = np.zeros(grid.shape)
     log_grid[grid > 0] = np.log10(grid[grid > 0])
 
