@@ -336,6 +336,7 @@ class GridGenerator:
 
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
+                print(np.min(ijk[:, 0]), np.max(ijk[:, 1]))
 
                 # Wrap the x and y indices, the x axis is padded
                 ijk[:, 1] = (ijk[:, 1] + self.grid_cdim[1]) % self.grid_cdim[1]
@@ -343,23 +344,6 @@ class GridGenerator:
 
                 # Add the particle mass to the grid cells
                 mass_grid[ijk[:, 0], ijk[:, 1], ijk[:, 2]] += masses
-
-                print(
-                    np.min(
-                        np.int64(
-                            poss[:, 0]
-                            + (self.pad_region * self.grid_cell_width[0])
-                            / self.grid_cell_width[0]
-                        )
-                    ),
-                    np.max(
-                        np.int64(
-                            poss[:, 0]
-                            + (self.pad_region * self.grid_cell_width[0])
-                            / self.grid_cell_width[0]
-                        )
-                    ),
-                )
 
         hdf.close()
 
