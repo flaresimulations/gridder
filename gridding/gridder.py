@@ -404,15 +404,15 @@ class GridGenerator:
         hdf_rank0.close()
 
         # Define the full grid shape
-        full_grid_shape = tuple(self.grid_cdim)
+        grid_shape = tuple(self.grid_cdim)
 
         # Create an empty resizable dataset to store the full mass grid.
         # This lets us only load a slice at the time but write a single
         # grid
         dset = hdf_out.create_dataset(
             "MassGrid",
-            shape=full_grid_shape,
-            maxshape=(None,) + full_grid_shape[1:],
+            shape=grid_shape,
+            maxshape=(None,) + grid_shape[1:],
             chunks=(self.x_cells_rank, self.grid_cdim[1], self.grid_cdim[2]),
             compression="gzip",
         )
@@ -423,9 +423,9 @@ class GridGenerator:
         )
 
         # Loop over the other ranks adding slices to the array
-        low_ind = 0
-        slice_ind = 0
-        high_ind = 0
+        low_start = -self.pad_region
+        low_end = grid_shape[0]
+        slice_start = 0
         for other_rank in range(self.nranks):
             # Open this ranks file
             rankfile = (
@@ -438,43 +438,24 @@ class GridGenerator:
 
             # Get the padded areas of the slice
             pad_low = grid_slice[: self.pad_region :, :, :]
-            slice_mid = grid_slice[self.pad_region : -self.pad_region, :, :]
-            pad_up = grid_slice[-self.pad_region :, :, :]
+            slice_mid = grid_slice[self.pad_region :, :, :]
 
-            # Update the upper index
-            high_ind += slice_mid.shape[0]
-
-            print(
-                low_ind,
-                slice_ind,
-                high_ind,
-                grid_slice.shape,
-                pad_low.shape,
-                slice_mid.shape,
-                pad_up.shape,
-            )
-
-            # Add the slice itself
-            dset[slice_ind : slice_ind + slice_mid.shape[0], :, :] += slice_mid
-
-            # Add the lower padded region if we aren't at the bow boundary
-            if slice_ind > 0:
-                dset[low_ind:slice_ind, :, :] += pad_low
-            else:
-                # Add in the wrapped pad cells from the first slice
-                dset[-self.pad_region :, :, :] += pad_low
+            # Add the low pad and slice itself
+            slice_end = slice_start + slice_mid.shape[0]
+            dset[low_start:low_end, :, :] += pad_low
+            dset[slice_start:slice_end, :, :] += slice_mid
 
             # Add the upper padded region, handling if we are at the boundary
-            if high_ind + pad_up.shape[0] < full_grid_shape[0]:
-                dset[high_ind : high_ind + pad_up.shape[0], :, :] += pad_up
-            else:
+            if slice_end > grid_shape[0]:
+                pad_up = grid_slice[: -self.pad_region, :, :]
                 dset[0 : pad_up.shape[0], :, :] += pad_up
 
             hdf_rank.close()
 
-            # Update the low and slice indices
-            slice_ind += slice_mid.shape[0]
-            low_ind = slice_ind - self.pad_region
+            # Update the indices
+            slice_start = slice_end - self.pad_region
+            low_start = slice_start - self.pad_region
+            low_end = slice_start
 
             # Delete the distributed file if we have been told to
             if delete_distributed:
