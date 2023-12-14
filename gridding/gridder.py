@@ -359,7 +359,7 @@ class GridGenerator:
                             + (self.pad_region * self.grid_cell_width[0])
                             / self.grid_cell_width
                         )
-                        > mass_grid.shape[0]
+                        > mass_grid.shape[0] - self.pad_region
                     ),
                 )
 
