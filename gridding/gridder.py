@@ -424,7 +424,7 @@ class GridGenerator:
 
         # Loop over the other ranks adding slices to the array
         low_start = -self.pad_region
-        low_end = 0
+        low_end = grid_shape[0]
         slice_start = 0
         high_start = 0
         high_end = 0
