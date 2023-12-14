@@ -34,10 +34,18 @@ def main():
         help="The width of a grid cell in Mpc",
         default=2,
     )
+    parser.add_argument(
+        "--pad_cells",
+        type=int,
+        help="The number of padding cells used either side of the slice",
+        default=5,
+    )
     args = parser.parse_args()
 
     # Create the grid instance
-    gridder = GridGenerator(args.input, args.output, args.cell_width)
+    gridder = GridGenerator(
+        args.input, args.output, args.cell_width, pad_region=args.pad_cells
+    )
 
     # Decompose the simulation cells into slices
     gridder.domain_decomp()
