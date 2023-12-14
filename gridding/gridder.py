@@ -444,6 +444,16 @@ class GridGenerator:
             # Update the upper index
             high_ind += slice_mid.shape[0]
 
+            print(
+                low_ind,
+                slice_ind,
+                high_ind,
+                grid_slice.shape,
+                pad_low.shape,
+                slice_mid.shape,
+                pad_up.shape,
+            )
+
             # Add the slice itself
             dset[slice_ind : slice_ind + slice_mid.shape[0], :, :] += slice_mid
 
