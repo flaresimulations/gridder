@@ -47,7 +47,7 @@ else:
     parent = hdf["Parent"]
     boxsize = parent.attrs["Boxsize"]
 
-    grid_cell_width = hdf["Grid"].attrs["Cell_Width"]
+    grid_cell_width = hdf["Grid"].attrs["CellWidth"]
     grid_cell_vol = grid_cell_width**3
 
     # Compute actual kernel width
