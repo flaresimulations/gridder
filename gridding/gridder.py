@@ -347,14 +347,14 @@ class GridGenerator:
                 print(
                     np.min(
                         np.int64(
-                            poss
+                            poss[:, 0]
                             + (self.pad_region * self.grid_cell_width[0])
                             / self.grid_cell_width
                         )
                     ),
                     np.max(
                         np.int64(
-                            poss
+                            poss[:, 0]
                             + (self.pad_region * self.grid_cell_width[0])
                             / self.grid_cell_width
                         )
