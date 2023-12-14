@@ -423,7 +423,9 @@ class GridGenerator:
         )
 
         # Loop over the other ranks adding slices to the array
+        low_ind = 0
         slice_ind = 0
+        high_ind = 0
         for other_rank in range(self.nranks):
             # Open this ranks file
             rankfile = (
@@ -439,34 +441,30 @@ class GridGenerator:
             slice_mid = grid_slice[self.pad_region : -self.pad_region, :, :]
             pad_up = grid_slice[-self.pad_region :, :, :]
 
+            # Update the upper index
+            high_ind += slice_mid.shape[0]
+
             # Add the slice itself
             dset[slice_ind : slice_ind + slice_mid.shape[0], :, :] += slice_mid
 
             # Add the lower padded region if we aren't at the bow boundary
             if slice_ind > 0:
-                low_ind = slice_ind - self.pad_region - 1
-                dset[low_ind : low_ind + pad_low.shape[0], :, :] += pad_low
+                dset[low_ind:slice_ind, :, :] += pad_low
             else:
                 # Add in the wrapped pad cells from the first slice
-                dset[-self.pad_region :, :, :] = pad_low
+                dset[-self.pad_region :, :, :] += pad_low
 
             # Add the upper padded region, handling if we are at the boundary
-            if slice_ind + slice_mid.shape[0] + pad_up.shape[0] < full_grid_shape[0]:
-                dset[
-                    slice_ind
-                    + slice_mid.shape[0] : slice_ind
-                    + slice_mid.shape[0]
-                    + pad_up.shape[0],
-                    :,
-                    :,
-                ] += pad_up
+            if high_ind + pad_up.shape[0] < full_grid_shape[0]:
+                dset[high_ind : high_ind + pad_up.shape[0], :, :] += pad_up
             else:
                 dset[0 : pad_up.shape[0], :, :] += pad_up
 
             hdf_rank.close()
 
-            # Update the current slice
+            # Update the low and slice indices
             slice_ind += slice_mid.shape[0]
+            low_ind = slice_ind - self.pad_region
 
             # Delete the distributed file if we have been told to
             if delete_distributed:
