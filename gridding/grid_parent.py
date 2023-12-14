@@ -40,6 +40,12 @@ def main():
         help="The number of padding cells used either side of the slice",
         default=5,
     )
+    parser.add_argument(
+        "--delete_distributed",
+        type=int,
+        help="Should the distributed files be deleted after combination?",
+        default=0,
+    )
     args = parser.parse_args()
 
     # Create the grid instance
@@ -57,7 +63,9 @@ def main():
 
     comm.Barrier()
     if rank == 0:
-        gridder.combine_distributed_files(delete_distributed=False)
+        gridder.combine_distributed_files(
+            delete_distributed=args.delete_distributed,
+        )
 
 
 if __name__ == "__main__":
