@@ -344,6 +344,25 @@ class GridGenerator:
                 # Add the particle mass to the grid cells
                 mass_grid[ijk[:, 0], ijk[:, 1], ijk[:, 2]] += masses
 
+                print(
+                    np.any(
+                        np.int64(
+                            poss
+                            + (self.pad_region * self.grid_cell_width[0])
+                            / self.grid_cell_width
+                        )
+                        < 0
+                    ),
+                    np.any(
+                        np.int64(
+                            poss
+                            + (self.pad_region * self.grid_cell_width[0])
+                            / self.grid_cell_width
+                        )
+                        > self.grid_per_sim_cells * self.x_cells_rank
+                    ),
+                )
+
         hdf.close()
 
         # Open the output file
