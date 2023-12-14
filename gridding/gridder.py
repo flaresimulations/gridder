@@ -426,6 +426,8 @@ class GridGenerator:
         low_start = -self.pad_region
         low_end = grid_shape[0]
         slice_start = 0
+        high_start = 0
+        high_end = 0
         for other_rank in range(self.nranks):
             # Open this ranks file
             rankfile = (
@@ -438,22 +440,29 @@ class GridGenerator:
 
             # Get the padded areas of the slice
             pad_low = grid_slice[: self.pad_region :, :, :]
-            slice_mid = grid_slice[self.pad_region :, :, :]
+            slice_mid = grid_slice[self.pad_region : -self.pad_region, :, :]
+            pad_up = grid_slice[-self.pad_region :, :, :]
+
+            # Calculate indices
+            slice_end = slice_start + slice_mid.shape[0]
+            high_start += slice_mid.shape[0]
+            high_end = high_start + pad_up.shape[0]
+            high_start %= grid_shape[0]
+            high_end %= grid_shape[0]
+
+            print(
+                f"{low_start}-{low_end}, {slice_start}-{slice_end}, {high_start}-{high_end}"
+            )
 
             # Add the low pad and slice itself
-            slice_end = slice_start + slice_mid.shape[0]
             dset[low_start:low_end, :, :] += pad_low
             dset[slice_start:slice_end, :, :] += slice_mid
-
-            # Add the upper padded region, handling if we are at the boundary
-            if slice_end > grid_shape[0]:
-                pad_up = grid_slice[: -self.pad_region, :, :]
-                dset[0 : pad_up.shape[0], :, :] += pad_up
+            dset[high_start:high_end, :, :] += pad_up
 
             hdf_rank.close()
 
             # Update the indices
-            slice_start = slice_end - self.pad_region
+            slice_start = slice_end
             low_start = slice_start - self.pad_region
             low_end = slice_start
 
