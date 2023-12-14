@@ -244,7 +244,7 @@ class GridGenerator:
         parent.attrs["MeanDensity"] = self.mean_density
 
         # Write out grid attributes
-        ovden_grid_grp = hdf_out.create_group("Delta_grid")
+        ovden_grid_grp = hdf_out.create_group("Grid")
         ovden_grid_grp.attrs["CellWidth"] = self.grid_cell_width
         ovden_grid_grp.attrs["CDim"] = self.grid_cdim
         ovden_grid_grp.attrs["NcellsPerSimCell"] = self.grid_per_sim_cells
