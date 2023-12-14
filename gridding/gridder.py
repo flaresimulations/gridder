@@ -345,21 +345,19 @@ class GridGenerator:
                 mass_grid[ijk[:, 0], ijk[:, 1], ijk[:, 2]] += masses
 
                 print(
-                    np.any(
+                    np.min(
                         np.int64(
                             poss
                             + (self.pad_region * self.grid_cell_width[0])
                             / self.grid_cell_width
                         )
-                        < 0
                     ),
-                    np.any(
+                    np.max(
                         np.int64(
                             poss
                             + (self.pad_region * self.grid_cell_width[0])
                             / self.grid_cell_width
                         )
-                        > mass_grid.shape[0] - self.pad_region
                     ),
                 )
 
