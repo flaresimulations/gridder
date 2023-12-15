@@ -223,7 +223,13 @@ class GridGenerator:
         # Convert the list to an array
         self.my_cells = np.array(self.my_cells)
 
-        print("Rank=", self.rank, "- My Ncells=", len(self.my_cells))
+        print(
+            "Rank=",
+            self.rank,
+            "- My Ncells=",
+            len(self.my_cells),
+            f"({self.rank_cells[self.rank]}-{self.rank_cells[self.rank + 1]})",
+        )
 
     def _create_output(self):
         """ """
@@ -271,12 +277,13 @@ class GridGenerator:
         # Set up the grid for this rank's slice
         mass_grid = np.zeros(
             (
-                (self.x_cells_rank * self.grid_per_sim_cells[0]),
+                self.x_cells_rank * self.grid_per_sim_cells[0],
                 self.grid_cdim[1],
                 self.grid_cdim[2],
             ),
             dtype=np.float32,
         )
+        print(mass_grid.shape)
 
         # Open the input file
         hdf = h5py.File(self.filepath, "r")
@@ -337,7 +344,7 @@ class GridGenerator:
                 # Convert positions into grid cell indices
                 ijk = np.int64(poss / self.grid_cell_width)
 
-                # Wrap the x and y indices, the x axis is padded
+                # Wrap the x and z indices, the x axis is padded
                 ijk[:, 1] = (ijk[:, 1] + self.grid_cdim[1]) % self.grid_cdim[1]
                 ijk[:, 2] = (ijk[:, 2] + self.grid_cdim[2]) % self.grid_cdim[2]
 
@@ -413,7 +420,11 @@ class GridGenerator:
             "MassGrid",
             shape=grid_shape,
             maxshape=(None,) + grid_shape[1:],
-            chunks=(self.x_cells_rank, self.grid_cdim[1], self.grid_cdim[2]),
+            chunks=(
+                self.x_cells_rank * self.grid_per_sim_cells,
+                self.grid_cdim[1],
+                self.grid_cdim[2],
+            ),
             compression="gzip",
         )
         dset.attrs["Units"] = "1e10 Msun"
