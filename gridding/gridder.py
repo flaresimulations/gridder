@@ -305,6 +305,10 @@ class GridGenerator:
             # Store the edges
             cells["edges"][ind, :] = my_edges
 
+            # Get the initial egde for this rank
+            if ind == 0:
+                self.rank_edge = my_edges
+
             # Store the indices
             if my_count > 0:
                 cells["indices"].extend(list(range(my_offset, my_offset + my_count)))
@@ -330,7 +334,7 @@ class GridGenerator:
                 poss = all_poss[start:end, :]
 
                 # Shift the positions to account for the slice edge
-                poss[:, 0] -= my_edges[0]
+                poss[:, 0] -= self.rank_edge[0]
 
                 # Get particle masses
                 masses = all_masses[start:end]
