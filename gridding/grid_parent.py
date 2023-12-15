@@ -55,14 +55,17 @@ def main():
 
     # Decompose the simulation cells into slices
     gridder.domain_decomp()
-    print("Decomposed the grid")
+    if rank == 0:
+        print("Decomposed the grid")
 
     # Perform the gridding
-    print("Gridding the simulation...")
+    if rank == 0:
+        print("Gridding the simulation...")
     gridder.get_grid()
 
     comm.Barrier()
     if rank == 0:
+        print("Combinging grid files...")
         gridder.combine_distributed_files(
             delete_distributed=args.delete_distributed,
         )
