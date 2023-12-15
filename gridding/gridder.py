@@ -278,7 +278,6 @@ class GridGenerator:
             ),
             dtype=np.float32,
         )
-        print(mass_grid.shape)
 
         # Open the input file
         hdf = h5py.File(self.filepath, "r")
@@ -415,11 +414,7 @@ class GridGenerator:
             "MassGrid",
             shape=grid_shape,
             maxshape=(None,) + grid_shape[1:],
-            chunks=(
-                self.x_cells_rank * self.grid_per_sim_cells[0],
-                self.grid_cdim[1],
-                self.grid_cdim[2],
-            ),
+            chunks=True,
             compression="gzip",
         )
         dset.attrs["Units"] = "1e10 Msun"
