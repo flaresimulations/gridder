@@ -228,7 +228,7 @@ class GridGenerator:
             self.rank,
             "- My Ncells=",
             len(self.my_cells),
-            f"({self.rank_cells[self.rank]}-{self.rank_cells[self.rank + 1]})",
+            f"({rank_cells[self.rank]}-{rank_cells[self.rank + 1]})",
         )
 
     def _create_output(self):
