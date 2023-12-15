@@ -318,6 +318,7 @@ class GridGenerator:
 
         # Loop over the cells on this rank and grid the particles
         for ind, my_cell in enumerate(self.my_cells):
+            print(self.rank, ind, my_cell)
             # Get the cell look up table data
             my_edges = cells["edges"][ind]
             my_count = cells["counts"][ind]
