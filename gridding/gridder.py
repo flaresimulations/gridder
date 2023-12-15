@@ -143,7 +143,7 @@ class GridGenerator:
         self.grid_ncells = self.grid_cdim * self.grid_cdim * self.grid_cdim
 
         if self.grid_ncells[0] == 0:
-            raise ValueError("Found 0 grid cells, decrease your cell_width")
+            raise ValueError("Found 0 grid cells, decrease the cell_width")
 
         if self.rank == 0:
             print("PARENT METADATA:")
@@ -223,20 +223,15 @@ class GridGenerator:
         # Convert the list to an array
         self.my_cells = np.array(self.my_cells)
 
-        print(
-            "Rank=",
-            self.rank,
-            "- My Ncells=",
-            len(self.my_cells),
-            f"({rank_cells[self.rank]}-{rank_cells[self.rank + 1]})",
-        )
+        print("Rank=", self.rank, "- My Ncells=", len(self.my_cells))
 
     def _create_output(self):
         """ """
 
         # Create the output file
         hdf_out = h5py.File(
-            f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}", "w"
+            f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}",
+            "w",
         )
 
         # Write out attributes about the parent simulation
@@ -421,7 +416,7 @@ class GridGenerator:
             shape=grid_shape,
             maxshape=(None,) + grid_shape[1:],
             chunks=(
-                self.x_cells_rank * self.grid_per_sim_cells,
+                self.x_cells_rank * self.grid_per_sim_cells[0],
                 self.grid_cdim[1],
                 self.grid_cdim[2],
             ),
