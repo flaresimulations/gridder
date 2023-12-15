@@ -426,6 +426,7 @@ class GridGenerator:
         # Loop over the other ranks adding slices to the array
         slice_start = 0
         for other_rank in range(self.nranks):
+            print(other_rank)
             # Open this ranks file
             rankfile = (
                 f"{self.out_dir}{self.out_basename}_rank" f"{other_rank}.{self.out_ext}"
