@@ -318,7 +318,6 @@ class GridGenerator:
 
         # Loop over the cells on this rank and grid the particles
         for ind, my_cell in enumerate(self.my_cells):
-            print(self.rank, ind, my_cell)
             # Get the cell look up table data
             my_edges = cells["edges"][ind]
             my_count = cells["counts"][ind]
@@ -354,6 +353,8 @@ class GridGenerator:
             "r+",
         )
 
+        print(f"Opened output, {self.rank}")
+
         # Store the x edge of this rank (we'll need this to combine the grids
         # later on)
         hdf_out.attrs["SliceEdge"] = my_edges[0]
@@ -373,6 +374,8 @@ class GridGenerator:
         )
 
         hdf_out.close()
+
+        print(f"Finished writing, {self.rank}")
 
     def combine_distributed_files(self, delete_distributed=False):
         """
