@@ -205,7 +205,7 @@ class GridGenerator:
         # Split the x direction amongst all ranks
         rank_cells = np.linspace(
             0,
-            self.sim_cdim[0] - 1,
+            self.sim_cdim[0],
             self.nranks + 1,
             dtype=int,
         )
