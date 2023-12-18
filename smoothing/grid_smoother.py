@@ -317,14 +317,18 @@ class GridSmoother:
         """ """
 
         # Set up the outputs to write out
-        self.kernel_over_dens = np.zeros(self.rank_ncells)
-        self.kernel_stds = np.zeros(self.kernel_over_dens.size)
+        self.kernel_over_dens = np.zeros(
+            (self.x_ncells_rank, self.cdim[1], self.cdim[2]), dtype=np.float32
+        )
+        self.kernel_stds = np.zeros(
+            (self.x_ncells_rank, self.cdim[1], self.cdim[2]), dtype=np.float32
+        )
 
         # Define the x offset
         x_offset = self.rank_cells[self.rank]
 
         # Loop over this ranks cells
-        for ind, cid in enumerate(self.my_cells):
+        for cid in self.my_cells:
             # Get the i j k coordinates
             i, j, k = self.get_cell_ijk(cid)
 
@@ -372,23 +376,25 @@ class GridSmoother:
             centre = (centre + 0.5) * self.cell_width
 
             # Apply the kernel and get the standard deviation in terms of
-            # mass and log10(1 + delta) repectively (kernel sum is converted
-            # to log10(1 + delta) below)
+            # mass and 1 + delta repectively (kernel sum is converted
+            # to 1 + delta below)
             kernel_sum = self._apply_spherical_top_hat(
                 sub_grid, np.sum, centre, cell_coords
             )
             kernel_std = self._apply_spherical_top_hat(
-                np.log10(sub_grid / self.cell_vol / self.mean_density),
+                sub_grid / self.cell_vol / self.mean_density,
                 np.std,
                 centre,
                 cell_coords,
             )
 
             # Store the results (as overdensities) and index
-            self.kernel_over_dens[ind] = np.log10(
-                kernel_sum / self.kernel_vol / self.mean_density
-            )
-            self.kernel_stds[ind] = kernel_std
+            self.kernel_over_dens[
+                i - self.pad_cells, j - self.pad_cells, k - self.pad_cells
+            ] = (kernel_sum / self.kernel_vol / self.mean_density)
+            self.kernel_stds[
+                i - self.pad_cells, j - self.pad_cells, k - self.pad_cells
+            ] = kernel_std
 
     def write_smoothed_grid_rankfile(self):
         """ """
@@ -482,9 +488,7 @@ class GridSmoother:
             compression="gzip",
         )
         dset.attrs["Units"] = "dimensionless"
-        dset.attrs[
-            "Description"
-        ] = "A 3D gird of overdensity expressed as log10(1 + delta)"
+        dset.attrs["Description"] = "A 3D gird of overdensity expressed as 1 + delta"
         std_dset = hdf_out.create_dataset(
             "KernelOverdensityStDev",
             shape=grid_shape,
@@ -495,7 +499,7 @@ class GridSmoother:
         std_dset.attrs["Units"] = "dimensionless"
         std_dset.attrs["Description"] = (
             "A 3D gird containing the standard deviation of the grid cell "
-            "level overdensities within the kernel."
+            "level overdensities (expressed as 1 + delta) within the kernel."
         )
 
         # Loop over the other ranks adding slices to the array
