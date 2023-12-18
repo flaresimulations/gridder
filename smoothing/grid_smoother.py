@@ -347,14 +347,14 @@ class GridSmoother:
             ]
 
             # Get the coordinates of each cell
-            cell_coords = np.vstack(
+            cell_coords = np.hstack(
                 (
-                    np.arange(low_i, low_i + self.cells_per_kernel + self.pad_cells)
-                    + 0.5 * self.cell_width,
-                    np.arange(low_j, low_j + self.cells_per_kernel + self.pad_cells)
-                    + 0.5 * self.cell_width,
-                    np.arange(low_k, low_k + self.cells_per_kernel + self.pad_cells)
-                    + 0.5 * self.cell_width,
+                    np.arange(low_i, low_i + self.cells_per_kernel + self.pad_cells, 1)
+                    + 0.5 * self.cell_width[0],
+                    np.arange(low_j, low_j + self.cells_per_kernel + self.pad_cells, 1)
+                    + 0.5 * self.cell_width[1],
+                    np.arange(low_k, low_k + self.cells_per_kernel + self.pad_cells, 1)
+                    + 0.5 * self.cell_width[2],
                 )
             )
 
