@@ -32,6 +32,12 @@ def main():
         help="Kernel diameter in Mpc",
         default=30,
     )
+    parser.add_argument(
+        "--delete_distributed",
+        type=int,
+        help="Should the distributed files be deleted after combination?",
+        default=0,
+    )
     args = parser.parse_args()
 
     smoother = GridSmoother(args.kernel_width, args.grid_file)
@@ -56,7 +62,9 @@ def main():
     # Convert the distributed files into a single file
     if rank == 0:
         print("Combining files...")
-    smoother.combine_distributed_files(delete_distributed=False)
+    smoother.combine_distributed_files(
+        delete_distributed=args.delete_distributed,
+    )
 
 
 if __name__ == "__main__":
