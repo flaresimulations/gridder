@@ -41,7 +41,7 @@ class GridSmoother:
             Width of the spherical top hat kernel.
         kernel_rad (float):
             Radius of the spherical top hat kernel.
-        cells_in_kernel (int):
+        cells_per_kernel (int):
             Number of cells within the kernel.
         rank_cells (numpy.ndarray):
             Array representing the distribution of grid cells among ranks.
@@ -102,8 +102,8 @@ class GridSmoother:
         self.kernel_vol = 4 / 3 * np.pi * self.kernel_rad**3
 
         # How many cells are in a kernel?
-        self.cells_in_kernel = int(np.ceil(self.kernel_width / self.cell_width[0])) + 1
-        self.pad_cells = self.cells_in_kernel // 2 + 1
+        self.cells_per_kernel = int(np.ceil(self.kernel_width / self.cell_width[0])) + 1
+        self.pad_cells = self.cells_per_kernel // 2 + 1
 
         # Define the decomposition attributes
         self.rank_cells = None
