@@ -169,9 +169,9 @@ class GridSmoother:
 
         # Create grid cell coordinates
         xx, yy, zz = np.meshgrid(
-            cell_coords[0] - centre[0],
-            cell_coords[1] - centre[1],
-            cell_coords[2] - centre[2],
+            cell_coords[:, 0] - centre[0],
+            cell_coords[:, 1] - centre[1],
+            cell_coords[:, 2] - centre[2],
         )
 
         # Create a grid of coordinates centered at the middle of the array
