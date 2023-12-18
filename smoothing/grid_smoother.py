@@ -102,7 +102,7 @@ class GridSmoother:
         self.kernel_vol = 4 / 3 * np.pi * self.kernel_rad**3
 
         # How many cells are in a kernel?
-        self.cells_in_kernel = int(np.ceil(self.kernel_width / self.cell_width)) + 1
+        self.cells_in_kernel = int(np.ceil(self.kernel_width / self.cell_width[0])) + 1
         self.pad_cells = self.cells_in_kernel // 2 + 1
 
         # Define the decomposition attributes
