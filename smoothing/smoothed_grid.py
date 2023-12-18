@@ -64,7 +64,7 @@ def main():
     comm.Barrier()
 
     # Convert the distributed files into a single file
-    smoother.combine_distributed_files(outpath, metafile, delete_distributed=False)
+    smoother.combine_distributed_files(delete_distributed=False)
 
 
 if __name__ == "__main__":
