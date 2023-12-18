@@ -215,14 +215,12 @@ class GridSmoother:
         the same amount.
         """
 
-        assert (
-            self.nranks <= self.sim_cdim[0]
-        ), "Can't have more ranks than SWIFT cells."
+        assert self.nranks <= self.cdim[0], "Can't have more ranks than SWIFT cells."
 
         # Split the x direction amongst all ranks
         self.rank_cells = np.linspace(
             0,
-            self.sim_cdim[0],
+            self.cdim[0],
             self.nranks + 1,
             dtype=int,
         )
