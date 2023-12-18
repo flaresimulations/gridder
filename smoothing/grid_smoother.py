@@ -339,9 +339,9 @@ class GridSmoother:
             )
 
             # Get the slice indices of the mass array we need to
-            low_i = centre[0] - self.pad_cells
-            low_j = centre[1] - self.pad_cells
-            low_k = centre[2] - self.pad_cells
+            low_i = centre[0] - 2 * self.pad_cells
+            low_j = centre[1] - 2 * self.pad_cells
+            low_k = centre[2] - 2 * self.pad_cells
 
             print(i, j, k, low_i, low_j, low_k, self.cells_per_kernel, self.pad_cells)
 
