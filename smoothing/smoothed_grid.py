@@ -15,6 +15,7 @@ from grid_smoother import GridSmoother
 def main():
     # Initializations and preliminaries
     comm = MPI.COMM_WORLD  # get MPI communicator object
+    rank = comm.rank  # rank of this process
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(
@@ -37,16 +38,24 @@ def main():
 
     # Decompose the grid
     smoother.decomp_cells()
+    if rank == 0:
+        print("Decomposed cells...")
 
     # Compute the smoothed grid
+    if rank == 0:
+        print("Applying the spherical top hat kernel")
     smoother.smooth_grid_cells()
 
     # Output the grid from each rank to the distributed files
+    if rank == 0:
+        print("Writing distributed files...")
     smoother.write_smoothed_grid_rankfile()
 
     comm.Barrier()
 
     # Convert the distributed files into a single file
+    if rank == 0:
+        print("Combining files...")
     smoother.combine_distributed_files(delete_distributed=False)
 
 
