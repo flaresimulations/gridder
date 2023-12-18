@@ -232,7 +232,7 @@ class GridSmoother:
         for i in range(self.x_ncells_rank):
             for j in range(self.cdim[1]):
                 for k in range(self.cdim[2]):
-                    cell = self.get_sim_cellid(i, j, k)
+                    cell = self.get_cellid(i, j, k)
                     self.my_cells.append(cell)
 
         # Convert the list to an array
