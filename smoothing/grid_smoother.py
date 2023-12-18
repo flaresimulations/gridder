@@ -268,7 +268,11 @@ class GridSmoother:
 
         # Add on the lower pad region handling wrapping
         if self.rank > 0:
-            self.mass_grid[: self.pad_cells, :, :] = hdf["MassGrid"][
+            self.mass_grid[
+                : self.pad_cells,
+                self.pad_cells : -self.pad_cells,
+                self.pad_cells : -self.pad_cells,
+            ] = hdf["MassGrid"][
                 self.rank_cells[self.rank]
                 - self.pad_cells : self.rank_cells[self.rank],
                 :,
@@ -281,7 +285,11 @@ class GridSmoother:
 
         # Add on the upper pad region handling wrapping
         if self.rank < self.nranks - 1:
-            self.mass_grid[-self.pad_cells :, :, :] = hdf["MassGrid"][
+            self.mass_grid[
+                -self.pad_cells :,
+                self.pad_cells : -self.pad_cells,
+                self.pad_cells : -self.pad_cells,
+            ] = hdf["MassGrid"][
                 self.rank_cells[self.rank + 1]
                 - self.pad_cells : self.rank_cells[self.rank + 1],
                 :,
