@@ -465,7 +465,7 @@ class GridSmoother:
             f"{self.out_dir}{self.out_basename}_"
             f"kernel{int(self.kernel_width)}.{self.out_ext}"
         )
-        hdf_out = h5py.File(self.outpath, "w")
+        hdf_out = h5py.File(outpath, "w")
 
         # Loop over all root keys apart from the mass grid itself
         for root_key in ["Parent", "Grid", "Units"]:
