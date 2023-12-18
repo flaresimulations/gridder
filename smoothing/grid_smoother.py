@@ -103,7 +103,7 @@ class GridSmoother:
 
         # How many cells are in a kernel?
         self.cells_per_kernel = int(np.ceil(self.kernel_width / self.cell_width[0])) + 1
-        self.pad_cells = self.cells_per_kernel // 2 + 1
+        self.pad_cells = self.cells_per_kernel // 2 + 3
 
         # Define the decomposition attributes
         self.rank_cells = None
