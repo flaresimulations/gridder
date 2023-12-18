@@ -249,15 +249,19 @@ class GridSmoother:
 
         # Get the mass grid (padding handled below)
         self.mass_grid = np.zeros(
-            (self.x_ncells_rank + 2 * self.pad_cells, self.cdim[1], self.cdim[2]),
+            (
+                self.x_ncells_rank + 2 * self.pad_cells,
+                self.cdim[1] + 2 * self.pad_cells,
+                self.cdim[2] + 2 * self.pad_cells,
+            ),
             dtype=np.float32,
         )
         self.mass_grid[
             self.pad_cells : -self.pad_cells,
-            :,
-            :,
+            self.pad_cells : -self.pad_cells,
+            self.pad_cells : -self.pad_cells,
         ] = hdf["MassGrid"][
-            self.x_ncells_rank,
+            self.rank_cells[self.rank] : self.rank_cells[self.rank + 1],
             :,
             :,
         ]
@@ -290,20 +294,10 @@ class GridSmoother:
 
         # And finally pad the edges of the 2nd and 3rd axes for periodic
         # boundary conditions
-        self.mass_grid = np.concatenate(
-            (
-                self.mass_grid[:, -self.pad_cells :, :],
-                self.mass_grid,
-                self.mass_grid[:, : self.pad_cells, :],
-            )
-        )
-        self.mass_grid = np.concatenate(
-            (
-                self.mass_grid[:, :, -self.pad_cells :],
-                self.mass_grid,
-                self.mass_grid[:, :, : self.pad_cells],
-            )
-        )
+        self.mass_grid[:, -self.pad_cells :, :] = self.mass_grid[:, : self.pad_cells, :]
+        self.mass_grid[:, : self.pad_cells, :] = self.mass_grid[:, -self.pad_cells :, :]
+        self.mass_grid[:, :, -self.pad_cells :] = self.mass_grid[:, :, : self.pad_cells]
+        self.mass_grid[:, :, : self.pad_cells] = self.mass_grid[:, :, -self.pad_cells :]
 
         hdf.close()
 
