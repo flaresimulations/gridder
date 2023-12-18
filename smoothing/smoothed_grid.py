@@ -59,7 +59,7 @@ def main():
     smoother.smooth_grid_cells()
 
     # Output the grid from each rank to the distributed files
-    smoother.write_smoothed_grid_rankfile(outpath)
+    smoother.write_smoothed_grid_rankfile()
 
     comm.Barrier()
 

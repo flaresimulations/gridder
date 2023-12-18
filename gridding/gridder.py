@@ -100,7 +100,7 @@ class GridGenerator:
 
         # Information about the domain decomposition
         self.my_cells = []
-        self.x_cells_rank = None
+        self.x_ncells_rank = None
 
     def _setup_mpi(self):
         """
@@ -211,7 +211,7 @@ class GridGenerator:
         )
 
         # How many x cells are on this rank?
-        self.x_cells_rank = rank_cells[self.rank + 1] - rank_cells[self.rank]
+        self.x_ncells_rank = rank_cells[self.rank + 1] - rank_cells[self.rank]
 
         # Loop over all cells and construct lists to be sliced
         for i in range(rank_cells[self.rank], rank_cells[self.rank + 1]):
@@ -247,6 +247,7 @@ class GridGenerator:
         # Write out grid attributes
         ovden_grid_grp = hdf_out.create_group("Grid")
         ovden_grid_grp.attrs["CellWidth"] = self.grid_cell_width
+        ovden_grid_grp.attrs["CellVolume"] = self.grid_cell_volume
         ovden_grid_grp.attrs["CDim"] = self.grid_cdim
         ovden_grid_grp.attrs["NcellsPerSimCell"] = self.grid_per_sim_cells
 
@@ -272,7 +273,7 @@ class GridGenerator:
         # Set up the grid for this rank's slice
         mass_grid = np.zeros(
             (
-                self.x_cells_rank * self.grid_per_sim_cells[0],
+                self.x_ncells_rank * self.grid_per_sim_cells[0],
                 self.grid_cdim[1],
                 self.grid_cdim[2],
             ),
@@ -434,7 +435,6 @@ class GridGenerator:
         # Loop over the other ranks adding slices to the array
         slice_start = 0
         for other_rank in range(self.nranks):
-            print(other_rank)
             # Open this ranks file
             rankfile = (
                 f"{self.out_dir}{self.out_basename}_rank" f"{other_rank}.{self.out_ext}"
@@ -448,7 +448,7 @@ class GridGenerator:
             slice_end = slice_start + grid_slice.shape[0]
 
             # Add the low pad and slice itself
-            dset[slice_start:slice_end, :, :] += grid_slice
+            dset[slice_start:slice_end, :, :] = grid_slice
 
             hdf_rank.close()
 

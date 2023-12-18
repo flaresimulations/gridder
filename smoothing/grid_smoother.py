@@ -12,6 +12,7 @@ Examples usage:
     smoother.write_smoothed_grid_rankfile(outpath)
 
 """
+import os
 import h5py
 import numpy as np
 from mpi4py import MPI
@@ -20,14 +21,6 @@ from mpi4py import MPI
 class GridSmoother:
     """
     A class for smoothing grids over a spherical kernel.
-
-    Args:
-        kernel_width (float):
-            Width of the spherical top hat kernel.
-        grid_file (str):
-            Path to the grid file in the format produced by ParentGridder.
-        rank (int):
-            The rank ID of the current rank.
 
     Attributes:
         grid_file (str):
@@ -54,14 +47,10 @@ class GridSmoother:
             Array representing the distribution of grid cells among ranks.
         rank_ncells (int):
             Number of cells assigned to the current rank.
-        region_vals (numpy.ndarray):
+        kernel_over_dens (numpy.ndarray):
             Array to store smoothed region values.
-        region_stds (numpy.ndarray):
+        kernel_stds (numpy.ndarray):
             Array to store smoothed region standard deviations.
-        region_inds (numpy.ndarray):
-            Array to store indices of smoothed regions.
-        centres (numpy.ndarray):
-            Array to store the center coordinates of smoothed regions.
 
     """
 
@@ -88,6 +77,12 @@ class GridSmoother:
         # Set up the grid
         self.grid_file = grid_file
 
+        # Basic I/O information
+        outpath = "smoothed_" + grid_file.split("/")[-1]
+        self.out_basename = outpath.split(".")[0]
+        self.out_ext = outpath.split(".")[-1]
+        self.out_dir = "/".join(grid_file.split("/")[:-1]) + "/"
+
         # Set up variables to be populated when opening the grid
         self.cell_width = None
         self.boxsize = None
@@ -104,19 +99,20 @@ class GridSmoother:
         # Define kernel properties
         self.kernel_width = kernel_width
         self.kernel_rad = kernel_width / 2
+        self.kernel_vol = 4 / 3 * np.pi * self.kernel_rad**3
 
         # How many cells are in a kernel?
         self.cells_in_kernel = int(np.ceil(self.kernel_width / self.cell_width)) + 1
+        self.pad_cells = self.cells_in_kernel // 2 + 1
 
         # Define the decomposition attributes
         self.rank_cells = None
         self.rank_ncells = None
+        self.x_ncells_rank = None
 
         # Set up the outputs to write out
-        self.region_vals = None
-        self.region_stds = None
-        self.region_inds = None
-        self.centres = None
+        self.kernel_over_dens = None
+        self.kernel_stds = None
 
     def _read_attrs(self):
         """
@@ -130,15 +126,18 @@ class GridSmoother:
 
         # Get metadata
         self.boxsize = hdf["Parent"].attrs["Boxsize"]
-        self.mean_density = hdf["Parent"].attrs["Mean_Density"]
-        self.ngrid_cells = hdf["Delta_grid"].attrs["Ncells_Total"]
-        self.cell_width = hdf["Delta_grid"].attrs["Cell_Width"]
+        self.mean_density = hdf["Parent"].attrs["MeanDensity"]
+        self.cdim = hdf["Grid"].attrs["CDim"]
+        self.ngrid_cells = np.product(self.cdim)
+        self.cell_width = hdf["Grid"].attrs["CellWidth"]
+        self.cell_vol = hdf["Grid"].attrs["CellVolume"]
 
         # Print some nice things
         if self.rank == 0:
             print("Boxsize:", self.boxsize)
             print("Mean Density:", self.mean_density)
             print("Grid Cell Width:", self.cell_width)
+            print("Grid CDim:", self.cdim)
             print("Grid cells total:", self.ngrid_cells)
 
         # Get results array dimensions
@@ -154,7 +153,7 @@ class GridSmoother:
         self.rank = self.comm.Get_rank()
         self.nranks = self.comm.Get_size()
 
-    def _apply_spherical_top_hat(self, subset, func, centre):
+    def _apply_spherical_top_hat(self, subset, func, centre, cell_coords):
         """
         Applies a spherical top hat kernel to a cubic array and returns the sum
         of values inside the kernel.
@@ -168,15 +167,11 @@ class GridSmoother:
                 The func applied to values inside the spherical top hat kernel.
         """
 
-        # Get the shape of the input array
-        shape = np.array(subset.shape)
-
         # Create grid cell coordinates
-        cell_coords = shape * self.cell_width
         xx, yy, zz = np.meshgrid(
-            cell_coords - centre[0],
-            cell_coords - centre[1],
-            cell_coords - centre[2],
+            cell_coords[0] - centre[0],
+            cell_coords[1] - centre[1],
+            cell_coords[2] - centre[2],
         )
 
         # Create a grid of coordinates centered at the middle of the array
@@ -213,92 +208,103 @@ class GridSmoother:
         """
         return k + self.cdim[2] * (j + self.cdim[1] * i)
 
-    def decomp_cells(self):
+    def domain_decomp(self):
         """
-        Decompose the grid cells over N ranks.
+        Divide grid cells into Nranks slices along the i direction. We don't
+        care about the exact weight of each slice since every operation costs
+        the same amount.
         """
-        # Find the cells and simulation ijk grid references
-        # that this rank has to work on
+
+        assert (
+            self.nranks <= self.sim_cdim[0]
+        ), "Can't have more ranks than SWIFT cells."
+
+        # Split the x direction amongst all ranks
         self.rank_cells = np.linspace(
             0,
-            self.ngrid_cells,
+            self.sim_cdim[0],
             self.nranks + 1,
             dtype=int,
         )
-        self.rank_ncells = self.rank_cells[self.rank + 1] - self.rank_cells[self.rank]
 
-        print(
-            f"Rank {self.rank} has {self.rank_ncells} cells",
-        )
+        # How many x cells are on this rank?
+        self.x_ncells_rank = self.rank_cells[self.rank + 1] - self.rank_cells[self.rank]
 
-        # Find the minimum and maximum i, j and k to slice main grid
-        min_i, min_j, min_k = np.inf, np.inf, np.inf
-        max_i, max_j, max_k = 0, 0, 0
-        for cid in range(self.rank_cells[self.rank], self.rank_cells[self.rank + 1]):
-            i, j, k = self.get_cell_ijk(cid)
-            if i < min_i:
-                min_i = i
-            if i > max_i:
-                max_i = i
-            if j < min_j:
-                min_j = j
-            if j > max_j:
-                max_j = j
-            if k < min_k:
-                min_k = k
-            if k > max_k:
-                max_k = k
+        # Loop over all cells and construct lists to be sliced
+        for i in range(self.x_ncells_rank):
+            for j in range(self.cdim[1]):
+                for k in range(self.cdim[2]):
+                    cell = self.get_sim_cellid(i, j, k)
+                    self.my_cells.append(cell)
 
-        print(
-            f"Rank = {self.rank} has cells in range "
-            "[{min_i}-{max_i}, {min_j}-{max_j}, {min_k}-{max_k}]"
-        )
+        # Convert the list to an array
+        self.my_cells = np.array(self.my_cells, dtype=int)
 
-        # Store the grid cell limits
-        self.min_i = min_i
-        self.min_j = min_j
-        self.min_k = min_k
-        self.max_i = max_i
-        self.max_j = max_j
-        self.max_k = max_k
+        # How many cells do we have?
+        self.rank_ncells = self.my_cells.size
 
-        # Define an array to store the indices we need to extract
-        indices = np.zeros(
-            (
-                (max_i - min_i) + 2 * self.cells_in_kernel,
-                (max_j - min_j) + 2 * self.cells_in_kernel,
-                (max_k - min_k) + 2 * self.cells_in_kernel,
-                3,
-            ),
-            dtype=int,
-        )
-
-        # Get the grid indices with buffer
-        buffer_min_i = min_i - self.cells_in_kernel
-        buffer_min_j = min_j - self.cells_in_kernel
-        buffer_min_k = min_k - self.cells_in_kernel
-
-        # Loop over the cells and get what grid indices we need with wrapping
-        # and the buffer for the kernel
-        for i in range((max_i - min_i) + 2 * self.cells_in_kernel):
-            ii = (buffer_min_i + i + self.cdim) % self.cdim
-            for j in range((max_i - min_i) + 2 * self.cells_in_kernel):
-                jj = (buffer_min_j + j + self.cdim) % self.cdim
-                for k in range((max_i - min_i) + 2 * self.cells_in_kernel):
-                    kk = (buffer_min_k + i + self.cdim) % self.cdim
-
-                    # We've wrapped everything so store the index
-                    indices[i, j, k, 0] = ii
-                    indices[i, j, k, 1] = jj
-                    indices[i, j, k, 2] = kk
+        print("Rank=", self.rank, "- My Ncells=", self.rank_ncells)
 
         # Open file to get the relevant grid cells
         hdf = h5py.File(self.grid_file, "r")
 
-        # Get the mass grid
-        self.mass_grid = hdf["MassGrid"][
-            indices[:, :, :, 0], indices[:, :, :, 1], indices[:, :, :, 2]
+        # Get the mass grid (padding handled below)
+        self.mass_grid = np.zeros(
+            (self.x_ncells_rank + 2 * self.pad_cells, self.cdim[1], self.cdim[2]),
+            dtype=np.float32,
+        )
+        self.mass_grid[
+            self.pad_cells : -self.pad_cells,
+            :,
+            :,
+        ] = hdf["MassGrid"][
+            self.x_ncells_rank,
+            :,
+            :,
         ]
+
+        # Add on the lower pad region handling wrapping
+        if self.rank > 0:
+            self.mass_grid[: self.pad_cells, :, :] = hdf["MassGrid"][
+                self.rank_cells[self.rank]
+                - self.pad_cells : self.rank_cells[self.rank],
+                :,
+                :,
+            ]
+        else:
+            self.mass_grid[: self.pad_cells, :, :] = hdf["MassGrid"][
+                -self.pad_cells :, :, :
+            ]
+
+        # Add on the upper pad region handling wrapping
+        if self.rank < self.nranks - 1:
+            self.mass_grid[-self.pad_cells :, :, :] = hdf["MassGrid"][
+                self.rank_cells[self.rank + 1]
+                - self.pad_cells : self.rank_cells[self.rank + 1],
+                :,
+                :,
+            ]
+        else:
+            self.mass_grid[-self.pad_cells :, :, :] = hdf["MassGrid"][
+                -self.pad_cells :, :, :
+            ]
+
+        # And finally pad the edges of the 2nd and 3rd axes for periodic
+        # boundary conditions
+        self.mass_grid = np.concatenate(
+            (
+                self.mass_grid[:, -self.pad_cells :, :],
+                self.mass_grid,
+                self.mass_grid[:, : self.pad_cells, :],
+            )
+        )
+        self.mass_grid = np.concatenate(
+            (
+                self.mass_grid[:, :, -self.pad_cells :],
+                self.mass_grid,
+                self.mass_grid[:, :, : self.pad_cells],
+            )
+        )
 
         hdf.close()
 
@@ -306,108 +312,106 @@ class GridSmoother:
         """ """
 
         # Set up the outputs to write out
-        self.region_vals = np.zeros(self.rank_ncells)
-        self.region_stds = np.zeros(self.region_vals.size)
-        self.region_inds = np.zeros(self.region_vals.size, dtype=int)
-        self.centres = np.zeros((self.region_vals.size, 3))
+        self.kernel_over_dens = np.zeros(self.rank_ncells)
+        self.kernel_stds = np.zeros(self.kernel_over_dens.size)
+
+        # Define the x offset
+        x_offset = self.rank_cells[self.rank]
 
         # Loop over this ranks cells
-        ind = 0
-        for cid in range(self.rank_cells[self.rank], self.rank_cells[self.rank + 1]):
+        for ind, cid in enumerate(self.my_cells):
             # Get the i j k coordinates
             i, j, k = self.get_cell_ijk(cid)
 
-            # Calculate the centre
-            centre = (np.array([i, j, k], dtype=np.float64) + 0.5) * self.cell_width
-
-            # Shift is for this ranks subsample of the grid
-            low_i = (
-                i
-                - self.min_i
-                - self.cells_in_kernel
-                - int(self.kernel_rad / self.cell_width)
-                + 1
-            )
-            low_j = (
-                j
-                - self.min_j
-                - self.cells_in_kernel
-                - int(self.kernel_rad / self.cell_width)
-                + 1
-            )
-            low_k = (
-                k
-                - self.min_k
-                - self.cells_in_kernel
-                - int(self.kernel_rad / self.cell_width)
-                + 1
+            # Calculate the centre relative to the grid
+            centre = np.array(
+                [
+                    i - x_offset + self.pad_cells,
+                    j + self.pad_cells,
+                    k + self.pad_cells,
+                ],
+                dtype=int,
             )
 
-            # Get the index for this smoothed grid cell in the full grid
-            full_ind = self.get_cellid(i, j, k)
+            # Get the slice indices of the mass array we need to
+            low_i = centre[0] - self.pad_cells
+            low_j = centre[1] - self.pad_cells
+            low_k = centre[2] - self.pad_cells
 
-            # Get the mean of these overdensities
+            # Get the mass grid
             sub_grid = self.mass_grid[
-                low_i : low_i + self.cells_per_kernel,
-                low_j : low_j + self.cells_per_kernel,
-                low_k : low_k + self.cells_per_kernel,
+                low_i : low_i + self.cells_per_kernel + self.pad_cells,
+                low_j : low_j + self.cells_per_kernel + self.pad_cells,
+                low_k : low_k + self.cells_per_kernel + self.pad_cells,
             ]
 
-            # Apply the kernel and get the standard deviation
-            kernel_sum = self._apply_spherical_top_hat(sub_grid, np.sum, centre)
-            kernel_std = self._apply_spherical_top_hat(sub_grid, np.std, centre)
+            # Get the coordinates of each cell
+            cell_coords = np.array(
+                [
+                    np.arange(low_i, low_i + self.cells_per_kernel + self.pad_cells)
+                    + 0.5 * self.cell_width,
+                    np.arange(low_j, low_j + self.cells_per_kernel + self.pad_cells)
+                    + 0.5 * self.cell_width,
+                    np.arange(low_k, low_k + self.cells_per_kernel + self.pad_cells)
+                    + 0.5 * self.cell_width,
+                ]
+            )
 
-            # Store edges
-            self.centres[ind, :] = centre
+            # And redefine the centre in simulation coordinates
+            centre = (centre + 0.5) * self.cell_width
 
-            # Store the results and index
-            self.region_vals[ind] = kernel_sum
-            self.region_stds[ind] = kernel_std
-            self.region_inds[ind] = full_ind
+            # Apply the kernel and get the standard deviation in terms of
+            # mass and log10(1 + delta) repectively (kernel sum is converted
+            # to log10(1 + delta) below)
+            kernel_sum = self._apply_spherical_top_hat(
+                sub_grid, np.sum, centre, cell_coords
+            )
+            kernel_std = self._apply_spherical_top_hat(
+                np.log10(sub_grid / self.cell_vol / self.mean_density),
+                np.std,
+                centre,
+                cell_coords,
+            )
 
-            ind += 1
+            # Store the results (as overdensities) and index
+            self.kernel_over_dens[ind] = np.log10(
+                kernel_sum / self.kernel_vol / self.mean_density
+            )
+            self.kernel_stds[ind] = kernel_std
 
-    def write_smoothed_grid_rankfile(self, outpath):
+    def write_smoothed_grid_rankfile(self):
         """ """
         # Write out the results of smoothing
-        outpath = outpath.split(".")[0] + f"_rank{self.rank}." + outpath.split(".")[-1]
-        hdf = h5py.File(outpath, "w")
-        hdf.attrs["Kernel_Width"] = self.kernel_width
+        rankfile = (
+            f"{self.out_dir}{self.out_basename}_kernel"
+            f"{int(self.kernel_width)}_rank{self.rank}.{self.out_ext}"
+        )
+        hdf = h5py.File(
+            rankfile,
+            "w",
+        )
+        hdf.attrs["KernelWidth"] = self.kernel_width
         hdf.create_dataset(
-            "Region_Overdensity",
-            data=self.region_vals,
-            shape=self.region_vals.shape,
-            dtype=self.region_vals.dtype,
+            "KernelOverdensity",
+            data=self.kernel_over_dens,
+            shape=self.kernel_over_dens.shape,
+            dtype=self.kernel_over_dens.dtype,
             compression="gzip",
         )
         hdf.create_dataset(
-            "Region_Overdensity_Stdev",
-            data=self.region_stds,
-            shape=self.region_stds.shape,
-            dtype=self.region_stds.dtype,
-            compression="gzip",
-        )
-        hdf.create_dataset(
-            "Region_Centres",
-            data=self.centres,
-            shape=self.centres.shape,
-            dtype=self.centres.dtype,
-            compression="gzip",
-        )
-        hdf.create_dataset(
-            "Region_Indices",
-            data=self.region_inds,
-            shape=self.region_inds.shape,
-            dtype=self.region_inds.dtype,
+            "KernelOverdensityStDev",
+            data=self.kernel_stds,
+            shape=self.kernel_stds.shape,
+            dtype=self.kernel_stds.dtype,
             compression="gzip",
         )
 
-        hdf_grid = h5py.File(outpath, "r")
+        hdf_grid = h5py.File(self.grid_file, "r")
 
         for key in hdf_grid.attrs.keys():
             hdf.attrs[key] = hdf_grid.attrs[key]
 
-        for root_key in ["Parent", "Delta_grid"]:
+        for root_key in ["Parent", "Grid", "Units"]:
             for key in hdf_grid[root_key].attrs.keys():
                 hdf.attrs[root_key + "_" + key] = hdf_grid[root_key].attrs[key]
 
@@ -415,83 +419,103 @@ class GridSmoother:
 
         hdf.close()
 
-    def combine_distributed_files(self, outpath, metafile, delete_distributed=False):
-        """ """
+    def combine_distributed_files(self, delete_distributed=False):
+        """
+        Creates a single output file containing all slices.
 
-        if self.rank == 0:
-            # Define arrays to store the collected results
+        This method should only be called by rank 0 but protections are in
+        place incase this isn't the case.
 
-            # Set up arrays for the smoothed grid
-            final_region_vals = np.zeros(self.ngrid_cells)
-            final_region_stds = np.zeros(final_region_vals.size)
+        Args:
+            delete_distributed (bool)
+                Whether to remove the distributed files as they are processed.
+                By default False.
+        """
 
-            # Set up array to store centres
-            final_centres = np.zeros((final_region_vals.size, 3))
+        # Early exit if were not on rank 0
+        if self.rank != 0:
+            return
 
-            # Set up the outpaths
-            outpath0 = outpath.split(".")[0] + "_rank0." + outpath.split(".")[-1]
+        # Open the rank 0 distributed file to get attributes
+        rank0file = (
+            f"{self.out_dir}{self.out_basename}_kernel"
+            f"{int(self.kernel_width)}_rank0.{self.out_ext}"
+        )
+        hdf_rank0 = h5py.File(rank0file, "r")
 
-            # Open file to combine results
-            hdf = h5py.File(outpath, "w")
+        # Create the single output file
+        outpath = (
+            f"{self.out_dir}{self.out_basename}_"
+            f"kernel{int(self.kernel_width)}.{self.out_ext}"
+        )
+        hdf_out = h5py.File(self.outpath, "w")
 
-            # Open rank 0 file to get metadata
-            hdf_rank0 = h5py.File(outpath0, "r")  # open rank 0 file
-            for key in hdf_rank0.attrs.keys():
-                hdf.attrs[key] = hdf_rank0.attrs[key]  # write attrs
+        # Loop over all root keys apart from the mass grid itself
+        for root_key in ["Parent", "Grid", "Units"]:
+            grp = hdf_out.create_group(root_key)
+            for key in hdf_rank0[root_key].attrs.keys():
+                grp.attrs[key] = hdf_rank0[root_key].attrs[key]
+        hdf_rank0.close()
 
-            hdf_rank0.close()
+        # Define the full grid shape
+        grid_shape = tuple(self.cdim)
 
-            for other_rank in range(self.nranks):
-                # Set up the outpath for each rank file
-                rank_outpath = (
-                    outpath.split(".")[0]
-                    + f"_rank{other_rank}."
-                    + outpath.split(".")[-1]
-                )
+        # Create an empty resizable datasets to store the full grid and stds.
+        # This lets us only load a slice at the time but write a single
+        # grid
+        dset = hdf_out.create_dataset(
+            "KernelOverdensity",
+            shape=grid_shape,
+            maxshape=(None,) + grid_shape[1:],
+            chunks=True,
+            compression="gzip",
+        )
+        dset.attrs["Units"] = "dimensionless"
+        dset.attrs[
+            "Description"
+        ] = "A 3D gird of overdensity expressed as log10(1 + delta)"
+        std_dset = hdf_out.create_dataset(
+            "KernelOverdensityStDev",
+            shape=grid_shape,
+            maxshape=(None,) + grid_shape[1:],
+            chunks=True,
+            compression="gzip",
+        )
+        std_dset.attrs["Units"] = "dimensionless"
+        std_dset.attrs["Description"] = (
+            "A 3D gird containing the standard deviation of the grid cell "
+            "level overdensities within the kernel."
+        )
 
-                hdf_rank = h5py.File(rank_outpath, "r")  # open rank 0 file
-
-                # Get indices
-                inds = hdf_rank["Region_Indices"][...]
-
-                # Combine this rank's results into the final array
-                ods = hdf_rank["Region_Overdensity"][...]
-                final_region_vals[inds] += ods
-
-                final_region_stds[inds] += hdf_rank["Region_Overdensity_Stdev"][...]
-                final_centres[inds] += hdf_rank["Region_Centres"][...]
-
-                hdf_rank.close()
-
-            sinds = np.argsort(final_region_vals)
-
-            hdf.create_dataset(
-                "Sorted_Indices",
-                data=sinds,
-                shape=sinds.shape,
-                dtype=sinds.dtype,
-                compression="gzip",
+        # Loop over the other ranks adding slices to the array
+        slice_start = 0
+        for other_rank in range(self.nranks):
+            # Open this ranks file
+            rankfile = (
+                f"{self.out_dir}{self.out_basename}_kernel"
+                f"{int(self.kernel_width)}_rank"
+                f"{other_rank}.{self.out_ext}"
             )
-            hdf.create_dataset(
-                "Region_Overdensity",
-                data=final_region_vals,
-                shape=final_region_vals.shape,
-                dtype=final_region_vals.dtype,
-                compression="gzip",
-            )
-            hdf.create_dataset(
-                "Region_Overdensity_Stdev",
-                data=final_region_stds,
-                shape=final_region_stds.shape,
-                dtype=final_region_stds.dtype,
-                compression="gzip",
-            )
-            hdf.create_dataset(
-                "Region_Centres",
-                data=final_centres,
-                shape=final_centres.shape,
-                dtype=final_centres.dtype,
-                compression="gzip",
-            )
+            hdf_rank = h5py.File(rankfile, "r")
 
-            hdf.close()
+            # Get this ranks slice of the mass grid
+            grid_slice = hdf_rank["KernelOverdensity"][...]
+            std_grid_slice = hdf_rank["KernelOverdensityStDev"][...]
+
+            # Calculate indices
+            slice_end = slice_start + grid_slice.shape[0]
+
+            # Add the low pad and slice itself
+            dset[slice_start:slice_end, :, :] = grid_slice
+            std_dset[slice_start:slice_end, :, :] = std_grid_slice
+
+            hdf_rank.close()
+
+            # Update the indices
+            slice_start = slice_end
+
+            # Delete the distributed file if we have been told to
+            if delete_distributed:
+                os.remove(rankfile)
+
+        hdf_out.close()
