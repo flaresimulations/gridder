@@ -468,10 +468,8 @@ class GridSmoother:
         hdf_out = h5py.File(outpath, "w")
 
         # Loop over all root keys apart from the mass grid itself
-        for root_key in ["Parent", "Grid", "Units"]:
-            grp = hdf_out.create_group(root_key)
-            for key in hdf_rank0[root_key].attrs.keys():
-                grp.attrs[key] = hdf_rank0[root_key].attrs[key]
+        for key in hdf_rank0.attrs.keys():
+            hdf.attrs[key] = hdf_rank0.attrs[key]
         hdf_rank0.close()
 
         # Define the full grid shape
