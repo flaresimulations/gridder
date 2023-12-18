@@ -343,6 +343,8 @@ class GridSmoother:
             low_j = centre[1] - self.pad_cells
             low_k = centre[2] - self.pad_cells
 
+            print(i, j, k, low_i, low_j, low_k, self.cells_per_kernel, self.pad_cells)
+
             # Get the mass grid
             sub_grid = self.mass_grid[
                 low_i : low_i + self.cells_per_kernel + self.pad_cells,
