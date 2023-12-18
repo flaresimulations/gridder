@@ -15,8 +15,6 @@ from grid_smoother import GridSmoother
 def main():
     # Initializations and preliminaries
     comm = MPI.COMM_WORLD  # get MPI communicator object
-    nranks = comm.size  # total number of processes
-    rank = comm.rank  # rank of this process
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(
@@ -35,22 +33,7 @@ def main():
     )
     args = parser.parse_args()
 
-    # Define the output path
-    split_grid_path = args.grid_file.split("/")
-    out_dir = "/".join(split_grid_path[:-1])
-
-    # Define path to file
-    metafile = split_grid_path[-1]
-
-    outpath = (
-        out_dir
-        + "smoothed_"
-        + metafile.split(".")[0]
-        + f"_kernel{args.kernel_width}.hdf5"
-    )
-
-    # Create the grid instance
-    smoother = GridSmoother(args.kernel_width, out_dir + metafile)
+    smoother = GridSmoother(args.kernel_width, args.grid_file)
 
     # Decompose the grid
     smoother.decomp_cells()
