@@ -279,9 +279,11 @@ class GridSmoother:
                 :,
             ]
         else:
-            self.mass_grid[: self.pad_cells, :, :] = hdf["MassGrid"][
-                -self.pad_cells :, :, :
-            ]
+            self.mass_grid[
+                : self.pad_cells,
+                self.pad_cells : -self.pad_cells,
+                self.pad_cells : -self.pad_cells,
+            ] = hdf["MassGrid"][-self.pad_cells :, :, :]
 
         # Add on the upper pad region handling wrapping
         if self.rank < self.nranks - 1:
@@ -296,9 +298,11 @@ class GridSmoother:
                 :,
             ]
         else:
-            self.mass_grid[-self.pad_cells :, :, :] = hdf["MassGrid"][
-                -self.pad_cells :, :, :
-            ]
+            self.mass_grid[
+                -self.pad_cells :,
+                self.pad_cells : -self.pad_cells,
+                self.pad_cells : -self.pad_cells,
+            ] = hdf["MassGrid"][-self.pad_cells :, :, :]
 
         # And finally pad the edges of the 2nd and 3rd axes for periodic
         # boundary conditions
