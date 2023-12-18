@@ -229,6 +229,7 @@ class GridSmoother:
         self.x_ncells_rank = self.rank_cells[self.rank + 1] - self.rank_cells[self.rank]
 
         # Loop over all cells and construct lists to be sliced
+        self.my_cells = []
         for i in range(self.x_ncells_rank):
             for j in range(self.cdim[1]):
                 for k in range(self.cdim[2]):
