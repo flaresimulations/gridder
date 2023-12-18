@@ -43,7 +43,7 @@ def main():
     smoother = GridSmoother(args.kernel_width, args.grid_file)
 
     # Decompose the grid
-    smoother.decomp_cells()
+    smoother.domain_decomp()
     if rank == 0:
         print("Decomposed cells...")
 
