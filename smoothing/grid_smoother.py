@@ -347,15 +347,15 @@ class GridSmoother:
             ]
 
             # Get the coordinates of each cell
-            cell_coords = np.array(
-                [
+            cell_coords = np.vstack(
+                (
                     np.arange(low_i, low_i + self.cells_per_kernel + self.pad_cells)
                     + 0.5 * self.cell_width,
                     np.arange(low_j, low_j + self.cells_per_kernel + self.pad_cells)
                     + 0.5 * self.cell_width,
                     np.arange(low_k, low_k + self.cells_per_kernel + self.pad_cells)
                     + 0.5 * self.cell_width,
-                ]
+                )
             )
 
             # And redefine the centre in simulation coordinates
