@@ -65,7 +65,6 @@ class RegionGenerator:
 
         # Grid meta data (populated in _read_attrs)
         self.grid_cdim = None
-        self.grid_width = None
         self.grid_per_sim_cells = None
         self.grid_cell_volume = None
         self.grid_per_sim_cells = None
