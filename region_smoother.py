@@ -349,7 +349,6 @@ class RegionGenerator:
             [self.get_grid_cell_ijk(gid) for gid in self.my_grid_points],
             dtype=int,
         )
-        print(grid_indices.shape)
         grid_coords = (
             np.array(
                 grid_indices,
@@ -443,7 +442,6 @@ class RegionGenerator:
         dset = hdf_out.create_dataset(
             "OverDensity",
             shape=grid_shape,
-            maxshape=(None,) + grid_shape[1:],
             chunks=True,
             compression="gzip",
         )
@@ -465,7 +463,8 @@ class RegionGenerator:
             grid = hdf_rank["OverDensity"][...]
 
             # Set this rank's grid points
-            dset[grid_points[:, 0], grid_points[:, 1], grid_points[:, 2]] = grid
+            print(grid_points)
+            dset[grid_points] = grid
 
             hdf_rank.close()
 
