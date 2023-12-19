@@ -29,7 +29,6 @@ args = parser.parse_args()
 # Get the commandline arguments
 filepath = args.grid
 outpath = args.output
-smoothed = args.smoothed
 zwidth = args.zwidth
 
 # Open file
