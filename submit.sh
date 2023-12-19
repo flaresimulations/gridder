@@ -1,21 +1,21 @@
-#!/bin/bash -l
+#!/bin/bash
 #SBATCH --ntasks 32
 #SBATCH --cpus-per-task 64
-#SBATCH --array=0-19%4
+#SBATCH --array=0-24%4
 #SBATCH -J FLARES2-OVDEN-GRID-L5600N5040
 #SBATCH -o logs/L5600N5040.%J.out
 #SBATCH -e logs/L5600N5040.%J.err
 #SBATCH -p cosma8
 #SBATCH -A dp004
 #SBATCH --exclusive
-#SBATCH -t 5:00:00
+#SBATCH -t 8:00:00
 
 module purge
 module load python/3.10.12 gnu_comp/10.2.0 openmpi/4.1.1
 
 cd /cosma8/data/dp004/dc-rope1/FLARES-2/zoom_region_selection
 
-source ../flares2-env/bin/activate
+source /cosma8/data/dp004/dc-rope1/envs/flares-env/bin/activate
 
 # Set simulation parameters
 simulation_name="L5600N5040"
