@@ -128,7 +128,7 @@ class RegionGenerator:
         self.grid_cell_volume = (
             self.grid_width[0] * self.grid_width[1] * self.grid_width[2]
         )
-        self.grid_ncells = self.grid_cdim * self.grid_cdim * self.grid_cdim
+        self.grid_ncells = self.grid_cdim[0] * self.grid_cdim[1] * self.grid_cdim[2]
 
         if self.grid_ncells[0] == 0:
             raise ValueError("Found 0 grid cells, decrease the grid cell width")
