@@ -79,7 +79,6 @@ class RegionGenerator:
         self._read_attrs()
 
         # Information about the domain decomposition
-        self.rank_cells = None
         self.my_grid_points = None
         self.x_ncells_rank = None
 
@@ -202,28 +201,61 @@ class RegionGenerator:
         """
         return k + self.sim_cdim[2] * (j + self.sim_cdim[1] * i)
 
+    def _partition_3d_grid(self):
+        """
+        Partition a 3D grid among different ranks to minimize surface area of
+        each partition.
+
+        Returns:
+            list of tuple: (x_index, y_index, z_index) for the specified rank.
+        """
+        # Calculate subgrid size along each axis
+        subgrid_size_x = self.grid_cdim[0] // self.nranks
+        subgrid_size_y = self.grid_cdim[1] // self.nranks
+        subgrid_size_z = self.grid_cdim[2] // self.nranks
+
+        # Calculate start and end indices for the subgrid along each axis
+        start_x = self.rank * subgrid_size_x
+        end_x = (
+            start_x + subgrid_size_x
+            if self.rank < self.nranks - 1
+            else self.grid_cdim[0]
+        )
+
+        start_y = self.rank * subgrid_size_y
+        end_y = (
+            start_y + subgrid_size_y
+            if self.rank < self.nranks - 1
+            else self.grid_cdim[1]
+        )
+
+        start_z = self.rank * subgrid_size_z
+        end_z = (
+            start_z + subgrid_size_z
+            if self.rank < self.nranks - 1
+            else self.grid_cdim[2]
+        )
+
+        # Generate local indices within the assigned subgrid
+        indices = np.array(
+            [
+                self.get_grid_cellid(i, j, k)
+                for i in range(start_x, end_x)
+                for j in range(start_y, end_y)
+                for k in range(start_z, end_z)
+            ],
+            dtype=np.int32,
+        )
+
+        return indices
+
     def domain_decomp(self):
         """
-        Divide cells into Nranks slices along the i direction. We don't care
-        about the exact weight of each slice.
+        Divide grid points into localised patches on each rank.
         """
 
-        # Split the x direction amongst all ranks
-        rank_cells = np.linspace(
-            0,
-            self.grid_ncells,
-            self.nranks + 1,
-            dtype=int,
-        )
-
-        # Store the rank cells for later
-        self.rank_cells = rank_cells
-
-        # Create a range of grid points on this rank
-        self.my_grid_points = range(
-            rank_cells[self.rank],
-            rank_cells[self.rank + 1],
-        )
+        # Get this rank's grid points
+        self.my_grid_points = self._partition_3d_grid()
 
         # To get the simulation cell containing the kernel edges we need to
         # know how many grid points between the centre and edges
