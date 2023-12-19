@@ -459,7 +459,9 @@ class RegionGenerator:
             grid = hdf_rank["OverDensity"][...]
 
             # Set this rank's grid points
-            dset[self.rank_cells[other_rank] : self.rank_cells[other_rank + 1]] = grid
+            dset.flat[
+                self.rank_cells[other_rank] : self.rank_cells[other_rank + 1]
+            ] = grid
 
             hdf_rank.close()
 
