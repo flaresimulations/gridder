@@ -437,7 +437,8 @@ class RegionGenerator:
         # grid
         dset = hdf_out.create_dataset(
             "OverDensity",
-            shape=grid_shape,
+            shape=(self.grid_ncells),
+            maxshape=(None, None, None),
             chunks=True,
             compression="gzip",
         )
@@ -459,14 +460,15 @@ class RegionGenerator:
             grid = hdf_rank["OverDensity"][...]
 
             # Set this rank's grid points
-            dset.flat[
-                self.rank_cells[other_rank] : self.rank_cells[other_rank + 1]
-            ] = grid
+            dset[self.rank_cells[other_rank] : self.rank_cells[other_rank + 1]] = grid
 
             hdf_rank.close()
 
             # Delete the distributed file if we have been told to
             if delete_distributed:
                 os.remove(rankfile)
+
+        # Finally reshape the grid to actually be 3D
+        dset.resize(grid_shape)
 
         hdf_out.close()
