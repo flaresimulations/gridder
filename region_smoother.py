@@ -77,6 +77,7 @@ class RegionGenerator:
         self._read_attrs()
 
         # Information about the domain decomposition
+        self.rank_cells = None
         self.my_grid_points = None
         self.x_ncells_rank = None
 
@@ -211,6 +212,8 @@ class RegionGenerator:
             self.nranks + 1,
             dtype=int,
         )
+
+        self.rank_cells = rank_cells
 
         # Create a range of grid points on this rank
         self.my_grid_points = range(
@@ -370,8 +373,6 @@ class RegionGenerator:
             "r+",
         )
 
-        # Need ensure the grid indices
-
         # Write out this rank's grid points
         dset = hdf_out.create_dataset(
             "OverDensity",
@@ -458,8 +459,7 @@ class RegionGenerator:
             grid = hdf_rank["OverDensity"][...]
 
             # Set this rank's grid points
-            print(grid_points)
-            dset[grid_points] = grid
+            dset[self.rank_cells[other_rank] : self.rank_cells[other_rank + 1]] = grid
 
             hdf_rank.close()
 
