@@ -271,20 +271,8 @@ class RegionGenerator:
             # Sort the particle indices
             part_indices = np.sort(part_indices)
 
-            # Read the particle coordinates
+            # Read the particle data
             all_poss = hdf["/PartType1/Coordinates"][part_indices, :]
-
-            # Get rid of particles outside of the grid points
-            okinds = np.logical_and(
-                all_poss[:, 0]
-                >= (rank_cells[self.rank] * self.grid_width[0]) - self.kernel_rad,
-                all_poss[:, 0]
-                <= (rank_cells[self.rank + 1] * self.grid_width[0]) + self.kernel_rad,
-            )
-            all_poss = all_poss[okinds, :]
-            part_indices = part_indices[okinds]
-
-            # Get particle masses
             self.part_masses = hdf["/PartType1/Masses"][part_indices]
 
         print(f"Rank {self.rank} - N_parts = {len(part_indices)}")
