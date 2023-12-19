@@ -226,14 +226,14 @@ class RegionGenerator:
         # Get the SWIFT cell indices for this slice
         low_i = (
             int(
-                (rank_cells[self.rank] * self.grid_width[0] - self.kernel_rad)
+                ((rank_cells[self.rank] * self.grid_width[0]) - self.kernel_rad)
                 / self.sim_width[0]
             )
             - 1
         )
         high_i = (
             int(
-                (rank_cells[self.rank + 1] * self.grid_width[0] + self.kernel_rad)
+                ((rank_cells[self.rank + 1] * self.grid_width[0]) + self.kernel_rad)
                 / self.sim_width[0]
             )
             + 1
