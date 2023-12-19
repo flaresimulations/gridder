@@ -228,6 +228,7 @@ class RegionGenerator:
         # Find the simulation grid cells covered by these grid points and
         # their associated
         sim_cells = set()
+        sim_ijk = set()
         for gid in self.my_grid_points:
             # Get the simulation cell for the grid point itself
             i, j, k = self.get_grid_cell_ijk(gid)
@@ -236,6 +237,7 @@ class RegionGenerator:
             sim_k = int(k * self.grid_width[2] / self.sim_width[2])
             cid = self.get_sim_cellid(sim_i, sim_j, sim_k)
             sim_cells.update({cid})
+            sim_ijk.update({(sim_i, sim_j, sim_k)})
 
             # Get the cell containing the kernel edges if different
             for i in [i - delta_ijk, i + delta_ijk]:
@@ -437,8 +439,7 @@ class RegionGenerator:
         # grid
         dset = hdf_out.create_dataset(
             "OverDensity",
-            shape=(self.grid_ncells, 0, 0),
-            maxshape=(None, None, None),
+            shape=(self.grid_ncells),
             chunks=True,
             compression="gzip",
         )
@@ -452,9 +453,6 @@ class RegionGenerator:
                 f"{self.out_dir}{self.out_basename}_rank{other_rank}.{self.out_ext}"
             )
             hdf_rank = h5py.File(rankfile, "r")
-
-            # Get this rank's grid points
-            grid_points = hdf_rank["GridPoints"][...]
 
             # Get the rank's overdensities
             grid = hdf_rank["OverDensity"][...]
