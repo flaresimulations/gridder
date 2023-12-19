@@ -242,11 +242,6 @@ class RegionGenerator:
                 for k in range(self.sim_cdim[2]):
                     sim_cells.append(self.get_sim_cellid(i, j, k))
 
-        print(
-            f"Rank {self.rank} - N_gridpoints = "
-            f"{len(self.my_grid_points)} and N_simcells = {len(sim_cells)}"
-        )
-
         # Get the coordinates and masses of particles in the cells covered
         # by the grid points
 
@@ -274,8 +269,6 @@ class RegionGenerator:
             # Read the particle data
             all_poss = hdf["/PartType1/Coordinates"][part_indices, :]
             self.part_masses = hdf["/PartType1/Masses"][part_indices]
-
-        print(f"Rank {self.rank} - N_parts = {len(part_indices)}")
 
         # Construct the KDTree
         self.tree = cKDTree(all_poss, boxsize=self.boxsize)
