@@ -286,6 +286,8 @@ class RegionGenerator:
             all_poss = hdf["/PartType1/Coordinates"][part_indices, :]
             self.part_masses = hdf["/PartType1/Masses"][part_indices]
 
+        print(f"Rank {self.rank} - N_parts = {len(part_indices)}")
+
         # Construct the KDTree
         self.tree = cKDTree(all_poss, leafsize=100, boxsize=self.boxsize)
 
