@@ -355,6 +355,7 @@ class RegionGenerator:
         ) * self.grid_width
 
         # Query the tree
+        print(self.kernel_rad)
         part_queries = self.tree.query_ball_point(
             grid_coords,
             r=self.kernel_rad,
@@ -363,9 +364,7 @@ class RegionGenerator:
 
         # Calculate 1 + delta for each grid point and store it
         for ind, part_query in enumerate(part_queries):
-            print(part_query)
             mass = np.sum(self.part_masses[part_query])
-            print(mass)
             grid[ind] = (mass / self.kernel_vol) / self.mean_density
 
         # Open the output file
