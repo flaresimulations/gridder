@@ -240,7 +240,7 @@ class RegionGenerator:
                 int(j * self.grid_width[1] / self.sim_width[1]),
                 int(k * self.grid_width[2] / self.sim_width[2]),
             )
-            sim_cells.update(cid)
+            sim_cells.update({cid})
 
             # Get the cell containing the kernel edges
             for i in [i - delta_ijk, i + delta_ijk]:
@@ -254,7 +254,7 @@ class RegionGenerator:
                             int(jj * self.grid_width[1] / self.sim_width[1]),
                             int(kk * self.grid_width[2] / self.sim_width[2]),
                         )
-                        sim_cells.update(cid)
+                        sim_cells.update({cid})
 
         print(
             f"Rank {self.rank} - N_gridpoints = "
