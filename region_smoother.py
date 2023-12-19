@@ -151,7 +151,7 @@ class RegionGenerator:
             )
             print("N grid cell per simulation cell", self.grid_per_sim_cells)
             print("Grid CDim:", self.grid_cdim)
-            print("N Grid cells:" self.grid_ncells)
+            print("N Grid cells:", self.grid_ncells)
             print()
 
     def get_grid_cell_ijk(self, cid):
