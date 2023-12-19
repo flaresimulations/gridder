@@ -232,24 +232,36 @@ class RegionGenerator:
         for gid in self.my_grid_points:
             # Get the simulation cell for the grid point itself
             i, j, k = self.get_grid_cell_ijk(gid)
+            sim_i = int(i * self.grid_width[0] / self.sim_width[0])
+            sim_j = int(j * self.grid_width[1] / self.sim_width[1])
+            sim_k = int(k * self.grid_width[2] / self.sim_width[2])
             cid = self.get_sim_cellid(
-                int(i * self.grid_width[0] / self.sim_width[0]),
-                int(j * self.grid_width[1] / self.sim_width[1]),
-                int(k * self.grid_width[2] / self.sim_width[2]),
+                sim_i,
+                sim_j,
+                sim_k,
             )
             sim_cells.update({cid})
 
-            # Get the cell containing the kernel edges
+            # Get the cell containing the kernel edges if different
             for i in [i - delta_ijk, i + delta_ijk]:
+                ii = (i + self.grid_cdim[0]) % self.grid_cdim[0]
+                sim_ii = int(ii * self.grid_width[0] / self.sim_width[0])
+                if sim_i == sim_ii:
+                    continue
                 for j in [j - delta_ijk, j + delta_ijk]:
+                    jj = (j + self.grid_cdim[1]) % self.grid_cdim[1]
+                    sim_jj = int(jj * self.grid_width[1] / self.sim_width[1])
+                    if sim_j == sim_jj:
+                        continue
                     for k in [k - delta_ijk, k + delta_ijk]:
-                        ii = (i + self.grid_cdim[0]) % self.grid_cdim[0]
-                        jj = (j + self.grid_cdim[1]) % self.grid_cdim[1]
                         kk = (k + self.grid_cdim[2]) % self.grid_cdim[2]
+                        sim_kk = int(kk * self.grid_width[2] / self.sim_width[2])
+                        if sim_k == sim_kk:
+                            continue
                         cid = self.get_sim_cellid(
-                            int(ii * self.grid_width[0] / self.sim_width[0]),
-                            int(jj * self.grid_width[1] / self.sim_width[1]),
-                            int(kk * self.grid_width[2] / self.sim_width[2]),
+                            sim_ii,
+                            sim_jj,
+                            sim_kk,
                         )
                         sim_cells.update({cid})
 
