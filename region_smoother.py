@@ -202,64 +202,25 @@ class RegionGenerator:
         """
         return k + self.sim_cdim[2] * (j + self.sim_cdim[1] * i)
 
-    def _space_filling_curve(self):
-        """
-        Generate 1D (Morton) Z-order curve indexes for a 3D grid.
-        """
-
-        def z_order(x, y, z):
-            # Interleave bits of x, y, and z to form the Z-order curve index
-            result = 0
-            for i in range(32):
-                result |= (
-                    (x & 1) << (3 * i) | (y & 1) << (3 * i + 1) | (z & 1) << (3 * i + 2)
-                )
-                x >>= 1
-                y >>= 1
-                z >>= 1
-            return result
-
-        # Generate Z-order curve indexes for each point in the 3D grid
-        indices = np.arange(self.grid_ncells)
-        coords = np.column_stack(np.unravel_index(indices, self.grid_cdim))
-        z_order_curve_indices = np.array(
-            [z_order(x, y, z) for x, y, z in coords],
-            dtype=np.int32,
-        )
-
-        return z_order_curve_indices
-
-    def _partition_grid(self):
-        """
-        Partition the 3D grid of points using a space-filling curve.
-        Returns a list of flattened indexes of grid points on each rank.
-        """
-
-        # Generate 1D space-filling curve indexes for the 3D grid
-        indexes = self._space_filling_curve()
-
-        # Determine the number of points on each rank
-        points_per_rank = self.grid_ncells // self.nranks
-        start_index = self.rank * points_per_rank
-        end_index = (
-            (self.rank + 1) * points_per_rank
-            if self.rank < self.nranks - 1
-            else self.grid_ncells
-        )
-
-        # Distribute points to each rank
-        my_grid_points = indexes[start_index:end_index]
-
-        # Store the result in the class attribute
-        self.my_grid_points = my_grid_points
-
     def domain_decomp(self):
         """
-        Divide grid points into localised patches on each rank.
+        Divide cells into Nranks slices along the i direction. We don't care
+        about the exact weight of each slice.
         """
 
-        # Get this rank's grid points
-        self._partition_grid()
+        # Split the x direction amongst all ranks
+        rank_cells = np.linspace(
+            0,
+            self.grid_ncells,
+            self.nranks + 1,
+            dtype=int,
+        )
+
+        # Create a range of grid points on this rank
+        self.my_grid_points = range(
+            rank_cells[self.rank],
+            rank_cells[self.rank + 1],
+        )
 
         # To get the simulation cell containing the kernel edges we need to
         # know how many grid points between the centre and edges
@@ -306,8 +267,8 @@ class RegionGenerator:
             # do one big read at once
             part_indices = []
             while len(sim_cells) > 0:
-                # Get a cell
                 cid = sim_cells.pop()
+
                 # Get the cell look up table data
                 offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
                 count = hdf["/Cells/Counts/PartType1"][cid]
