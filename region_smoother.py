@@ -355,7 +355,9 @@ class RegionGenerator:
         ) * self.grid_width
 
         # Query the tree
-        print(self.kernel_rad)
+        print(
+            self.kernel_rad, np.min(grid_coords, axis=-1), np.max(grid_coords, axis=-1)
+        )
         part_queries = self.tree.query_ball_point(
             grid_coords,
             r=self.kernel_rad,
