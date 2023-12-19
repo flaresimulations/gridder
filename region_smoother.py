@@ -202,53 +202,56 @@ class RegionGenerator:
         """
         return k + self.sim_cdim[2] * (j + self.sim_cdim[1] * i)
 
-    def _partition_3d_grid(self):
+    def _space_filling_curve(self):
         """
-        Partition a 3D grid among different ranks to minimize surface area of
-        each partition.
-
-        Returns:
-            list of tuple: (x_index, y_index, z_index) for the specified rank.
+        Generate 1D (Morton) Z-order curve indexes for a 3D grid.
         """
-        # Calculate subgrid size along each axis
-        subgrid_size_x = self.grid_cdim[0] // self.nranks
-        subgrid_size_y = self.grid_cdim[1] // self.nranks
-        subgrid_size_z = self.grid_cdim[2] // self.nranks
 
-        # Calculate start and end indices for the subgrid along each axis
-        start_x = self.rank * subgrid_size_x
-        end_x = (
-            start_x + subgrid_size_x
-            if self.rank < self.nranks - 1
-            else self.grid_cdim[0]
-        )
+        def z_order(x, y, z):
+            # Interleave bits of x, y, and z to form the Z-order curve index
+            result = 0
+            for i in range(32):
+                result |= (
+                    (x & 1) << (3 * i) | (y & 1) << (3 * i + 1) | (z & 1) << (3 * i + 2)
+                )
+                x >>= 1
+                y >>= 1
+                z >>= 1
+            return result
 
-        start_y = self.rank * subgrid_size_y
-        end_y = (
-            start_y + subgrid_size_y
-            if self.rank < self.nranks - 1
-            else self.grid_cdim[1]
-        )
-
-        start_z = self.rank * subgrid_size_z
-        end_z = (
-            start_z + subgrid_size_z
-            if self.rank < self.nranks - 1
-            else self.grid_cdim[2]
-        )
-
-        # Generate local indices within the assigned subgrid
-        indices = np.array(
-            [
-                self.get_grid_cellid(i, j, k)
-                for i in range(start_x, end_x)
-                for j in range(start_y, end_y)
-                for k in range(start_z, end_z)
-            ],
+        # Generate Z-order curve indexes for each point in the 3D grid
+        indices = np.arange(self.grid_ncells)
+        coords = np.column_stack(np.unravel_index(indices, self.grid_cdim))
+        z_order_curve_indices = np.array(
+            [z_order(x, y, z) for x, y, z in coords],
             dtype=np.int32,
         )
 
-        return indices
+        return z_order_curve_indices
+
+    def _partition_grid(self):
+        """
+        Partition the 3D grid of points using a space-filling curve.
+        Returns a list of flattened indexes of grid points on each rank.
+        """
+
+        # Generate 1D space-filling curve indexes for the 3D grid
+        indexes = self.generate_space_filling_curve()
+
+        # Determine the number of points on each rank
+        points_per_rank = self.grid_ncells // self.nranks
+        start_index = self.rank * points_per_rank
+        end_index = (
+            (self.rank + 1) * points_per_rank
+            if self.rank < self.nranks - 1
+            else self.grid_ncells
+        )
+
+        # Distribute points to each rank
+        my_grid_points = indexes[start_index:end_index]
+
+        # Store the result in the class attribute
+        self.my_grid_points = my_grid_points
 
     def domain_decomp(self):
         """
@@ -256,7 +259,7 @@ class RegionGenerator:
         """
 
         # Get this rank's grid points
-        self.my_grid_points = self._partition_3d_grid()
+        self._partition_grid()
 
         # To get the simulation cell containing the kernel edges we need to
         # know how many grid points between the centre and edges
@@ -302,10 +305,12 @@ class RegionGenerator:
             # Lets get the indices of all the particles we will need and
             # do one big read at once
             part_indices = []
-            for ind, my_cell in enumerate(self.my_grid_points):
+            while len(sim_cells) > 0:
+                # Get a cell
+                cid = sim_cells.pop()
                 # Get the cell look up table data
-                offset = hdf["/Cells/OffsetsInFile/PartType1"][my_cell]
-                count = hdf["/Cells/Counts/PartType1"][my_cell]
+                offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
+                count = hdf["/Cells/Counts/PartType1"][cid]
 
                 if count == 0:
                     continue
