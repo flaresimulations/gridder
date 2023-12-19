@@ -362,6 +362,7 @@ class RegionGenerator:
         # Calculate 1 + delta for each grid point and store it
         for ind, part_query in enumerate(part_queries):
             mass = np.sum(self.part_masses[part_query])
+            print(mass)
             grid[ind] = (mass / self.kernel_vol) / self.mean_density
 
         # Open the output file
