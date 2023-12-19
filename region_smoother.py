@@ -403,7 +403,7 @@ class RegionGenerator:
         hdf_rank0 = h5py.File(rank0file, "r")
 
         # Create the single output file
-        hdf_out = h5py.File(self.outpath, "w")
+        hdf_out = h5py.File(f"{self.out_dir}{self.out_basename}.{self.out_ext}", "w")
 
         # Loop over all root keys apart from the mass grid itself
         for root_key in {key for key in hdf_rank0.keys()} - set(["OverDensity"]):
