@@ -437,7 +437,7 @@ class RegionGenerator:
         # grid
         dset = hdf_out.create_dataset(
             "OverDensity",
-            shape=(self.grid_ncells),
+            shape=self.grid_ncells,
             maxshape=(None, None, None),
             chunks=True,
             compression="gzip",
