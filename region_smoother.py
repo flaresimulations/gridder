@@ -225,25 +225,19 @@ class RegionGenerator:
 
         # Get the SWIFT cell indices for this slice
         low_i = (
-            int(((rank_cells[self.rank] * self.grid_width[0])) / self.sim_width[0]) - 1
-        )
+            (rank_cells[self.rank] * self.grid_width[0]) - self.kernel_rad
+        ) / self.sim_width[0]
         high_i = (
-            int(((rank_cells[self.rank + 1] * self.grid_width[0])) / self.sim_width[0])
-            + 1
-        )
-        if low_i < 0:
-            low_i = 0
-        if high_i > self.grid_cdim[0]:
-            high_i = self.grid_cdim[0]
-
-        print(
-            self.rank, rank_cells[self.rank], rank_cells[self.rank + 1], low_i, high_i
-        )
+            (rank_cells[self.rank + 1] * self.grid_width[0]) + self.kernel_rad
+        ) / self.sim_width[0]
+        low_i = int(low_i) - 1
+        high_i = int(high_i) + 1
 
         # Find the simulation grid cells covered by these grid points and
         # their associated
         sim_cells = []
         for i in range(low_i, high_i):
+            i = (i + self.sim_cdim[0]) % self.sim_cdim[0]
             for j in range(self.sim_cdim[1]):
                 for k in range(self.sim_cdim[2]):
                     sim_cells.append(self.get_sim_cellid(i, j, k))
