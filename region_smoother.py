@@ -65,9 +65,7 @@ class RegionGenerator:
 
         # Grid meta data (populated in _read_attrs)
         self.grid_cdim = None
-        self.grid_per_sim_cells = None
         self.grid_cell_volume = None
-        self.grid_per_sim_cells = None
         self.grid_ncells = None
 
         # Define kernel properties
@@ -121,9 +119,8 @@ class RegionGenerator:
         )
 
         # Compute the grid cell properties
-        self.grid_per_sim_cells = np.int32(self.sim_width / self.grid_width)
-        self.grid_width = self.sim_width / self.grid_per_sim_cells
-        self.grid_cdim = self.grid_per_sim_cells * self.sim_cdim
+        self.grid_cdim = np.int32(self.boxsize / self.grid_width)
+        self.grid_width = self.boxsize / self.grid_cdim
         self.grid_cell_volume = (
             self.grid_width[0] * self.grid_width[1] * self.grid_width[2]
         )
@@ -149,7 +146,6 @@ class RegionGenerator:
                 "Grid Cell Volume:",
                 self.grid_width[0] * self.grid_width[1] * self.grid_width[2],
             )
-            print("N grid cell per simulation cell", self.grid_per_sim_cells)
             print("Grid CDim:", self.grid_cdim)
             print("N Grid cells:", self.grid_ncells)
             print()
@@ -317,7 +313,6 @@ class RegionGenerator:
         ovden_grid_grp.attrs["CellWidth"] = self.grid_width
         ovden_grid_grp.attrs["CellVolume"] = self.grid_cell_volume
         ovden_grid_grp.attrs["CDim"] = self.grid_cdim
-        ovden_grid_grp.attrs["NcellsPerSimCell"] = self.grid_per_sim_cells
         ovden_grid_grp.attrs["KernelWidth"] = self.kernel_width
         ovden_grid_grp.attrs["KernelRadius"] = self.kernel_rad
         ovden_grid_grp.attrs["KernelVolume"] = self.kernel_vol
