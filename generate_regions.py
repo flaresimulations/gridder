@@ -64,9 +64,10 @@ def main():
     # but the domain decomp is dependant on the kernel radius and
     # using the largest would be wasteful!
     for kernel_width in args.kernel_diameters:
-        print()
-        print(f"+++++++++++ Gridding for {kernel_width:.2f} kernel +++++++++++")
-        print()
+        if rank == 0:
+            print()
+            print(f"+++++++++++ Gridding for {kernel_width:.2f} kernel +++++++++++")
+            print()
 
         # Create the grid instance
         gridder = RegionGenerator(
