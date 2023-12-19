@@ -235,11 +235,7 @@ class RegionGenerator:
             sim_i = int(i * self.grid_width[0] / self.sim_width[0])
             sim_j = int(j * self.grid_width[1] / self.sim_width[1])
             sim_k = int(k * self.grid_width[2] / self.sim_width[2])
-            cid = self.get_sim_cellid(
-                sim_i,
-                sim_j,
-                sim_k,
-            )
+            cid = self.get_sim_cellid(sim_i, sim_j, sim_k)
             sim_cells.update({cid})
 
             # Get the cell containing the kernel edges if different
@@ -258,11 +254,7 @@ class RegionGenerator:
                         sim_kk = int(kk * self.grid_width[2] / self.sim_width[2])
                         if sim_k == sim_kk:
                             continue
-                        cid = self.get_sim_cellid(
-                            sim_ii,
-                            sim_jj,
-                            sim_kk,
-                        )
+                        cid = self.get_sim_cellid(sim_ii, sim_jj, sim_kk)
                         sim_cells.update({cid})
 
         print(
@@ -357,6 +349,7 @@ class RegionGenerator:
             [self.get_grid_cell_ijk(gid) for gid in self.my_grid_points],
             dtype=int,
         )
+        print(grid_indices.shape)
         grid_coords = (
             np.array(
                 grid_indices,
@@ -382,6 +375,8 @@ class RegionGenerator:
             f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}",
             "r+",
         )
+
+        # Need ensure the grid indices
 
         # Write out this rank's grid points
         dset = hdf_out.create_dataset(
