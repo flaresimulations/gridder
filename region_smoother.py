@@ -236,7 +236,7 @@ class RegionGenerator:
         """
 
         # Generate 1D space-filling curve indexes for the 3D grid
-        indexes = self._generate_space_filling_curve()
+        indexes = self._space_filling_curve()
 
         # Determine the number of points on each rank
         points_per_rank = self.grid_ncells // self.nranks
