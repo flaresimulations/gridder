@@ -39,10 +39,10 @@ def main():
         default=2,
     )
     parser.add_argument(
-        "--kernel_diameter",
-        type=float,
+        "--kernel_diameters",
+        action="append",
         help="The diameter of the spherical region kernel in simulation units",
-        default=5,
+        required=True,
     )
     parser.add_argument(
         "--delete_distributed",
@@ -58,34 +58,43 @@ def main():
     )
     args = parser.parse_args()
 
-    # Create the grid instance
-    gridder = RegionGenerator(
-        args.input,
-        args.output,
-        args.grid_width,
-        kernel_width=args.kernel_diameter,
-        nthreads=args.nthreads,
-    )
+    # Get the grid for each kernel width passed on the command line
+    # It would be nice to maintain the domain decomp and only regrid
+    # but the domain decomp is dependant on the kernel radius and
+    # using the largest would be wasteful!
+    for kernel_width in args.kernel_diameters:
+        print()
+        print(f"+++++++++++ Gridding for {kernel_width:.2f} kernel +++++++++++")
+        print()
 
-    # Decompose the grid cells of nranks and construct the KDTrees
-    start = time.time()
-    gridder.domain_decomp()
-    if rank == 0:
-        print(f"Decomposing the grid took {time.time() - start} seconds")
-
-    # Perform the gridding
-    start = time.time()
-    gridder.get_grid()
-    comm.Barrier()
-    if rank == 0:
-        print(f"Computing overdensities took {time.time() - start} seconds")
-        start = time.time()
-        gridder.combine_distributed_files(
-            delete_distributed=args.delete_distributed,
+        # Create the grid instance
+        gridder = RegionGenerator(
+            args.input,
+            args.output,
+            args.grid_width,
+            kernel_width=kernel_width,
+            nthreads=args.nthreads,
         )
-        print(f"Combining grid files took {time.time() - start} seconds")
 
-        print(f"Entire process took {time.time() - total_start} seconds")
+        # Decompose the grid cells of nranks and construct the KDTrees
+        start = time.time()
+        gridder.domain_decomp()
+        if rank == 0:
+            print(f"Decomposing the grid took {time.time() - start} seconds")
+
+        # Perform the gridding
+        start = time.time()
+        gridder.get_grid()
+        comm.Barrier()
+        if rank == 0:
+            print(f"Computing overdensities took {time.time() - start} seconds")
+            start = time.time()
+            gridder.combine_distributed_files(
+                delete_distributed=args.delete_distributed,
+            )
+            print(f"Combining grid files took {time.time() - start} seconds")
+
+            print(f"Entire process took {time.time() - total_start} seconds")
 
 
 if __name__ == "__main__":
