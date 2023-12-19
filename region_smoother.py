@@ -203,7 +203,7 @@ class RegionGenerator:
         )
 
         # Compute the grid cell properties
-        self.grid_cdim = np.int32(self.boxsize / self.grid_width)
+        self.grid_cdim = np.int64(self.boxsize / self.grid_width)
         self.grid_width = self.boxsize / self.grid_cdim
         self.grid_cell_volume = (
             self.grid_width[0] * self.grid_width[1] * self.grid_width[2]
