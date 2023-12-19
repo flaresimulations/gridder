@@ -77,7 +77,6 @@ class RegionGenerator:
         self._read_attrs()
 
         # Information about the domain decomposition
-        self.rank_cells = None
         self.my_grid_points = None
         self.x_ncells_rank = None
 
@@ -213,8 +212,6 @@ class RegionGenerator:
             dtype=int,
         )
 
-        self.rank_cells = rank_cells
-
         # Create a range of grid points on this rank
         self.my_grid_points = range(
             rank_cells[self.rank],
@@ -228,7 +225,6 @@ class RegionGenerator:
         # Find the simulation grid cells covered by these grid points and
         # their associated
         sim_cells = set()
-        sim_ijk = set()
         for gid in self.my_grid_points:
             # Get the simulation cell for the grid point itself
             i, j, k = self.get_grid_cell_ijk(gid)
@@ -237,7 +233,6 @@ class RegionGenerator:
             sim_k = int(k * self.grid_width[2] / self.sim_width[2])
             cid = self.get_sim_cellid(sim_i, sim_j, sim_k)
             sim_cells.update({cid})
-            sim_ijk.update({(sim_i, sim_j, sim_k)})
 
             # Get the cell containing the kernel edges if different
             for i in [i - delta_ijk, i + delta_ijk]:
@@ -375,6 +370,8 @@ class RegionGenerator:
             "r+",
         )
 
+        # Need ensure the grid indices
+
         # Write out this rank's grid points
         dset = hdf_out.create_dataset(
             "OverDensity",
@@ -439,7 +436,7 @@ class RegionGenerator:
         # grid
         dset = hdf_out.create_dataset(
             "OverDensity",
-            shape=(self.grid_ncells,),
+            shape=grid_shape,
             chunks=True,
             compression="gzip",
         )
@@ -454,19 +451,44 @@ class RegionGenerator:
             )
             hdf_rank = h5py.File(rankfile, "r")
 
+            # Get this rank's grid points
+            grid_points = hdf_rank["GridPoints"][...]
+
             # Get the rank's overdensities
             grid = hdf_rank["OverDensity"][...]
 
-            # Set this rank's grid points
-            dset[self.rank_cells[other_rank] : self.rank_cells[other_rank + 1]] = grid
+            # H5py is rubbish at indexing so we have get the whole slice
+            # covered by the grid points and assign to that
+            low_i = np.min(grid_points[:, 0])
+            low_j = np.min(grid_points[:, 1])
+            low_k = np.min(grid_points[:, 2])
+            high_i = np.max(grid_points[:, 0]) + 1
+            high_j = np.max(grid_points[:, 1]) + 1
+            high_k = np.max(grid_points[:, 2]) + 1
+            grid_slice = dset[
+                low_i:high_i,
+                low_j:high_j,
+                low_k:high_k,
+            ]
+
+            # Set this rank's grid points in the slice
+            grid_slice[
+                grid_points[:, 0] - low_i,
+                grid_points[:, 1] - low_j,
+                grid_points[:, 2] - low_k,
+            ] = grid
+
+            # Reassign the slice
+            dset[
+                low_i:high_i,
+                low_j:high_j,
+                low_k:high_k,
+            ] = grid_slice
 
             hdf_rank.close()
 
             # Delete the distributed file if we have been told to
             if delete_distributed:
                 os.remove(rankfile)
-
-        # Finally reshape the grid to actually be 3D
-        dset.resize(grid_shape)
 
         hdf_out.close()
