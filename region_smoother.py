@@ -272,7 +272,6 @@ class RegionGenerator:
             part_indices = np.sort(part_indices)
 
             # Read the particle data
-            print(part_indices)
             all_poss = hdf["/PartType1/Coordinates"][part_indices, :]
             self.part_masses = hdf["/PartType1/Masses"][part_indices]
 
