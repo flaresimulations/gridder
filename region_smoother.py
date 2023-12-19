@@ -207,51 +207,33 @@ class RegionGenerator:
         # Split the x direction amongst all ranks
         rank_cells = np.linspace(
             0,
-            self.grid_ncells,
+            self.grid_cdim[0],
             self.nranks + 1,
             dtype=int,
         )
 
         # Create a range of grid points on this rank
-        self.my_grid_points = range(
-            rank_cells[self.rank],
-            rank_cells[self.rank + 1],
-        )
+        self.my_grid_points = []
+        for i in range(rank_cells[self.rank], rank_cells[self.rank + 1]):
+            for j in range(self.grid_cdim[1]):
+                for k in range(self.grid_cdim[2]):
+                    self.my_grid_points.append(self.get_grid_cellid(i, j, k))
 
-        # To get the simulation cell containing the kernel edges we need to
-        # know how many grid points between the centre and edges
-        delta_ijk = int(self.kernel_rad / self.grid_width[0]) + 1
+        # Get the SWIFT cell indices for this slice
+        low_i = (
+            rank_cells[self.rank] * self.grid_width[0] - self.kernel_rad
+        ) / self.sim_width[0]
+        high_i = (
+            rank_cells[self.rank + 1] * self.grid_width[0] + self.kernel_rad
+        ) / self.sim_width[0]
 
         # Find the simulation grid cells covered by these grid points and
         # their associated
-        sim_cells = set()
-        for gid in self.my_grid_points:
-            # Get the simulation cell for the grid point itself
-            i, j, k = self.get_grid_cell_ijk(gid)
-            sim_i = int(i * self.grid_width[0] / self.sim_width[0])
-            sim_j = int(j * self.grid_width[1] / self.sim_width[1])
-            sim_k = int(k * self.grid_width[2] / self.sim_width[2])
-            cid = self.get_sim_cellid(sim_i, sim_j, sim_k)
-            sim_cells.update({cid})
-
-            # Get the cell containing the kernel edges if different
-            for i in [i - delta_ijk, i + delta_ijk]:
-                ii = (i + self.grid_cdim[0]) % self.grid_cdim[0]
-                sim_ii = int(ii * self.grid_width[0] / self.sim_width[0])
-                if sim_i == sim_ii:
-                    continue
-                for j in [j - delta_ijk, j + delta_ijk]:
-                    jj = (j + self.grid_cdim[1]) % self.grid_cdim[1]
-                    sim_jj = int(jj * self.grid_width[1] / self.sim_width[1])
-                    if sim_j == sim_jj:
-                        continue
-                    for k in [k - delta_ijk, k + delta_ijk]:
-                        kk = (k + self.grid_cdim[2]) % self.grid_cdim[2]
-                        sim_kk = int(kk * self.grid_width[2] / self.sim_width[2])
-                        if sim_k == sim_kk:
-                            continue
-                        cid = self.get_sim_cellid(sim_ii, sim_jj, sim_kk)
-                        sim_cells.update({cid})
+        sim_cells = []
+        for i in range(low_i, high_i):
+            for j in range(self.sim_cdim[1]):
+                for k in range(self.sim_cdim[2]):
+                    sim_cells.append(self.get_sim_cellid(i, j, k))
 
         print(
             f"Rank {self.rank} - N_gridpoints = "
@@ -267,7 +249,7 @@ class RegionGenerator:
             # do one big read at once
             part_indices = []
             while len(sim_cells) > 0:
-                cid = sim_cells.pop()
+                cid = sim_cells.pop(0)
 
                 # Get the cell look up table data
                 offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
@@ -289,7 +271,6 @@ class RegionGenerator:
         print(f"Rank {self.rank} - N_parts = {len(part_indices)}")
 
         # Construct the KDTree
-        print("Parts:", np.min(all_poss, axis=0), np.max(all_poss, axis=0))
         self.tree = cKDTree(all_poss, boxsize=self.boxsize)
 
     def _create_rank_output(self):
@@ -356,7 +337,6 @@ class RegionGenerator:
         ) * self.grid_width
 
         # Query the tree
-        print(self.kernel_rad, np.min(grid_coords, axis=0), np.max(grid_coords, axis=0))
         part_queries = self.tree.query_ball_point(
             grid_coords,
             r=self.kernel_rad,
@@ -366,6 +346,7 @@ class RegionGenerator:
         # Calculate 1 + delta for each grid point and store it
         for ind, part_query in enumerate(part_queries):
             mass = np.sum(self.part_masses[part_query])
+            print(mass)
             grid[ind] = (mass / self.kernel_vol) / self.mean_density
 
         # Open the output file
