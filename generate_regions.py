@@ -40,7 +40,7 @@ def main():
     )
     parser.add_argument(
         "--kernel_diameter",
-        type=int,
+        type=float,
         help="The diameter of the spherical region kernel in simulation units",
         default=5,
     )
@@ -63,7 +63,7 @@ def main():
         args.input,
         args.output,
         args.grid_width,
-        kernel_width=args.kernel_width,
+        kernel_width=args.kernel_diameter,
         nthreads=args.nthreads,
     )
 
