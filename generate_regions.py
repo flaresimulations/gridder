@@ -40,7 +40,7 @@ def main():
     )
     parser.add_argument(
         "--kernel_diameters",
-        action="append",
+        nargs="+",
         help="The diameter of the spherical region kernel in simulation units",
         required=True,
     )
