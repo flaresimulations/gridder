@@ -1,10 +1,17 @@
-""" A module for sorting particle into a 3D mass histogram.
+"""
+Module for sorting particles into a 3D overdensity grid.
 
 Example usage:
 
     gridder = GridGenerator("input.hdf5", "output.hdf5", 2.0)
     gridder.domain_decomp()
     gridder.get_grid()
+
+This module provides a class, RegionGenerator, that generates all possible regions
+smoothed over a spherical top hat kernel on a regular grid of region centres.
+It includes methods for initializing the generator, setting up MPI communication,
+reading simulation metadata, generating overdensity grids from HDF5 simulation data,
+combining distributed files, and more.
 """
 import os
 
@@ -19,6 +26,65 @@ class RegionGenerator:
     Generates all possible regions smoothed over a spherical top hat kernel
     on a regular grid of region centres.
 
+    Attributes:
+        input_path (str):
+            Path to the input HDF5 file.
+        outpath (str):
+            Path to the output HDF5 file.
+        out_basename (str):
+            Base name for the output file, extracted from the outpath.
+        out_ext (str):
+            Extension of the output file, extracted from the outpath.
+        out_dir (str):
+            Directory of the output file, extracted from the outpath.
+        comm (MPI.Comm):
+            MPI communicator.
+        nranks (int):
+            Number of MPI ranks.
+        rank (int):
+            Rank of the current MPI process.
+        nthreads (int):
+            Number of threads.
+        grid_width (float):
+            Width of the region grid cells.
+        boxsize (numpy.ndarray):
+            Size of the simulation box in each dimension.
+        redshift (float):
+            Redshift of the simulation.
+        nparts (int):
+            Number of particles in the simulation.
+        pmass (float):
+            Particle mass.
+        sim_cdim (int):
+            Dimension of the simulation cells.
+        ncells (int):
+            Number of simulation cells.
+        sim_width (numpy.ndarray):
+            Size of the simulation cells in each dimension.
+        half_sim_width (float):
+            Half of the simulation cell width.
+        mean_density (float):
+            Mean density of the universe.
+        grid_cdim (numpy.ndarray):
+            Dimension of the region grid.
+        grid_cell_volume (float):
+            Volume of a grid cell.
+        grid_ncells (int):
+            Total number of cells in the region grid.
+        kernel_width (float):
+            Width of the spherical top hat kernel.
+        kernel_rad (float):
+            Radius of the spherical top hat kernel.
+        kernel_vol (float):
+            Volume of the spherical top hat kernel.
+        my_grid_points (list):
+            List of grid points assigned to the current MPI rank.
+        x_ncells_rank (numpy.ndarray):
+            Number of cells assigned to each MPI rank in the x-direction.
+        tree (scipy.spatial.cKDTree):
+            KDTree for particle data.
+        part_masses (numpy.ndarray):
+            Array of particle masses.
     """
 
     def __init__(
@@ -30,7 +96,19 @@ class RegionGenerator:
         nthreads=1,
     ):
         """
-        Intialise the region generator.
+        Initialize the region generator.
+
+        Args:
+            inpath (str):
+                Path to the input HDF5 file.
+            outpath (str):
+                Path to the output HDF5 file.
+            region_grid_width (float):
+                Width of the region grid cells.
+            kernel_width (float):
+                Width of the spherical top hat kernel.
+            nthreads (int, optional):
+                Number of threads. Defaults to 1.
         """
 
         # Basic I/O information
@@ -100,7 +178,9 @@ class RegionGenerator:
         self.nranks = self.comm.Get_size()
 
     def _read_attrs(self):
-        """ """
+        """
+        Read simulation metadata and calculate grid properties.
+        """
 
         hdf = h5py.File(self.input_path, "r")
 
@@ -159,8 +239,12 @@ class RegionGenerator:
         Get the i, j, k coordinates of a grid cell.
 
         Args:
-            cid (int)
+            cid (int):
                 The flattened index.
+
+        Returns:
+            Tuple[int, int, int]:
+                The i, j, k coordinates.
         """
         i = int(cid / (self.grid_cdim[1] * self.grid_cdim[2]))
         j = int((cid / self.grid_cdim[2]) % self.grid_cdim[1])
@@ -173,8 +257,16 @@ class RegionGenerator:
         Compute the flattened index of a grid cell coordinates.
 
         Args:
-            i, j, k (int)
-                The integer cell coordinates.
+            i (int):
+                The integer i coordinate.
+            j (int):
+                The integer j coordinate.
+            k (int):
+                The integer k coordinate.
+
+        Returns:
+            int:
+                The flattened index.
         """
         return k + self.grid_cdim[2] * (j + self.grid_cdim[1] * i)
 
@@ -183,8 +275,12 @@ class RegionGenerator:
         Get the i, j, k coordinates of a SWIFT cell.
 
         Args:
-            cid (int)
+            cid (int):
                 The flattened index.
+
+        Returns:
+            Tuple[int, int, int]:
+                The i, j, k coordinates.
         """
         i = int(cid / (self.sim_cdim[1] * self.sim_cdim[2]))
         j = int((cid / self.sim_cdim[2]) % self.sim_cdim[1])
@@ -197,8 +293,16 @@ class RegionGenerator:
         Compute the flattened index of a SWIFT cell coordinates.
 
         Args:
-            i, j, k (int)
-                The integer cell coordinates.
+            i (int):
+                The integer i coordinate.
+            j (int):
+                The integer j coordinate.
+            k (int):
+                The integer k coordinate.
+
+        Returns:
+            int:
+                The flattened index.
         """
         return k + self.sim_cdim[2] * (j + self.sim_cdim[1] * i)
 
@@ -274,7 +378,9 @@ class RegionGenerator:
         self.tree = cKDTree(all_poss, boxsize=self.boxsize)
 
     def _create_rank_output(self):
-        """ """
+        """
+        Create an output file for the current rank.
+        """
 
         # Create the output file
         hdf_out = h5py.File(
@@ -383,15 +489,15 @@ class RegionGenerator:
 
     def combine_distributed_files(self, delete_distributed=False):
         """
-        Creates a single output file containing all slices.
+        Create a single output file containing all slices.
 
         This method should only be called by rank 0 but protections are in
-        place incase this isn't the case.
+        place in case this isn't the case.
 
         Args:
-            delete_distributed (bool)
-                Whether to remove the distributed files as they are processed.
-                By default False.
+            delete_distributed (bool, optional):
+                Whether to remove the distributed
+                files as they are processed. Defaults to False.
         """
 
         # Early exit if were not on rank 0
