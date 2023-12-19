@@ -239,7 +239,7 @@ class RegionGenerator:
             + 1
         )
         if low_i < 0:
-            low_i == 0
+            low_i = 0
         if high_i > self.grid_cdim[0]:
             high_i = self.grid_cdim[0]
 
