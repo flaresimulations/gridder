@@ -236,7 +236,9 @@ class RegionGenerator:
         if high_i > self.grid_cdim[0]:
             high_i = self.grid_cdim[0]
 
-        print(low_i, high_i)
+        print(
+            self.rank, rank_cells[self.rank], rank_cells[self.rank + 1], low_i, high_i
+        )
 
         # Find the simulation grid cells covered by these grid points and
         # their associated
