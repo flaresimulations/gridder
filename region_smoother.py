@@ -37,7 +37,7 @@ class RegionGenerator:
         self.input_path = inpath
         self.outpath = outpath
         self.out_basename = outpath.split("/")[-1].split(".")[0]
-        self.out_basename += f"_kernel{kernel_width}"  # include kernel size
+        self.out_basename += f"_kernel{str(kernel_width).replace('.', 'p')}"
         self.out_ext = outpath.split("/")[-1].split(".")[-1]
         self.out_dir = "/".join(outpath.split("/")[:-1]) + "/"
 
@@ -150,7 +150,8 @@ class RegionGenerator:
                 self.grid_width[0] * self.grid_width[1] * self.grid_width[2],
             )
             print("N grid cell per simulation cell", self.grid_per_sim_cells)
-            print("Parent Grid CDim:", self.grid_cdim)
+            print("Grid CDim:", self.grid_cdim)
+            print("N Grid cells:" self.grid_ncells)
             print()
 
     def get_grid_cell_ijk(self, cid):
