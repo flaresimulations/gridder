@@ -392,7 +392,7 @@ class RegionGenerator:
     def _get_particle_subset(sim_cells, nthreads, map_func, input_path):
         """ """
         # Read in the particles from these cells
-        with MultiPool(processes=nthreads if nthreads < 27 else 27) as pool:
+        with MultiPool(processes=nthreads) as pool:
             # Use the thread pool to parallelize the task
             results = list(pool.map(partial(map_func, input_path), sim_cells))
 
@@ -405,10 +405,8 @@ class RegionGenerator:
 
         return np.array(coords), np.array(masses)
 
-    def _tree_query(self, i, j, k, coords):
+    def _tree_query(self, i, j, k, tree):
         """ """
-        # Construct the tree for these cells
-        tree = cKDTree(coords, boxsize=self.boxsize)
 
         # Now we need to get the grid points at the edges
         low_edges = np.array([i, j, k]) * self.sim_width
@@ -476,49 +474,72 @@ class RegionGenerator:
             dtype=np.int64,
         )
 
-        # Loop over SWIFT cells
+        # We need to keep track of the ind we are writing to
         ind = 0
-        for my_cid in range(self.rank_ncells[self.rank]):
-            # Get the true cell index
-            cid = my_cid + self.rank_cells[self.rank]
 
-            # Get the simulation integer coordinates of this cell
-            i, j, k = self.get_sim_cell_ijk(cid)
+        # Do the cells in batches of roughly 100
+        batches = np.linspace(
+            0,
+            self.rank_ncells[self.rank],
+            self.rank_ncells[self.rank] // 100 + 1,
+        )
 
-            # Get the cells we need to read in (this is cid + a shell of
-            # neighbouring cells to handle grid points at the boundary)
-            sim_cells = []
+        # Loop over batches
+        for low_cid, high_cid in zip(batches[:-1], batches[1:]):
+            # Define a set to hold which cells we need to load
+            sim_cells = set()
 
-            for ii in range(i - 1, i + 2):
-                ii = (ii + self.sim_cdim[0]) % self.sim_cdim[0]
-                for jj in range(j - 1, j + 2):
-                    jj = (jj + self.sim_cdim[1]) % self.sim_cdim[1]
-                    for kk in range(k - 1, k + 2):
-                        kk = (kk + self.sim_cdim[2]) % self.sim_cdim[2]
-                        sim_cells.append(self.get_sim_cellid(ii, jj, kk))
+            # Loop over SWIFT cells in this batch
+            for my_cid in range(low_cid, high_cid):
+                # Get the true cell index
+                cid = my_cid + self.rank_cells[self.rank]
+
+                # Get the simulation integer coordinates of this cell
+                i, j, k = self.get_sim_cell_ijk(cid)
+
+                # Get the neighbouring cells
+                for ii in range(i - 1, i + 2):
+                    ii = (ii + self.sim_cdim[0]) % self.sim_cdim[0]
+                    for jj in range(j - 1, j + 2):
+                        jj = (jj + self.sim_cdim[1]) % self.sim_cdim[1]
+                        for kk in range(k - 1, k + 2):
+                            kk = (kk + self.sim_cdim[2]) % self.sim_cdim[2]
+                            sim_cells.update(self.get_sim_cellid(ii, jj, kk))
 
             # Get the particle coordinates and masses for these cells, as
             # well as the edge of cid
             coords, masses = self._get_particle_subset(
-                sim_cells,
+                list(sim_cells),
                 self.nthreads,
                 self._read_particle_data,
                 self.input_path,
             )
 
-            # Query the tree and get all particles associated to each
-            # grid point
-            part_queries, grid_indices = self._tree_query(i, j, k, coords)
+            # Construct the tree for these cells
+            tree = cKDTree(coords, boxsize=self.boxsize)
 
-            print(grid_indices.shape)
+            # Loop over SWIFT cells in this batch
+            for my_cid in range(low_cid, high_cid):
+                # Get the true cell index
+                cid = my_cid + self.rank_cells[self.rank]
 
-            # Calculate 1 + delta for each grid point and store it
-            for query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
-                gid = self.get_grid_cellid(iii, jjj, kkk)
-                mass = np.sum(masses[query])
-                grid[ind] = (mass / self.kernel_vol) / self.mean_density
-                rank_grid_indices[ind] = gid
-                ind += 1
+                # Get the simulation integer coordinates of this cell
+                i, j, k = self.get_sim_cell_ijk(cid)
+
+                # Query the tree and get all particles associated to each
+                # grid point
+                part_queries, grid_indices = self._tree_query(i, j, k, tree)
+
+                # Calculate 1 + delta for each grid point and store it
+                gids = self.get_grid_cellid(
+                    grid_indices[:, 0], grid_indices[:, 1], grid_indices[:2]
+                )
+                grid_masses = np.sum(masses[part_queries], axis=0)
+                grid[ind : ind + len(gids)] = (
+                    grid_masses / self.kernel_vol
+                ) / self.mean_density
+                rank_grid_indices[ind : ind + len(gids)] = gids
+                ind += len(gids)
 
         # Open the output file
         hdf_out = h5py.File(
