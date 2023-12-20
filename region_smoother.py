@@ -83,7 +83,7 @@ class RegionGenerator:
             Number of cells assigned to each MPI rank in the x-direction.
         tree (scipy.spatial.cKDTree):
             KDTree for particle data.
-        part_masses (numpy.ndarray):
+        masses (numpy.ndarray):
             Array of particle masses.
     """
 
@@ -136,7 +136,7 @@ class RegionGenerator:
         self.nparts = None
         self.pmass = None
         self.sim_cdim = None
-        self.ncells = None
+        self.sim_ncells = None
         self.sim_width = None
         self.half_sim_width = None
         self.mean_density = None
@@ -185,7 +185,7 @@ class RegionGenerator:
         self.nparts = hdf["/PartType1/Masses"].size
         self.pmass = hdf["Header"].attrs["InitialMassTable"][1]
         self.sim_cdim = hdf["Cells/Meta-data"].attrs["dimension"]
-        self.ncells = hdf["/Cells/Meta-data"].attrs["nr_cells"]
+        self.sim_ncells = hdf["/Cells/Meta-data"].attrs["nr_cells"]
         self.sim_width = hdf["Cells/Meta-data"].attrs["size"]
         self.half_sim_width = self.sim_width / 2
         hdf.close()
@@ -216,7 +216,7 @@ class RegionGenerator:
             print("Redshift:", self.redshift)
             print("Npart:", self.nparts)
             print("Particle Mass:", self.pmass)
-            print("Number of simulation cells:", self.ncells)
+            print("Number of simulation cells:", self.sim_ncells)
             print("Mean Density:", self.mean_density)
             print("Sim Cell Width:", self.sim_width)
             print()
@@ -312,7 +312,7 @@ class RegionGenerator:
         # Split theSWIFT cells amongst all ranks
         self.rank_cells = np.linspace(
             0,
-            self.ncells[0],
+            self.sim_ncells[0],
             self.nranks + 1,
             dtype=int,
         )
@@ -391,9 +391,9 @@ class RegionGenerator:
 
             # Read the particle data
             part_coords = hdf["/PartType1/Coordinates"][part_indices, :]
-            part_masses = hdf["/PartType1/Masses"][part_indices]
+            masses = hdf["/PartType1/Masses"][part_indices]
 
-        return part_coords, part_masses
+        return part_coords, masses
 
     def _tree_query(self, i, j, k, coords):
         """ """
@@ -482,7 +482,7 @@ class RegionGenerator:
             for part_query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
                 gid = self.get_grid_cellid(iii, jjj, kkk)
                 ind = gid - offset
-                mass = np.sum(self.part_masses[part_query])
+                mass = np.sum(self.masses[part_query])
                 grid[ind] = (mass / self.kernel_vol) / self.mean_density
 
         # Open the output file
