@@ -20,6 +20,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from mpi4py import MPI
 from schwimmbad import MultiPool
+from functools import partial
 
 
 class RegionGenerator:
@@ -369,7 +370,7 @@ class RegionGenerator:
         hdf_out.close()
 
     @staticmethod
-    def _read_particle_data(cid, input_path):
+    def _read_particle_data(input_path, cid):
         with h5py.File(input_path, "r") as hdf:
             # Get the cell look up table data
             offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
@@ -393,7 +394,7 @@ class RegionGenerator:
         # Read in the particles from these cells
         with MultiPool(processes=nthreads if nthreads < 27 else 27) as pool:
             # Use the thread pool to parallelize the task
-            results = list(pool.map(map_func, sim_cells, [input_path] * len(sim_cells)))
+            results = list(pool.map(partial(map_func, input_path), sim_cells))
 
         # Sort out the results
         coords = []
