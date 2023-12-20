@@ -96,6 +96,7 @@ class RegionGenerator:
         region_grid_width,
         kernel_width,
         nthreads=1,
+        batch_size=100,
     ):
         """
         Initialize the region generator.
@@ -165,6 +166,9 @@ class RegionGenerator:
         assert (
             self.grid_width[0] < self.kernel_rad
         ), "grid spacing must be less than the kernel radius"
+
+        # Store the batch size we'll use for reading cells
+        self.batch_size = batch_size
 
     def _setup_mpi(self):
         """
@@ -479,13 +483,18 @@ class RegionGenerator:
         # We need to keep track of the ind we are writing to
         ind = 0
 
-        # Do the cells in batches of roughly 100
-        batches = np.linspace(
-            0,
-            self.rank_ncells[self.rank],
-            self.rank_ncells[self.rank] // 100 + 1,
-            dtype=int,
-        )
+        # Do the cells in batches of roughly batch_size, if batch_size
+        # is larger than the number of cells on this rank or negative we'll
+        # just do them all at once
+        if self.batch_size < 0 or self.rank_ncells[self.rank] < self.batch_size:
+            np.array([0, self.rank_ncells[self.rank]])
+        else:
+            batches = np.linspace(
+                0,
+                self.rank_ncells[self.rank],
+                self.rank_ncells[self.rank] // self.batch_size + 1,
+                dtype=int,
+            )
 
         # Loop over batches
         for low_cid, high_cid in zip(batches[:-1], batches[1:]):

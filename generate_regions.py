@@ -83,6 +83,13 @@ def main():
         help="The number of threads to use within a rank",
         default=1,
     )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        help="How many SWIFT cells to read and process at a time. "
+        "If negative all cells on a rank will be done in a single batch",
+        default=100,
+    )
     args = parser.parse_args()
 
     # Get the grid for each kernel width passed on the command line

@@ -10,6 +10,7 @@ simulation_name=$3
 simulation_type=$4
 grid_width=$5
 diameters=$6
+batch_size=$7
 
 # Update SLURM parameters
 #SBATCH --ntasks $ntasks
@@ -52,7 +53,8 @@ mpirun -np $SLURM_NTASKS python3 generate_regions.py \
     --nthreads=$SLURM_CPUS_PER_TASK \
     --kernel_diameters $diameters \
     --delete_distributed=1 \
-    --grid_width=$grid_width
+    --grid_width=$grid_width \
+    --batch_size=$batch_size
 
 echo "Job done, info follows..."
 sstat --jobs=${SLURM_JOBID}.batch --format=JobID,MaxRSS,AveCPU,AvePages,AveRSS,AveVMSize
