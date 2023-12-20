@@ -18,7 +18,7 @@ temp_script=$(mktemp "temp_script_XXXXXX.sh")
 cat <<EOL > "$temp_script"
 #!/bin/bash
 #SBATCH --ntasks=$ntasks
-#SBATCH --cpus-per-task=$slurm_cpus_per_task
+#SBATCH --cpus-per-task=$cpus_per_task
 #SBATCH --array=0-24%4
 #SBATCH -J FLARES2-GRID-$simulation_name-$simulation_type
 #SBATCH -o logs/$simulation_name_$simulation_type.%A.%a.out
