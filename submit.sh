@@ -1,16 +1,22 @@
 #!/bin/bash
 
 # Example usage
-#   sbatch submit.sh 32 8 L5600N5040 1.0 "2.5 5 15 30"
+#   sbatch submit.sh -n 32 -c 8 -s L5600N5040 -t DMO_FIDUCIAL -w 1.0 -d "2.5 5 15 30" -b 100
 
-# Parse command line arguments
-ntasks=$1
-cpus_per_task=$2
-simulation_name=$3
-simulation_type=DMO_FIDUCIAL
-grid_width=$4
-diameters=$5
-batch_size=$6
+# Parse named arguments
+while getopts ":n:c:s:t:w:d:b:" opt; do
+  case $opt in
+    n) ntasks="$OPTARG";;
+    c) cpus_per_task="$OPTARG";;
+    s) simulation_name="$OPTARG";;
+    t) simulation_type="$OPTARG";;
+    w) grid_width="$OPTARG";;
+    d) diameters="$OPTARG";;
+    b) batch_size="$OPTARG";;
+    \?) echo "Invalid option: -$OPTARG" >&2; exit 1;;
+    :) echo "Option -$OPTARG requires an argument." >&2; exit 1;;
+  esac
+done
 
 # Create a temporary script with correct SBATCH directives
 temp_script=$(mktemp "temp_script_XXXXXX.sh")
