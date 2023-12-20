@@ -387,14 +387,15 @@ class RegionGenerator:
 
             return coords, masses
 
-    def get_particle_subset(self, sim_cells):
+    @staticmethod
+    def _get_particle_subset(sim_cells, nthreads, map_func, input_path):
         """ """
         # Read in the particles from these cells
-        with MultiPool(processes=self.nthreads if self.nthreads < 27 else 27) as pool:
+        with MultiPool(processes=nthreads if nthreads < 27 else 27) as pool:
             # Use the thread pool to parallelize the task
             results = list(
                 pool.map(
-                    lambda x: self._read_particle_data(x, self.input_path),
+                    lambda x: map_func(x, input_path),
                     sim_cells,
                 )
             )
@@ -490,7 +491,12 @@ class RegionGenerator:
 
             # Get the particle coordinates and masses for these cells, as
             # well as the edge of cid
-            coords, masses = self.get_particle_subset(sim_cells)
+            coords, masses = self._get_particle_subset(
+                sim_cells,
+                self.nthreads,
+                self._read_particle_data,
+                self.input_path,
+            )
 
             # Query the tree and get all particles associated to each
             # grid point
