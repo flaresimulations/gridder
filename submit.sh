@@ -61,9 +61,9 @@ mpirun -np \$SLURM_NTASKS python3 generate_regions.py \
     --input "\$input_file" \
     --output "\$output_file" \
     --nthreads=\$SLURM_CPUS_PER_TASK \
-    --kernel_diameters $diameters \
+    --kernel_diameters "$diameters" \
     --delete_distributed=1 \
-    --grid_width=\$width \
+    --grid_width="\$width" \
     --batch_size=\$batch_size
 
 echo "Job done, info follows..."
