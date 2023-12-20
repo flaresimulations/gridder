@@ -535,7 +535,7 @@ class RegionGenerator:
 
                 # Calculate 1 + delta for each grid point and store it
                 gids = self.get_grid_cellid(
-                    grid_indices[:, 0], grid_indices[:, 1], grid_indices[:2]
+                    grid_indices[:, 0], grid_indices[:, 1], grid_indices[:, 2]
                 )
                 grid_masses = np.sum(masses[part_queries], axis=0)
                 grid[ind : ind + len(gids)] = (
