@@ -386,7 +386,7 @@ class RegionGenerator:
             coords = hdf["/PartType1/Coordinates"][part_indices, :]
             masses = hdf["/PartType1/Masses"][part_indices]
 
-            return coords, masses
+        return coords, masses
 
     @staticmethod
     def _get_particle_subset(sim_cells, nthreads, map_func, input_path):
@@ -395,6 +395,8 @@ class RegionGenerator:
         with MultiPool(processes=nthreads if nthreads < 27 else 27) as pool:
             # Use the thread pool to parallelize the task
             results = list(pool.map(partial(map_func, input_path), sim_cells))
+
+        print(results)
 
         # Sort out the results
         coords = []
@@ -462,7 +464,6 @@ class RegionGenerator:
             self.rank_grid_ncells[self.rank],
             dtype=np.int64,
         )
-        print("Guess:", self.rank_grid_ncells[self.rank])
 
         # Loop over SWIFT cells
         ind = 0
