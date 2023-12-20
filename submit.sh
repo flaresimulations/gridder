@@ -1,10 +1,22 @@
 #!/bin/bash
-#SBATCH --ntasks 256
-#SBATCH --cpus-per-task 32
+
+# Example usage
+#   sbatch submit.sh 32 8 L5600N5040 DMO_FIDUCIAL 1.0 "2.5 5 15 30"
+
+# Parse command line arguments
+ntasks=$1
+cpus_per_task=$2
+simulation_name=$3
+simulation_type=$4
+grid_width=$5
+diameters=$6
+
+# Update SLURM parameters
+#SBATCH --ntasks $ntasks
+#SBATCH --cpus-per-task $cpus_per_task
 #SBATCH --array=0-24%4
-#SBATCH -J FLARES2-OVDEN-GRID-L5600N5040
-#SBATCH -o logs/L5600N5040.%J.out
-#SBATCH -e logs/L5600N5040.%J.err
+#SBATCH -J FLARES2-GRID-${simulation_name}-${simulation_type}
+#SBATCH -o logs/${simulation_name}_${simulation_type}.%A.%a.out
 #SBATCH -p cosma8
 #SBATCH -A dp004
 #SBATCH --exclusive
@@ -16,10 +28,6 @@ module load python/3.10.12 gnu_comp/10.2.0 openmpi/4.1.1
 cd /cosma8/data/dp004/dc-rope1/FLARES-2/zoom_region_selection
 
 source /cosma8/data/dp004/dc-rope1/envs/flares-env/bin/activate
-
-# Set simulation parameters
-simulation_name="L5600N5040"
-simulation_type="DMO_FIDUCIAL"
 
 # Set your base directory
 base_dir="/cosma8/data/dp004/flamingo/Runs/${simulation_name}/${simulation_type}/snapshots"
@@ -42,9 +50,9 @@ mpirun -np $SLURM_NTASKS python3 generate_regions.py \
     --input "$input_file" \
     --output "$output_file" \
     --nthreads=$SLURM_CPUS_PER_TASK \
-    --kernel_diameters 2.5 5 15 30 \
+    --kernel_diameters $diameters \
     --delete_distributed=1 \
-    --grid_width=1.0
+    --grid_width=$grid_width
 
 echo "Job done, info follows..."
 sstat --jobs=${SLURM_JOBID}.batch --format=JobID,MaxRSS,AveCPU,AvePages,AveRSS,AveVMSize
