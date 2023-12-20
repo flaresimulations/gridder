@@ -396,12 +396,11 @@ class RegionGenerator:
             # Use the thread pool to parallelize the task
             results = list(pool.map(partial(map_func, input_path), sim_cells))
 
-        print(results)
-
         # Sort out the results
         coords = []
         masses = []
         for res in results:
+            print(res)
             coords.extend(res[0])
             masses.extend(res[1])
 
