@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Example usage
-#   sbatch submit.sh 32 8 L5600N5040 DMO_FIDUCIAL 1.0 "2.5 5 15 30"
+#   sbatch submit.sh 32 8 L5600N5040 1.0 "2.5 5 15 30"
 
 # Parse command line arguments
 ntasks=$1
