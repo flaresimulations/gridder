@@ -228,6 +228,7 @@ class RegionGenerator:
             )
             print("Grid CDim:", self.grid_cdim)
             print("N Grid cells:", self.grid_ncells)
+            print("N Grid cells in SWIFT cell", self.ncells_grid_in_sim)
             print()
 
     def get_grid_cell_ijk(self, cid):
@@ -311,7 +312,7 @@ class RegionGenerator:
         # Split theSWIFT cells amongst all ranks
         self.rank_cells = np.linspace(
             0,
-            self.ncells,
+            self.ncells[0],
             self.nranks + 1,
             dtype=int,
         )
