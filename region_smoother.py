@@ -448,9 +448,13 @@ class RegionGenerator:
             self.rank_grid_ncells[self.rank],
             dtype=np.float32,
         )
+        rank_grid_indices = np.zeros(
+            (self.rank_grid_ncells[self.rank], 3),
+            dtype=np.int64,
+        )
 
         # Loop over SWIFT cells
-        offset = self.rank_grid_offset[self.rank]
+        ind = 0
         for my_cid in range(self.rank_ncells[self.rank]):
             # Get the true cell index
             cid = my_cid + self.rank_cells[self.rank]
@@ -481,9 +485,10 @@ class RegionGenerator:
             # Calculate 1 + delta for each grid point and store it
             for query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
                 gid = self.get_grid_cellid(iii, jjj, kkk)
-                ind = gid - offset
                 mass = np.sum(masses[query])
                 grid[ind] = (mass / self.kernel_vol) / self.mean_density
+                rank_grid_indices[ind] = gid
+                ind += 1
 
         # Open the output file
         hdf_out = h5py.File(
@@ -504,6 +509,15 @@ class RegionGenerator:
             "A flattened array containing the overdensity in terms of 1 + delta"
             "for all the grid cells on this rank"
         )
+        dset = hdf_out.create_dataset(
+            "GridIndices",
+            data=rank_grid_indices,
+            shape=rank_grid_indices.shape,
+            dtype=rank_grid_indices.dtype,
+            compression="gzip",
+        )
+        dset.attrs["Units"] = "dimensionless"
+        dset.attrs["Description"] = "The flattened grid index of each grid point"
 
         hdf_out.close()
 
@@ -532,7 +546,9 @@ class RegionGenerator:
         hdf_out = h5py.File(f"{self.out_dir}{self.out_basename}.{self.out_ext}", "w")
 
         # Loop over all root keys apart from the mass grid itself
-        for root_key in {key for key in hdf_rank0.keys()} - set(["OverDensity"]):
+        for root_key in {key for key in hdf_rank0.keys()} - set(
+            ["OverDensity", "GridIndices"]
+        ):
             grp = hdf_out.create_group(root_key)
             for key in hdf_rank0[root_key].attrs.keys():
                 grp.attrs[key] = hdf_rank0[root_key].attrs[key]
@@ -548,7 +564,11 @@ class RegionGenerator:
             compression="gzip",
         )
         dset.attrs["Units"] = "dimensionless"
-        dset.attrs["Description"] = "A 3D grid of overdensities in terms of 1 + delta"
+        dset.attrs["Description"] = (
+            "A flattened 3D grid of overdensities in terms of 1 + delta. "
+            "The multidimensional shape of this array "
+            "is given by hdf['Grid'].attrs['Cdim']"
+        )
 
         # Loop over the other ranks adding their grid cells to the array
         for other_rank in range(self.nranks):
@@ -561,12 +581,11 @@ class RegionGenerator:
             # Get the rank's overdensities
             grid = hdf_rank["OverDensity"][...]
 
-            # Get this ranks offset and count
-            offset = self.rank_grid_offset[other_rank]
-            count = self.rank_grid_ncells[other_rank]
+            # And get the indices of these values
+            grid_indices = hdf_rank["rank"]["GridIndices"][...]
 
             # Reassign the slice
-            dset[offset : offset + count] = grid
+            dset[grid_indices] = grid
 
             hdf_rank.close()
 
