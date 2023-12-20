@@ -482,6 +482,7 @@ class RegionGenerator:
             0,
             self.rank_ncells[self.rank],
             self.rank_ncells[self.rank] // 100 + 1,
+            dtype=int,
         )
 
         # Loop over batches
