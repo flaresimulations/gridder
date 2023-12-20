@@ -438,6 +438,8 @@ class RegionGenerator:
         grid_indices[:, 1] = jj.flatten()
         grid_indices[:, 2] = kk.flatten()
 
+        print(grid_indices.shape)
+
         # Convert the indices into coordinates
         grid_coords = (
             np.array(
