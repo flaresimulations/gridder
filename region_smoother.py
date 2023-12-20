@@ -479,10 +479,10 @@ class RegionGenerator:
             part_queries, grid_indices = self._tree_query(i, j, k, coords)
 
             # Calculate 1 + delta for each grid point and store it
-            for part_query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
+            for query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
                 gid = self.get_grid_cellid(iii, jjj, kkk)
                 ind = gid - offset
-                mass = np.sum(self.masses[part_query])
+                mass = np.sum(masses[query])
                 grid[ind] = (mass / self.kernel_vol) / self.mean_density
 
         # Open the output file
