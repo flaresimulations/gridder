@@ -4,23 +4,20 @@
 #   sbatch submit.sh 32 8 L5600N5040 DMO_FIDUCIAL 1.0 "2.5 5 15 30"
 
 # Parse command line arguments
-cpus_per_task=$1
-slurm_cpus_per_task=$2
+ntasks=$1
+cpus_per_task=$2
 simulation_name=$3
 simulation_type=$4
 grid_width=$5
 diameters=$6
 batch_size=$7
 
-# Calculate total number of tasks based on array size (25 tasks in your case)
-total_tasks=$((25 * $cpus_per_task))
-
 # Create a temporary script with correct SBATCH directives
 temp_script=$(mktemp "temp_script_XXXXXX.sh")
 
 cat <<EOL > "$temp_script"
 #!/bin/bash
-#SBATCH --ntasks=$total_tasks
+#SBATCH --ntasks=$ntasks
 #SBATCH --cpus-per-task=$slurm_cpus_per_task
 #SBATCH --array=0-24%4
 #SBATCH -J FLARES2-GRID-$simulation_name-$simulation_type
