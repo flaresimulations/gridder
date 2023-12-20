@@ -412,15 +412,28 @@ class RegionGenerator:
 
         # Now we need to get the grid points at the edges
         low_edges = np.array([i, j, k]) * self.sim_width
-        high_edges = low_edges + self.sim_width
-        lows = np.int64(low_edges / self.grid_width)
-        highs = np.int64(np.floor(high_edges / self.grid_width))
+        lows = np.int64(np.floor(low_edges / self.grid_width))
 
         # Convert the grid point edges into indices
         ii, jj, kk = np.meshgrid(
-            np.arange(lows[0], highs[0], dtype=int),
-            np.arange(lows[1], highs[1], dtype=int),
-            np.arange(lows[2], highs[2], dtype=int),
+            np.linspace(
+                lows[0],
+                lows[0] + self.ncells_grid_in_sim - 1,
+                self.ncells_grid_in_sim,
+                dtype=int,
+            ),
+            np.linspace(
+                lows[1],
+                lows[1] + self.ncells_grid_in_sim - 1,
+                self.ncells_grid_in_sim,
+                dtype=int,
+            ),
+            np.linspace(
+                lows[2],
+                lows[2] + self.ncells_grid_in_sim - 1,
+                self.ncells_grid_in_sim,
+                dtype=int,
+            ),
         )
         grid_indices = np.zeros((ii.size, 3), dtype=int)
         grid_indices[:, 0] = ii.flatten()
