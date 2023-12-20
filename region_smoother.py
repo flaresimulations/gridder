@@ -494,6 +494,9 @@ class RegionGenerator:
                 dtype=int,
             )
 
+        # Define how many cells we need to walk out
+        delta_ijk = int(np.floor(self.kernel_rad / self.sim_width[0])) + 1
+
         # Loop over batches
         for low_cid, high_cid in zip(batches[:-1], batches[1:]):
             # Define a set to hold which cells we need to load
@@ -508,11 +511,11 @@ class RegionGenerator:
                 i, j, k = self.get_sim_cell_ijk(cid)
 
                 # Get the neighbouring cells
-                for ii in range(i - 1, i + 2):
+                for ii in range(i - delta_ijk, i + delta_ijk + 1):
                     ii = (ii + self.sim_cdim[0]) % self.sim_cdim[0]
-                    for jj in range(j - 1, j + 2):
+                    for jj in range(j - delta_ijk, j + delta_ijk + 1):
                         jj = (jj + self.sim_cdim[1]) % self.sim_cdim[1]
-                        for kk in range(k - 1, k + 2):
+                        for kk in range(k - delta_ijk, k + delta_ijk + 1):
                             kk = (kk + self.sim_cdim[2]) % self.sim_cdim[2]
                             sim_cells.update({self.get_sim_cellid(ii, jj, kk)})
 
