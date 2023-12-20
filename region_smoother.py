@@ -412,7 +412,7 @@ class RegionGenerator:
             np.arange(lows[1], highs[1], dtype=int),
             np.arange(lows[2], highs[2], dtype=int),
         )
-        grid_indices = np.zeros((ii.size, 3))
+        grid_indices = np.zeros((ii.size, 3), dtype=int)
         grid_indices[:, 0] = ii.flatten()
         grid_indices[:, 1] = jj.flatten()
         grid_indices[:, 2] = kk.flatten()
