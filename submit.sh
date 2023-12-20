@@ -10,7 +10,7 @@ while getopts ":n:c:s:t:w:d:b:" opt; do
     c) cpus_per_task="$OPTARG";;
     s) simulation_name="$OPTARG";;
     t) simulation_type="$OPTARG";;
-    w) grid_width="$OPTARG";;
+    w) width="$OPTARG";;
     d) diameters="$OPTARG";;
     b) batch_size="$OPTARG";;
     \?) echo "Invalid option: -$OPTARG" >&2; exit 1;;
@@ -63,7 +63,7 @@ mpirun -np \$SLURM_NTASKS python3 generate_regions.py \
     --nthreads=\$SLURM_CPUS_PER_TASK \
     --kernel_diameters $diameters \
     --delete_distributed=1 \
-    --grid_width=\$grid_width \
+    --grid_width=\$width \
     --batch_size=\$batch_size
 
 echo "Job done, info follows..."
