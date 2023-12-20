@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --ntasks $1
-#SBATCH --cpus-per-task $2
+#SBATCH --ntasks=$1
+#SBATCH --cpus-per-task=$2
 #SBATCH --array=0-24%4
 #SBATCH -J FLARES2-GRID-$3-$4
 #SBATCH -o logs/$3_$4.%A.%a.out
