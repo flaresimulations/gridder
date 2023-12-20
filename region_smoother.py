@@ -418,20 +418,20 @@ class RegionGenerator:
         ii, jj, kk = np.meshgrid(
             np.linspace(
                 lows[0],
-                lows[0] + self.ncells_grid_in_sim - 1,
-                self.ncells_grid_in_sim,
+                lows[0] + self.ncells_grid_in_sim[0] - 1,
+                self.ncells_grid_in_sim[0],
                 dtype=int,
             ),
             np.linspace(
                 lows[1],
-                lows[1] + self.ncells_grid_in_sim - 1,
-                self.ncells_grid_in_sim,
+                lows[1] + self.ncells_grid_in_sim[1] - 1,
+                self.ncells_grid_in_sim[1],
                 dtype=int,
             ),
             np.linspace(
                 lows[2],
-                lows[2] + self.ncells_grid_in_sim - 1,
-                self.ncells_grid_in_sim,
+                lows[2] + self.ncells_grid_in_sim[2] - 1,
+                self.ncells_grid_in_sim[2],
                 dtype=int,
             ),
         )
