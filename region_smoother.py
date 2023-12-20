@@ -451,7 +451,6 @@ class RegionGenerator:
 
         # Loop over SWIFT cells
         offset = self.rank_grid_offset[self.rank]
-        print(offset)
         for my_cid in range(self.rank_ncells[self.rank]):
             # Get the true cell index
             cid = my_cid + self.rank_cells[self.rank]
@@ -481,7 +480,6 @@ class RegionGenerator:
 
             # Calculate 1 + delta for each grid point and store it
             for query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
-                print(iii, jjj, kkk)
                 gid = self.get_grid_cellid(iii, jjj, kkk)
                 ind = gid - offset
                 mass = np.sum(masses[query])
