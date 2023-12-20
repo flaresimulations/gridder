@@ -442,8 +442,6 @@ class RegionGenerator:
         grid_indices[:, 1] = jj.flatten()
         grid_indices[:, 2] = kk.flatten()
 
-        print(grid_indices.shape)
-
         # Convert the indices into coordinates
         grid_coords = (
             np.array(
@@ -560,6 +558,11 @@ class RegionGenerator:
             f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}",
             "r+",
         )
+
+        # We need have sorted indexes for the combination step to work
+        sinds = np.argsort(rank_grid_indices)
+        rank_grid_indices = grid_indices[sinds]
+        grid = grid[sinds]
 
         # Write out this rank's grid points
         dset = hdf_out.create_dataset(
