@@ -408,9 +408,9 @@ class RegionGenerator:
 
         # Convert the grid point edges into indices
         ii, jj, kk = np.meshgrid(
-            np.arange(lows[0], highs[0]),
-            np.arange(lows[1], highs[1]),
-            np.arange(lows[2], highs[2]),
+            np.arange(lows[0], highs[0], dtype=int),
+            np.arange(lows[1], highs[1], dtype=int),
+            np.arange(lows[2], highs[2], dtype=int),
         )
         grid_indices = np.zeros((ii.size, 3))
         grid_indices[:, 0] = ii.flatten()
