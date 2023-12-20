@@ -145,6 +145,7 @@ class RegionGenerator:
         self.grid_cdim = None
         self.grid_cell_volume = None
         self.grid_ncells = None
+        self.ncells_grid_in_sim = None
 
         # Define kernel properties
         self.kernel_width = kernel_width
@@ -155,15 +156,9 @@ class RegionGenerator:
         self._read_attrs()
 
         # Information about the domain decomposition
-        self.my_grid_points = None
-        self.x_ncells_rank = None
-
-        # Place holder attributes for the KDTree (to be populated during
-        # domain decomposition)
-        self.tree = None
-
-        # We will need to store the particle masses
-        self.part_masses = None
+        self.rank_cells = None
+        self.rank_ncells = None
+        self.rank_grid_ncells = None
 
         assert (
             self.grid_width[0] < self.kernel_rad
@@ -203,7 +198,8 @@ class RegionGenerator:
         )
 
         # Compute the grid cell properties
-        self.grid_cdim = np.int64(self.boxsize / self.grid_width)
+        self.ncells_grid_in_sim = np.int64(self.sim_width / self.grid_width) + 1
+        self.grid_cdim = self.ncells_grid_in_sim * self.sim_cdim
         self.grid_width = self.boxsize / self.grid_cdim
         self.grid_cell_volume = (
             self.grid_width[0] * self.grid_width[1] * self.grid_width[2]
@@ -312,70 +308,22 @@ class RegionGenerator:
         about the exact weight of each slice.
         """
 
-        # Split the x direction amongst all ranks
-        rank_cells = np.linspace(
+        # Split theSWIFT cells amongst all ranks
+        self.rank_cells = np.linspace(
             0,
-            self.grid_cdim[0],
+            self.ncells,
             self.nranks + 1,
             dtype=int,
         )
 
-        # Create a range of grid points on this rank
-        self.my_grid_points = []
-        for i in range(rank_cells[self.rank], rank_cells[self.rank + 1]):
-            for j in range(self.grid_cdim[1]):
-                for k in range(self.grid_cdim[2]):
-                    self.my_grid_points.append(self.get_grid_cellid(i, j, k))
+        # How many SWIFT cells are on each rank?
+        self.rank_ncells = self.rank_cells[1:] - self.rank_cells[:-1]
 
-        # Get the SWIFT cell indices for this slice
-        low_i = (
-            (rank_cells[self.rank] * self.grid_width[0]) - self.kernel_rad
-        ) / self.sim_width[0]
-        high_i = (
-            (rank_cells[self.rank + 1] * self.grid_width[0]) + self.kernel_rad
-        ) / self.sim_width[0]
-        low_i = int(low_i) - 1
-        high_i = int(high_i) + 1
+        # And how many grid cells does this correspond to?
+        self.rank_grid_ncells = self.rank_ncells * np.prod(self.ncells_grid_in_sim)
 
-        # Find the simulation grid cells covered by these grid points and
-        # their associated
-        sim_cells = []
-        for i in range(low_i, high_i):
-            i = (i + self.sim_cdim[0]) % self.sim_cdim[0]
-            for j in range(self.sim_cdim[1]):
-                for k in range(self.sim_cdim[2]):
-                    sim_cells.append(self.get_sim_cellid(i, j, k))
-
-        # Get the coordinates and masses of particles in the cells covered
-        # by the grid points
-
-        # Open the input file
-        with h5py.File(self.input_path, "r") as hdf:
-            # Lets get the indices of all the particles we will need and
-            # do one big read at once
-            part_indices = []
-            while len(sim_cells) > 0:
-                cid = sim_cells.pop(0)
-
-                # Get the cell look up table data
-                offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
-                count = hdf["/Cells/Counts/PartType1"][cid]
-
-                if count == 0:
-                    continue
-
-                # Store the indices
-                part_indices.extend(list(range(offset, offset + count)))
-
-            # Sort the particle indices
-            part_indices = np.sort(part_indices)
-
-            # Read the particle data
-            all_poss = hdf["/PartType1/Coordinates"][part_indices, :]
-            self.part_masses = hdf["/PartType1/Masses"][part_indices]
-
-        # Construct the KDTree
-        self.tree = cKDTree(all_poss, boxsize=self.boxsize)
+        # And get the grid point offsets for each of these grid points
+        self.rank_grid_offset = np.cumsum(self.rank_grid_ncells)
 
     def _create_rank_output(self):
         """
@@ -418,22 +366,57 @@ class RegionGenerator:
         hdf.close()
         hdf_out.close()
 
-    def get_grid(self):
-        """
-        Generates overdensity grids from HDF5 simulation data.
-        """
+    def get_particle_subset(self, sim_cells):
+        """ """
+        # Open the input file and read in the particles from the necessary
+        # cells
+        part_indices = []
+        with h5py.File(self.input_path, "r") as hdf:
+            while len(sim_cells) > 0:
+                cid = sim_cells.pop(0)
 
-        # Create the output file and populate the attributes we need
-        self._create_rank_output()
+                # Get the cell look up table data
+                offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
+                count = hdf["/Cells/Counts/PartType1"][cid]
 
-        # Set up the grid for this rank's slice
-        grid = np.zeros(len(self.my_grid_points), dtype=np.float32)
+                if count == 0:
+                    continue
 
-        # Convert grid indices into grid coordinates
-        grid_indices = np.array(
-            [self.get_grid_cell_ijk(gid) for gid in self.my_grid_points],
-            dtype=int,
+                # Store the indices
+                part_indices.extend(list(range(offset, offset + count)))
+
+            # Sort the particle indices
+            part_indices = np.sort(part_indices)
+
+            # Read the particle data
+            part_coords = hdf["/PartType1/Coordinates"][part_indices, :]
+            part_masses = hdf["/PartType1/Masses"][part_indices]
+
+        return part_coords, part_masses
+
+    def _tree_query(self, i, j, k, coords):
+        """ """
+        # Construct the tree for these cells
+        tree = cKDTree(coords, boxsize=self.boxsize)
+
+        # Now we need to get the grid points at the edges
+        low_edges = np.array([i, j, k]) * self.sim_width
+        high_edges = low_edges + self.sim_width
+        lows = np.int64(low_edges / self.grid_width)
+        highs = np.int64(high_edges / self.grid_width)
+
+        # Convert the grid point edges into indices
+        ii, jj, kk = np.meshgrid(
+            np.arange(lows[0], highs[0]),
+            np.arange(lows[1], highs[1]),
+            np.arange(lows[2], highs[2]),
         )
+        grid_indices = np.zeros((ii.size, 3))
+        grid_indices[:, 0] = ii.flatten()
+        grid_indices[:, 1] = jj.flatten()
+        grid_indices[:, 2] = kk.flatten()
+
+        # Convert the indices into coordinates
         grid_coords = (
             np.array(
                 grid_indices,
@@ -443,24 +426,69 @@ class RegionGenerator:
         ) * self.grid_width
 
         # Query the tree
-        part_queries = self.tree.query_ball_point(
+        part_queries = tree.query_ball_point(
             grid_coords,
             r=self.kernel_rad,
             workers=self.nthreads,
         )
 
-        # Calculate 1 + delta for each grid point and store it
-        for ind, part_query in enumerate(part_queries):
-            mass = np.sum(self.part_masses[part_query])
-            grid[ind] = (mass / self.kernel_vol) / self.mean_density
+        return part_queries, grid_indices
+
+    def get_grid(self):
+        """
+        Generates overdensity grids from HDF5 simulation data.
+        """
+
+        # Create the output file and populate the attributes we need
+        self._create_rank_output()
+
+        # Set up the grid for this rank's slice
+        grid = np.zeros(
+            self.rank_grid_ncells[self.rank],
+            dtype=np.float32,
+        )
+
+        # Loop over SWIFT cells
+        offset = self.rank_grid_offset[self.rank]
+        for my_cid in range(self.rank_ncells[self.rank]):
+            # Get the true cell index
+            cid = my_cid + self.rank_cells[self.rank]
+
+            # Get the simulation integer coordinates of this cell
+            i, j, k = self.get_sim_cell_ijk(cid)
+
+            # Get the cells we need to read in (this is cid + a shell of
+            # neighbouring cells to handle grid points at the boundary)
+            sim_cells = []
+
+            for ii in range(i - 1, i + 2):
+                ii = (ii + self.sim_cdim[0]) % self.sim_cdim[0]
+                for jj in range(j - 1, j + 2):
+                    jj = (jj + self.sim_cdim[1]) % self.sim_cdim[1]
+                    for kk in range(k - 1, k + 2):
+                        kk = (kk + self.sim_cdim[2]) % self.sim_cdim[2]
+                        sim_cells.append(self.get_sim_cellid(ii, jj, kk))
+
+            # Get the particle coordinates and masses for these cells, as
+            # well as the edge of cid
+            coords, masses = self.get_particle_subset(sim_cells)
+
+            # Query the tree and get all particles associated to each
+            # grid point
+            part_queries, grid_indices = self._tree_query(i, j, k, coords)
+
+            # Calculate 1 + delta for each grid point and store it
+            for part_query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
+                gid = self.get_grid_cellid(iii, jjj, kkk)
+                ind = gid - offset
+                mass = np.sum(self.part_masses[part_query])
+                grid[ind] = (mass / self.kernel_vol) / self.mean_density
 
         # Open the output file
         hdf_out = h5py.File(
             f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}",
             "r+",
         )
-
-        # Need ensure the grid indices
 
         # Write out this rank's grid points
         dset = hdf_out.create_dataset(
@@ -475,15 +503,6 @@ class RegionGenerator:
             "A flattened array containing the overdensity in terms of 1 + delta"
             "for all the grid cells on this rank"
         )
-        dset = hdf_out.create_dataset(
-            "GridPoints",
-            data=grid_indices,
-            shape=grid_indices.shape,
-            dtype=grid_indices.dtype,
-            compression="gzip",
-        )
-        dset.attrs["Units"] = "dimensionless"
-        dset.attrs["Description"] = "The integer cordinates of each grid point"
 
         hdf_out.close()
 
@@ -518,15 +537,12 @@ class RegionGenerator:
                 grp.attrs[key] = hdf_rank0[root_key].attrs[key]
         hdf_rank0.close()
 
-        # Define the full grid shape
-        grid_shape = tuple(self.grid_cdim)
-
         # Create an empty resizable dataset to store the full mass grid.
         # This lets us only load a slice at the time but write a single
         # grid
         dset = hdf_out.create_dataset(
             "OverDensity",
-            shape=grid_shape,
+            shape=self.grid_ncells,
             chunks=True,
             compression="gzip",
         )
@@ -541,39 +557,15 @@ class RegionGenerator:
             )
             hdf_rank = h5py.File(rankfile, "r")
 
-            # Get this rank's grid points
-            grid_points = hdf_rank["GridPoints"][...]
-
             # Get the rank's overdensities
             grid = hdf_rank["OverDensity"][...]
 
-            # H5py is rubbish at indexing so we have get the whole slice
-            # covered by the grid points and assign to that
-            low_i = np.min(grid_points[:, 0])
-            low_j = np.min(grid_points[:, 1])
-            low_k = np.min(grid_points[:, 2])
-            high_i = np.max(grid_points[:, 0]) + 1
-            high_j = np.max(grid_points[:, 1]) + 1
-            high_k = np.max(grid_points[:, 2]) + 1
-            grid_slice = dset[
-                low_i:high_i,
-                low_j:high_j,
-                low_k:high_k,
-            ]
-
-            # Set this rank's grid points in the slice
-            grid_slice[
-                grid_points[:, 0] - low_i,
-                grid_points[:, 1] - low_j,
-                grid_points[:, 2] - low_k,
-            ] = grid
+            # Get this ranks offset and count
+            offset = self.rank_grid_offset[other_rank]
+            count = self.rank_grid_ncells[other_rank]
 
             # Reassign the slice
-            dset[
-                low_i:high_i,
-                low_j:high_j,
-                low_k:high_k,
-            ] = grid_slice
+            dset[offset : offset + count] = grid
 
             hdf_rank.close()
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --ntasks 256
-#SBATCH --cpus-per-task 8
+#SBATCH --cpus-per-task 32
 #SBATCH --array=0-24%4
 #SBATCH -J FLARES2-OVDEN-GRID-L5600N5040
 #SBATCH -o logs/L5600N5040.%J.out
