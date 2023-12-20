@@ -505,7 +505,7 @@ class RegionGenerator:
                         jj = (jj + self.sim_cdim[1]) % self.sim_cdim[1]
                         for kk in range(k - 1, k + 2):
                             kk = (kk + self.sim_cdim[2]) % self.sim_cdim[2]
-                            sim_cells.update(self.get_sim_cellid(ii, jj, kk))
+                            sim_cells.update({self.get_sim_cellid(ii, jj, kk)})
 
             # Get the particle coordinates and masses for these cells, as
             # well as the edge of cid
