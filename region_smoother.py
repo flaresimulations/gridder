@@ -368,8 +368,9 @@ class RegionGenerator:
         hdf.close()
         hdf_out.close()
 
-    def _read_particle_data(self, cid):
-        with h5py.File(self.input_path, "r") as hdf:
+    @staticmethod
+    def _read_particle_data(cid, input_path):
+        with h5py.File(input_path, "r") as hdf:
             # Get the cell look up table data
             offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
             count = hdf["/Cells/Counts/PartType1"][cid]
@@ -391,7 +392,12 @@ class RegionGenerator:
         # Read in the particles from these cells
         with MultiPool(processes=self.nthreads if self.nthreads < 27 else 27) as pool:
             # Use the thread pool to parallelize the task
-            results = list(pool.map(self._read_particle_data, sim_cells))
+            results = list(
+                pool.map(
+                    lambda x: self._read_particle_data(x, self.input_path),
+                    sim_cells,
+                )
+            )
 
         # Sort out the results
         coords = []
