@@ -393,12 +393,7 @@ class RegionGenerator:
         # Read in the particles from these cells
         with MultiPool(processes=nthreads if nthreads < 27 else 27) as pool:
             # Use the thread pool to parallelize the task
-            results = list(
-                pool.map(
-                    lambda x: map_func(x, input_path),
-                    sim_cells,
-                )
-            )
+            results = list(pool.map(map_func, sim_cells, args=(input_path,)))
 
         # Sort out the results
         coords = []
