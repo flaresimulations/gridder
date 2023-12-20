@@ -19,6 +19,7 @@ import h5py
 import numpy as np
 from scipy.spatial import cKDTree
 from mpi4py import MPI
+from schwimmbad import MultiPool
 
 
 class RegionGenerator:
@@ -367,33 +368,39 @@ class RegionGenerator:
         hdf.close()
         hdf_out.close()
 
-    def get_particle_subset(self, sim_cells):
-        """ """
-        # Open the input file and read in the particles from the necessary
-        # cells
-        part_indices = []
+    def _read_particle_data(self, cid):
         with h5py.File(self.input_path, "r") as hdf:
-            while len(sim_cells) > 0:
-                cid = sim_cells.pop(0)
+            # Get the cell look up table data
+            offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
+            count = hdf["/Cells/Counts/PartType1"][cid]
 
-                # Get the cell look up table data
-                offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
-                count = hdf["/Cells/Counts/PartType1"][cid]
+            if count == 0:
+                return []
 
-                if count == 0:
-                    continue
-
-                # Store the indices
-                part_indices.extend(list(range(offset, offset + count)))
-
-            # Sort the particle indices
-            part_indices = np.sort(part_indices)
+            # Store the indices
+            part_indices = list(range(offset, offset + count))
 
             # Read the particle data
-            part_coords = hdf["/PartType1/Coordinates"][part_indices, :]
+            coords = hdf["/PartType1/Coordinates"][part_indices, :]
             masses = hdf["/PartType1/Masses"][part_indices]
 
-        return part_coords, masses
+            return coords, masses
+
+    def get_particle_subset(self, sim_cells):
+        """ """
+        # Read in the particles from these cells
+        with MultiPool(processes=self.nthreads if self.nthreads < 27 else 27) as pool:
+            # Use the thread pool to parallelize the task
+            results = list(pool.map(self._read_particle_data, sim_cells))
+
+        # Sort out the results
+        coords = []
+        masses = []
+        for res in results:
+            coords.extend(res[0])
+            masses.extend(res[1])
+
+        return np.array(coords), np.array(masses)
 
     def _tree_query(self, i, j, k, coords):
         """ """
@@ -404,7 +411,7 @@ class RegionGenerator:
         low_edges = np.array([i, j, k]) * self.sim_width
         high_edges = low_edges + self.sim_width
         lows = np.int64(low_edges / self.grid_width)
-        highs = np.int64(high_edges / self.grid_width)
+        highs = np.int64(np.floor(high_edges / self.grid_width))
 
         # Convert the grid point edges into indices
         ii, jj, kk = np.meshgrid(
@@ -449,9 +456,10 @@ class RegionGenerator:
             dtype=np.float32,
         )
         rank_grid_indices = np.zeros(
-            (self.rank_grid_ncells[self.rank], 3),
+            self.rank_grid_ncells[self.rank],
             dtype=np.int64,
         )
+        print("Guess:", self.rank_grid_ncells[self.rank])
 
         # Loop over SWIFT cells
         ind = 0
@@ -481,6 +489,8 @@ class RegionGenerator:
             # Query the tree and get all particles associated to each
             # grid point
             part_queries, grid_indices = self._tree_query(i, j, k, coords)
+
+            print(grid_indices.shape)
 
             # Calculate 1 + delta for each grid point and store it
             for query, (iii, jjj, kkk) in zip(part_queries, grid_indices):
