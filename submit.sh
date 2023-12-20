@@ -7,10 +7,10 @@
 ntasks=$1
 cpus_per_task=$2
 simulation_name=$3
-simulation_type=$4
-grid_width=$5
-diameters=$6
-batch_size=$7
+simulation_type=DMO_FIDUCIAL
+grid_width=$4
+diameters=$5
+batch_size=$6
 
 # Create a temporary script with correct SBATCH directives
 temp_script=$(mktemp "temp_script_XXXXXX.sh")
