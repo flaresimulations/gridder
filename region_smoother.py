@@ -537,7 +537,9 @@ class RegionGenerator:
                 gids = self.get_grid_cellid(
                     grid_indices[:, 0], grid_indices[:, 1], grid_indices[:, 2]
                 )
-                grid_masses = list(map(lambda inds: np.sum(masses[inds]), part_queries))
+                grid_masses = np.array(
+                    list(map(lambda inds: np.sum(masses[inds]), part_queries))
+                )
                 grid[ind : ind + len(gids)] = (
                     grid_masses / self.kernel_vol
                 ) / self.mean_density
