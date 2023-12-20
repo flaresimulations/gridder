@@ -1,27 +1,23 @@
 #!/bin/bash
+#SBATCH --ntasks $1
+#SBATCH --cpus-per-task $2
+#SBATCH --array=0-24%4
+#SBATCH -J FLARES2-GRID-$3-$4
+#SBATCH -o logs/$3_$4.%A.%a.out
+#SBATCH -p cosma8
+#SBATCH -A dp004
+#SBATCH --exclusive
+#SBATCH -t 8:00:00
 
 # Example usage
 #   sbatch submit.sh 32 8 L5600N5040 DMO_FIDUCIAL 1.0 "2.5 5 15 30"
 
 # Parse command line arguments
-ntasks=$1
-cpus_per_task=$2
 simulation_name=$3
 simulation_type=$4
 grid_width=$5
 diameters=$6
 batch_size=$7
-
-# Update SLURM parameters
-#SBATCH --ntasks $ntasks
-#SBATCH --cpus-per-task $cpus_per_task
-#SBATCH --array=0-24%4
-#SBATCH -J FLARES2-GRID-${simulation_name}-${simulation_type}
-#SBATCH -o logs/${simulation_name}_${simulation_type}.%A.%a.out
-#SBATCH -p cosma8
-#SBATCH -A dp004
-#SBATCH --exclusive
-#SBATCH -t 8:00:00
 
 module purge
 module load python/3.10.12 gnu_comp/10.2.0 openmpi/4.1.1
