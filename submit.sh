@@ -58,13 +58,13 @@ fi
 
 # Your mpirun command with variable filepaths
 mpirun -np \$SLURM_NTASKS python3 generate_regions.py \
-    --input "$input_file" \
-    --output "$output_file" \
-    --nthreads=$SLURM_CPUS_PER_TASK \
-    --kernel_diameters $diameters \
+    --input "\$input_file" \
+    --output "\$output_file" \
+    --nthreads=\$SLURM_CPUS_PER_TASK \
+    --kernel_diameters \$diameters \
     --delete_distributed=1 \
-    --grid_width=$width \
-    --batch_size=$batch_size
+    --grid_width=\$width \
+    --batch_size=\$batch_size
 
 echo "Job done, info follows..."
 sstat --jobs=\${SLURM_JOBID}.batch --format=JobID,MaxRSS,AveCPU,AvePages,AveRSS,AveVMSize
