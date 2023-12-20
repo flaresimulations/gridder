@@ -55,9 +55,7 @@ output_file="\${output_dir}/grid_\${padded_task_id}.hdf5"
 if [ ! -d "\$(dirname "\$output_dir")" ]; then
     mkdir -p "\$(dirname "\$output_dir")"
 fi
-echo $width
-echo "$width"
-echo "\$width"
+
 # Your mpirun command with variable filepaths
 mpirun -np \$SLURM_NTASKS python3 generate_regions.py \
     --input "\$input_file" \
@@ -65,8 +63,8 @@ mpirun -np \$SLURM_NTASKS python3 generate_regions.py \
     --nthreads=\$SLURM_CPUS_PER_TASK \
     --kernel_diameters "$diameters" \
     --delete_distributed=1 \
-    --grid_width="\$width" \
-    --batch_size=\$batch_size
+    --grid_width="$width" \
+    --batch_size=$batch_size
 
 echo "Job done, info follows..."
 sstat --jobs=\${SLURM_JOBID}.batch --format=JobID,MaxRSS,AveCPU,AvePages,AveRSS,AveVMSize
