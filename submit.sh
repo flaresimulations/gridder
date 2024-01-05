@@ -31,7 +31,7 @@ cat <<EOL > "$temp_script"
 #SBATCH -p cosma8
 #SBATCH -A dp004
 #SBATCH --exclusive
-#SBATCH -t 8:00:00
+#SBATCH -t 72:00:00
 
 module purge
 module load python/3.10.12 gnu_comp/10.2.0 openmpi/4.1.1
