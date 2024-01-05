@@ -564,7 +564,7 @@ class RegionGenerator:
 
         # We need have sorted indexes for the combination step to work
         sinds = np.argsort(rank_grid_indices)
-        rank_grid_indices = grid_indices[sinds]
+        rank_grid_indices = rank_grid_indices[sinds]
         grid = grid[sinds]
 
         # Write out this rank's grid points
