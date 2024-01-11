@@ -497,6 +497,7 @@ class RegionGenerator:
             grid = np.zeros(tuple(self.grid_cdim_per_cell), dtype=np.float32)
             print(grid.shape)
             print(grid_ovdens.shape)
+            print(grid_indices.shape)
             grid[grid_indices] = grid_ovdens
 
             # Now store it in the rank file in a group for this cell
