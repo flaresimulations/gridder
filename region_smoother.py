@@ -468,7 +468,6 @@ class RegionGenerator:
             )
 
             # Construct the tree for these cells
-            print(coords)
             tree = cKDTree(coords, boxsize=self.boxsize)
 
             # Get the actucal grid point positions
@@ -496,6 +495,8 @@ class RegionGenerator:
 
             # Store the overdensities in a 3D array
             grid = np.zeros(tuple(self.grid_cdim_per_cell), dtype=np.float32)
+            print(grid.shape)
+            print(grid_ovdens.shape)
             grid[grid_indices] = grid_ovdens
 
             # Now store it in the rank file in a group for this cell
