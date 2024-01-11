@@ -14,13 +14,11 @@ reading simulation metadata, generating overdensity grids from HDF5 simulation d
 combining distributed files, and more.
 """
 import os
-
+from functools import lru_cache
 import h5py
 import numpy as np
 from scipy.spatial import cKDTree
 from mpi4py import MPI
-from schwimmbad import MultiPool
-from functools import partial
 
 
 class RegionGenerator:
@@ -372,26 +370,33 @@ class RegionGenerator:
                 for key in hdf["Units"].attrs.keys():
                     units.attrs[key] = hdf["Units"].attrs[key]
 
-    @staticmethod
-    def _read_particle_data(input_path, cids):
+    @lru_cache(maxsize=100)
+    def _single_cell_read(self, hdf, cid):
+        # Get the cell look up table data
+        offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
+        count = hdf["/Cells/Counts/PartType1"][cid]
+
+        if count == 0:
+            continue
+
+        # Store the indices
+        part_indices = list(range(offset, offset + count))
+
+        return (
+            hdf["/PartType1/Coordinates"][part_indices, :],
+            hdf["/PartType1/Masses"][part_indices],
+        )
+
+    def _read_particle_data(self, input_path, cids):
         coords = []
         masses = []
         with h5py.File(input_path, "r") as hdf:
             # Loop over the cells we need particles from
             for cid in cids:
-                # Get the cell look up table data
-                offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
-                count = hdf["/Cells/Counts/PartType1"][cid]
-
-                if count == 0:
-                    continue
-
-                # Store the indices
-                part_indices = list(range(offset, offset + count))
-
                 # Read the particle data
-                coords.extend(hdf["/PartType1/Coordinates"][part_indices, :])
-                masses.extend(hdf["/PartType1/Masses"][part_indices])
+                cell_coords, cell_masses = self._single_cell_read(hdf, cid)
+                coords.extend(cell_coords)
+                masses.extend(cell_masses)
 
         return np.array(coords), np.array(masses)
 
