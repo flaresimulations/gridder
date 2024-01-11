@@ -377,7 +377,7 @@ class RegionGenerator:
         count = hdf["/Cells/Counts/PartType1"][cid]
 
         if count == 0:
-            continue
+            return [], []
 
         # Store the indices
         part_indices = list(range(offset, offset + count))
