@@ -370,7 +370,7 @@ class RegionGenerator:
                 for key in hdf["Units"].attrs.keys():
                     units.attrs[key] = hdf["Units"].attrs[key]
 
-    @lru_cache(maxsize=100)
+    @lru_cache(maxsize=1000)
     def _single_cell_read(self, hdf, cid):
         """
         Get the particles from a single cell.
