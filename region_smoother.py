@@ -468,6 +468,7 @@ class RegionGenerator:
             )
 
             # Construct the tree for these cells
+            print(coords)
             tree = cKDTree(coords, boxsize=self.boxsize)
 
             # Get the actucal grid point positions
