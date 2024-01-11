@@ -83,13 +83,6 @@ def main():
         help="The number of threads to use within a rank",
         default=1,
     )
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        help="How many SWIFT cells to read and process at a time. "
-        "If negative all cells on a rank will be done in a single batch",
-        default=100,
-    )
     args = parser.parse_args()
 
     # Get the grid for each kernel width passed on the command line
@@ -99,7 +92,9 @@ def main():
     for kernel_width in args.kernel_diameters:
         if rank == 0:
             print()
-            print(f"+++++++++++ Gridding for {kernel_width:.2f} kernel +++++++++++")
+            print(
+                f"+++++++++++ Gridding for {kernel_width:.2f} kernel +++++++++++"
+            )
             print()
 
         # Create the grid instance
@@ -122,7 +117,9 @@ def main():
         gridder.get_grid()
         comm.Barrier()
         if rank == 0:
-            print(f"Computing overdensities took {time.time() - start} seconds")
+            print(
+                f"Computing overdensities took {time.time() - start} seconds"
+            )
             start = time.time()
             gridder.combine_distributed_files(
                 delete_distributed=args.delete_distributed,
