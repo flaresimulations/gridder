@@ -372,6 +372,12 @@ class RegionGenerator:
 
     @lru_cache(maxsize=100)
     def _single_cell_read(self, hdf, cid):
+        """
+        Get the particles from a single cell.
+
+        This uses a cache to remember cells recently read and avoid
+        unnecessary IO.
+        """
         # Get the cell look up table data
         offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
         count = hdf["/Cells/Counts/PartType1"][cid]
