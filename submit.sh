@@ -41,7 +41,7 @@ source /cosma8/data/dp004/dc-rope1/envs/flares-env/bin/activate
 
 # Set your base directory
 base_dir="/cosma8/data/dp004/flamingo/Runs/${simulation_name}/${simulation_type}/snapshots"
-output_dir="../gridded_data/FLAMINGO/${simulation_name}/${simulation_type}"
+output_dir="/snap8/scratch/dp004/dc-rope1/FLARES-2/gridded_data/FLAMINGO/${simulation_name}/${simulation_type}"
 
 # Get the padded SLURM_ARRAY_TASK_ID
 padded_task_id=\$(printf "%04d" \$SLURM_ARRAY_TASK_ID)
