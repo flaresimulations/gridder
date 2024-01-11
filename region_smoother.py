@@ -401,7 +401,7 @@ class RegionGenerator:
             # Loop over the cells we need particles from
             for cid in cids:
                 # Read the particle data
-                cell_coords, cell_masses = _single_cell_read(hdf, cid)
+                cell_coords, cell_masses = _single_cell_read(cid)
                 coords.extend(cell_coords)
                 masses.extend(cell_masses)
 
