@@ -370,37 +370,38 @@ class RegionGenerator:
                 for key in hdf["Units"].attrs.keys():
                     units.attrs[key] = hdf["Units"].attrs[key]
 
-    @lru_cache(maxsize=1000)
-    def _single_cell_read(self, hdf, cid):
-        """
-        Get the particles from a single cell.
-
-        This uses a cache to remember cells recently read and avoid
-        unnecessary IO.
-        """
-        # Get the cell look up table data
-        offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
-        count = hdf["/Cells/Counts/PartType1"][cid]
-
-        if count == 0:
-            return [], []
-
-        # Store the indices
-        part_indices = list(range(offset, offset + count))
-
-        return (
-            hdf["/PartType1/Coordinates"][part_indices, :],
-            hdf["/PartType1/Masses"][part_indices],
-        )
-
     def _read_particle_data(self, input_path, cids):
         coords = []
         masses = []
         with h5py.File(input_path, "r") as hdf:
+
+            @lru_cache(maxsize=1000)
+            def _single_cell_read(cid):
+                """
+                Get the particles from a single cell.
+
+                This uses a cache to remember cells recently read and avoid
+                unnecessary IO.
+                """
+                # Get the cell look up table data
+                offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
+                count = hdf["/Cells/Counts/PartType1"][cid]
+
+                if count == 0:
+                    return [], []
+
+                # Store the indices
+                part_indices = list(range(offset, offset + count))
+
+                return (
+                    hdf["/PartType1/Coordinates"][part_indices, :],
+                    hdf["/PartType1/Masses"][part_indices],
+                )
+
             # Loop over the cells we need particles from
             for cid in cids:
                 # Read the particle data
-                cell_coords, cell_masses = self._single_cell_read(hdf, cid)
+                cell_coords, cell_masses = _single_cell_read(hdf, cid)
                 coords.extend(cell_coords)
                 masses.extend(cell_masses)
 
