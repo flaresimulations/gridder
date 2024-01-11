@@ -96,7 +96,6 @@ class RegionGenerator:
         region_grid_width,
         kernel_width,
         nthreads=1,
-        batch_size=100,
     ):
         """
         Initialize the region generator.
@@ -148,7 +147,7 @@ class RegionGenerator:
         self.grid_cdim = None
         self.grid_cell_volume = None
         self.grid_ncells = None
-        self.ncells_grid_in_sim = None
+        self.grid_cdim_per_cell = None
 
         # Define kernel properties
         self.kernel_width = kernel_width
@@ -162,13 +161,12 @@ class RegionGenerator:
         self.rank_cells = None
         self.rank_ncells = None
         self.rank_grid_ncells = None
+        self.rank_cells_low = None
+        self.rank_cells_high = None
 
         assert (
             self.grid_width[0] < self.kernel_rad
         ), "grid spacing must be less than the kernel radius"
-
-        # Store the batch size we'll use for reading cells
-        self.batch_size = batch_size
 
     def _setup_mpi(self):
         """
@@ -183,18 +181,16 @@ class RegionGenerator:
         Read simulation metadata and calculate grid properties.
         """
 
-        hdf = h5py.File(self.input_path, "r")
-
-        # Read simulation metadata
-        self.boxsize = hdf["Header"].attrs["BoxSize"]
-        self.redshift = hdf["Header"].attrs["Redshift"]
-        self.nparts = hdf["/PartType1/Masses"].size
-        self.pmass = hdf["Header"].attrs["InitialMassTable"][1]
-        self.sim_cdim = hdf["Cells/Meta-data"].attrs["dimension"]
-        self.sim_ncells = hdf["/Cells/Meta-data"].attrs["nr_cells"]
-        self.sim_width = hdf["Cells/Meta-data"].attrs["size"]
-        self.half_sim_width = self.sim_width / 2
-        hdf.close()
+        with h5py.File(self.input_path, "r") as hdf:
+            # Read simulation metadata
+            self.boxsize = hdf["Header"].attrs["BoxSize"]
+            self.redshift = hdf["Header"].attrs["Redshift"]
+            self.nparts = hdf["/PartType1/Masses"].size
+            self.pmass = hdf["Header"].attrs["InitialMassTable"][1]
+            self.sim_cdim = hdf["Cells/Meta-data"].attrs["dimension"]
+            self.sim_ncells = np.prod(self.sim_cdim)
+            self.sim_width = hdf["Cells/Meta-data"].attrs["size"]
+            self.half_sim_width = self.sim_width / 2
 
         # Calculate the (comoving) mean density of the universe in
         # 10 ** 10 Msun / Mpc ** 3
@@ -204,16 +200,22 @@ class RegionGenerator:
         )
 
         # Compute the grid cell properties
-        self.ncells_grid_in_sim = np.int64(self.sim_width / self.grid_width) + 1
-        self.grid_cdim = self.ncells_grid_in_sim * self.sim_cdim
+        self.grid_cdim_per_cell = (
+            np.int64(self.sim_width / self.grid_width) + 1
+        )
+        self.grid_cdim = self.grid_cdim_per_cell * self.sim_cdim
         self.grid_width = self.boxsize / self.grid_cdim
         self.grid_cell_volume = (
             self.grid_width[0] * self.grid_width[1] * self.grid_width[2]
         )
-        self.grid_ncells = self.grid_cdim[0] * self.grid_cdim[1] * self.grid_cdim[2]
+        self.grid_ncells = (
+            self.grid_cdim[0] * self.grid_cdim[1] * self.grid_cdim[2]
+        )
 
         if self.grid_cdim[0] == 0:
-            raise ValueError("Found 0 grid cells, decrease the grid cell width")
+            raise ValueError(
+                "Found 0 grid cells, decrease the grid cell width"
+            )
 
         if self.rank == 0:
             print("PARENT METADATA:")
@@ -234,7 +236,7 @@ class RegionGenerator:
             )
             print("Grid CDim:", self.grid_cdim)
             print("N Grid cells:", self.grid_ncells)
-            print("N Grid cells in SWIFT cell", self.ncells_grid_in_sim)
+            print("N Grid cells in SWIFT cell", self.grid_cdim_per_cell)
             print()
 
     def get_grid_cell_ijk(self, cid):
@@ -318,7 +320,7 @@ class RegionGenerator:
         # Split theSWIFT cells amongst all ranks
         self.rank_cells = np.linspace(
             0,
-            self.sim_ncells[0],
+            self.sim_ncells,
             self.nranks + 1,
             dtype=int,
         )
@@ -326,11 +328,9 @@ class RegionGenerator:
         # How many SWIFT cells are on each rank?
         self.rank_ncells = self.rank_cells[1:] - self.rank_cells[:-1]
 
-        # And how many grid cells does this correspond to?
-        self.rank_grid_ncells = self.rank_ncells * np.prod(self.ncells_grid_in_sim)
-
-        # And get the grid point offsets for each of these grid points
-        self.rank_grid_offset = np.cumsum(self.rank_grid_ncells)
+        # Get this ranks cells
+        self.my_cells_low = self.rank_cells[self.rank]
+        self.my_cells_high = self.rank_cells[self.rank + 1]
 
     def _create_rank_output(self):
         """
@@ -338,127 +338,62 @@ class RegionGenerator:
         """
 
         # Create the output file
-        hdf_out = h5py.File(
-            f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}",
+        with h5py.File(
+            f"{self.out_dir}{self.out_basename}_rank{self.rank}"
+            f".{self.out_ext}",
             "w",
-        )
+        ) as hdf_out:
+            # Write out attributes about the parent simulation
+            parent = hdf_out.create_group("Parent")
+            parent.attrs["Boxsize"] = self.boxsize
+            parent.attrs["Redshift"] = self.redshift
+            parent.attrs["Npart"] = self.nparts
+            parent.attrs["CDim"] = self.sim_cdim
+            parent.attrs["CellWidth"] = self.sim_width
+            parent.attrs["DMMass"] = self.pmass
+            parent.attrs["MeanDensity"] = self.mean_density
 
-        # Write out attributes about the parent simulation
-        parent = hdf_out.create_group("Parent")
-        parent.attrs["Boxsize"] = self.boxsize
-        parent.attrs["Redshift"] = self.redshift
-        parent.attrs["Npart"] = self.nparts
-        parent.attrs["CDim"] = self.sim_cdim
-        parent.attrs["CellWidth"] = self.sim_width
-        parent.attrs["DMMass"] = self.pmass
-        parent.attrs["MeanDensity"] = self.mean_density
+            # Write out grid attributes
+            ovden_grid_grp = hdf_out.create_group("Grid")
+            ovden_grid_grp.attrs["CellWidth"] = self.grid_width
+            ovden_grid_grp.attrs["CellVolume"] = self.grid_cell_volume
+            ovden_grid_grp.attrs["CDim"] = self.grid_cdim
+            ovden_grid_grp.attrs["KernelWidth"] = self.kernel_width
+            ovden_grid_grp.attrs["KernelRadius"] = self.kernel_rad
+            ovden_grid_grp.attrs["KernelVolume"] = self.kernel_vol
 
-        # Write out grid attributes
-        ovden_grid_grp = hdf_out.create_group("Grid")
-        ovden_grid_grp.attrs["CellWidth"] = self.grid_width
-        ovden_grid_grp.attrs["CellVolume"] = self.grid_cell_volume
-        ovden_grid_grp.attrs["CDim"] = self.grid_cdim
-        ovden_grid_grp.attrs["KernelWidth"] = self.kernel_width
-        ovden_grid_grp.attrs["KernelRadius"] = self.kernel_rad
-        ovden_grid_grp.attrs["KernelVolume"] = self.kernel_vol
+            # Make the group to hold cell grid points
+            hdf_out.create_group("CellGrids")
 
-        # Open the input file
-        hdf = h5py.File(self.input_path, "r")
-
-        # Store some unit information
-        units = hdf_out.create_group("Units")
-        for key in hdf["Units"].attrs.keys():
-            units.attrs[key] = hdf["Units"].attrs[key]
-
-        hdf.close()
-        hdf_out.close()
+            # Open the input file
+            with h5py.File(self.input_path, "r") as hdf:
+                # Store some unit information
+                units = hdf_out.create_group("Units")
+                for key in hdf["Units"].attrs.keys():
+                    units.attrs[key] = hdf["Units"].attrs[key]
 
     @staticmethod
-    def _read_particle_data(input_path, cid):
-        with h5py.File(input_path, "r") as hdf:
-            # Get the cell look up table data
-            offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
-            count = hdf["/Cells/Counts/PartType1"][cid]
-
-            if count == 0:
-                return [], []
-
-            # Store the indices
-            part_indices = list(range(offset, offset + count))
-
-            # Read the particle data
-            coords = hdf["/PartType1/Coordinates"][part_indices, :]
-            masses = hdf["/PartType1/Masses"][part_indices]
-
-        return coords, masses
-
-    @staticmethod
-    def _get_particle_subset(sim_cells, nthreads, map_func, input_path):
-        """ """
-        # Read in the particles from these cells
-        with MultiPool(processes=nthreads) as pool:
-            # Use the thread pool to parallelize the task
-            results = list(pool.map(partial(map_func, input_path), sim_cells))
-
-        # Sort out the results
+    def _read_particle_data(input_path, cids):
         coords = []
         masses = []
-        for res in results:
-            coords.extend(res[0])
-            masses.extend(res[1])
+        with h5py.File(input_path, "r") as hdf:
+            # Loop over the cells we need particles from
+            for cid in cids:
+                # Get the cell look up table data
+                offset = hdf["/Cells/OffsetsInFile/PartType1"][cid]
+                count = hdf["/Cells/Counts/PartType1"][cid]
+
+                if count == 0:
+                    return [], []
+
+                # Store the indices
+                part_indices = list(range(offset, offset + count))
+
+                # Read the particle data
+                coords.extend(hdf["/PartType1/Coordinates"][part_indices, :])
+                masses.extend(hdf["/PartType1/Masses"][part_indices])
 
         return np.array(coords), np.array(masses)
-
-    def _tree_query(self, i, j, k, tree):
-        """ """
-
-        # Now we need to get the grid points at the edges
-        low_edges = np.array([i, j, k]) * self.sim_width
-        lows = np.int64(np.floor(low_edges / self.grid_width))
-
-        # Convert the grid point edges into indices
-        ii, jj, kk = np.meshgrid(
-            np.linspace(
-                lows[0],
-                lows[0] + self.ncells_grid_in_sim[0] - 1,
-                self.ncells_grid_in_sim[0],
-                dtype=int,
-            ),
-            np.linspace(
-                lows[1],
-                lows[1] + self.ncells_grid_in_sim[1] - 1,
-                self.ncells_grid_in_sim[1],
-                dtype=int,
-            ),
-            np.linspace(
-                lows[2],
-                lows[2] + self.ncells_grid_in_sim[2] - 1,
-                self.ncells_grid_in_sim[2],
-                dtype=int,
-            ),
-        )
-        grid_indices = np.zeros((ii.size, 3), dtype=int)
-        grid_indices[:, 0] = ii.flatten()
-        grid_indices[:, 1] = jj.flatten()
-        grid_indices[:, 2] = kk.flatten()
-
-        # Convert the indices into coordinates
-        grid_coords = (
-            np.array(
-                grid_indices,
-                dtype=np.float32,
-            )
-            + 0.5
-        ) * self.grid_width
-
-        # Query the tree
-        part_queries = tree.query_ball_point(
-            grid_coords,
-            r=self.kernel_rad,
-            workers=self.nthreads,
-        )
-
-        return part_queries, grid_indices
 
     def get_grid(self):
         """
@@ -468,129 +403,121 @@ class RegionGenerator:
         # Create the output file and populate the attributes we need
         self._create_rank_output()
 
-        # Set up the grid for this rank's slice
-        grid = np.zeros(
-            self.rank_grid_ncells[self.rank],
-            dtype=np.float32,
-        )
-        rank_grid_indices = np.zeros(
-            self.rank_grid_ncells[self.rank],
-            dtype=np.int64,
-        )
-
-        # We need to keep track of the ind we are writing to
-        ind = 0
-
-        # Do the cells in batches of roughly batch_size, if batch_size
-        # is larger than the number of cells on this rank or negative we'll
-        # just do them all at once
-        if self.batch_size < 0 or self.rank_ncells[self.rank] < self.batch_size:
-            np.array([0, self.rank_ncells[self.rank]])
-        else:
-            batches = np.linspace(
+        # Make a set of grid indices for a single simulation cell,
+        ii, jj, kk = np.meshgrid(
+            np.linspace(
                 0,
-                self.rank_ncells[self.rank],
-                self.rank_ncells[self.rank] // self.batch_size + 1,
+                self.grid_cdim_per_cell[0] - 1,
+                self.grid_cdim_per_cell[0],
                 dtype=int,
+            ),
+            np.linspace(
+                0,
+                self.grid_cdim_per_cell[1] - 1,
+                self.grid_cdim_per_cell[1],
+                dtype=int,
+            ),
+            np.linspace(
+                0,
+                self.grid_cdim_per_cell[2] - 1,
+                self.grid_cdim_per_cell[2],
+                dtype=int,
+            ),
+        )
+        grid_indices = np.zeros((ii.size, 3), dtype=int)
+        grid_indices[:, 0] = ii.flatten()
+        grid_indices[:, 1] = jj.flatten()
+        grid_indices[:, 2] = kk.flatten()
+
+        # Convert the indices into coordinates, we'll shift this
+        # for each cell below
+        grid_coords = (
+            np.array(
+                grid_indices,
+                dtype=np.float32,
             )
+            + 0.5
+        ) * self.grid_width
 
         # Define how many cells we need to walk out
         delta_ijk = int(np.floor(self.kernel_rad / self.sim_width[0])) + 1
 
-        # Loop over batches
-        for low_cid, high_cid in zip(batches[:-1], batches[1:]):
-            # Define a set to hold which cells we need to load
-            sim_cells = set()
+        # Loop over SWIFT cells, for each cell we'll get the neighbouring
+        # cells, get their particles, construct a tree, populate the grid,
+        # and finally write that subgrid to a HDF5 group
+        for cid in range(self.my_cells_low, self.my_cells_high):
+            # Get the simulation integer coordinates of this cell
+            i, j, k = self.get_sim_cell_ijk(cid)
 
-            # Loop over SWIFT cells in this batch
-            for my_cid in range(low_cid, high_cid):
-                # Get the true cell index
-                cid = my_cid + self.rank_cells[self.rank]
+            # Get a list of the cells we'll need
+            sim_cells = []
 
-                # Get the simulation integer coordinates of this cell
-                i, j, k = self.get_sim_cell_ijk(cid)
-
-                # Get the neighbouring cells
-                for ii in range(i - delta_ijk, i + delta_ijk + 1):
-                    ii = (ii + self.sim_cdim[0]) % self.sim_cdim[0]
-                    for jj in range(j - delta_ijk, j + delta_ijk + 1):
-                        jj = (jj + self.sim_cdim[1]) % self.sim_cdim[1]
-                        for kk in range(k - delta_ijk, k + delta_ijk + 1):
-                            kk = (kk + self.sim_cdim[2]) % self.sim_cdim[2]
-                            sim_cells.update({self.get_sim_cellid(ii, jj, kk)})
+            # Get the neighbouring cells out to a distance covered by the kernel
+            for ii in range(i - delta_ijk, i + delta_ijk + 1):
+                ii = (ii + self.sim_cdim[0]) % self.sim_cdim[0]
+                for jj in range(j - delta_ijk, j + delta_ijk + 1):
+                    jj = (jj + self.sim_cdim[1]) % self.sim_cdim[1]
+                    for kk in range(k - delta_ijk, k + delta_ijk + 1):
+                        kk = (kk + self.sim_cdim[2]) % self.sim_cdim[2]
+                        sim_cells.update({self.get_sim_cellid(ii, jj, kk)})
 
             # Get the particle coordinates and masses for these cells, as
             # well as the edge of cid
-            coords, masses = self._get_particle_subset(
-                list(sim_cells),
-                self.nthreads,
-                self._read_particle_data,
-                self.input_path,
+            coords, masses = self._read_particle_data(
+                self.input_path, sim_cells
             )
 
             # Construct the tree for these cells
             tree = cKDTree(coords, boxsize=self.boxsize)
 
-            # Loop over SWIFT cells in this batch
-            for my_cid in range(low_cid, high_cid):
-                # Get the true cell index
-                cid = my_cid + self.rank_cells[self.rank]
+            # Get the actucal grid point positions
+            this_grid_coords = grid_coords + np.array(
+                [
+                    i * self.sim_width[0],
+                    j * self.sim_width[1],
+                    k * self.sim_width[2],
+                ]
+            )
 
-                # Get the simulation integer coordinates of this cell
-                i, j, k = self.get_sim_cell_ijk(cid)
+            # Query the tree and get all particles associated to each
+            # grid point
+            part_queries = tree.query_ball_point(
+                this_grid_coords,
+                r=self.kernel_rad,
+                workers=self.nthreads,
+            )
 
-                # Query the tree and get all particles associated to each
-                # grid point
-                part_queries, grid_indices = self._tree_query(i, j, k, tree)
+            # Calculate 1 + delta for each grid point and store it
+            grid_masses = np.array(
+                list(map(lambda inds: np.sum(masses[inds]), part_queries))
+            )
+            grid_ovdens = (grid_masses / self.kernel_vol) / self.mean_density
 
-                # Calculate 1 + delta for each grid point and store it
-                gids = self.get_grid_cellid(
-                    grid_indices[:, 0], grid_indices[:, 1], grid_indices[:, 2]
+            # Store the overdensities in a 3D array
+            grid = np.zeros(tuple(self.grid_cdim_per_cell), dtype=np.float32)
+            grid[grid_indices] = grid_ovdens
+
+            # Now store it in the rank file in a group for this cell
+            with h5py.File(
+                f"{self.out_dir}{self.out_basename}_rank{self.rank}"
+                f".{self.out_ext}",
+                "r+",
+            ) as hdf_out:
+                cell_grp = hdf_out["CellGrids"].create_group(f"{i}_{j}_{k}")
+
+                # Write out this rank's grid points
+                dset = cell_grp.create_dataset(
+                    "OverDensity",
+                    data=grid,
+                    shape=grid.shape,
+                    dtype=grid.dtype,
+                    compression="gzip",
                 )
-                grid_masses = np.array(
-                    list(map(lambda inds: np.sum(masses[inds]), part_queries))
+                dset.attrs["Units"] = "dimensionless"
+                dset.attrs["Description"] = (
+                    "An array containing the overdensity in terms of 1 + delta"
+                    "for a SWIFT simulation cell."
                 )
-                grid[ind : ind + len(gids)] = (
-                    grid_masses / self.kernel_vol
-                ) / self.mean_density
-                rank_grid_indices[ind : ind + len(gids)] = gids
-                ind += len(gids)
-
-        # Open the output file
-        hdf_out = h5py.File(
-            f"{self.out_dir}{self.out_basename}_rank{self.rank}.{self.out_ext}",
-            "r+",
-        )
-
-        # We need have sorted indexes for the combination step to work
-        sinds = np.argsort(rank_grid_indices)
-        rank_grid_indices = rank_grid_indices[sinds]
-        grid = grid[sinds]
-
-        # Write out this rank's grid points
-        dset = hdf_out.create_dataset(
-            "OverDensity",
-            data=grid,
-            shape=grid.shape,
-            dtype=grid.dtype,
-            compression="gzip",
-        )
-        dset.attrs["Units"] = "dimensionless"
-        dset.attrs["Description"] = (
-            "A flattened array containing the overdensity in terms of 1 + delta"
-            "for all the grid cells on this rank"
-        )
-        dset = hdf_out.create_dataset(
-            "GridIndices",
-            data=rank_grid_indices,
-            shape=rank_grid_indices.shape,
-            dtype=rank_grid_indices.dtype,
-            compression="gzip",
-        )
-        dset.attrs["Units"] = "dimensionless"
-        dset.attrs["Description"] = "The flattened grid index of each grid point"
-
-        hdf_out.close()
 
     def combine_distributed_files(self, delete_distributed=False):
         """
@@ -604,7 +531,6 @@ class RegionGenerator:
                 Whether to remove the distributed
                 files as they are processed. Defaults to False.
         """
-
         # Early exit if were not on rank 0
         if self.rank != 0:
             return
@@ -614,49 +540,65 @@ class RegionGenerator:
         hdf_rank0 = h5py.File(rank0file, "r")
 
         # Create the single output file
-        hdf_out = h5py.File(f"{self.out_dir}{self.out_basename}.{self.out_ext}", "w")
+        hdf_out = h5py.File(
+            f"{self.out_dir}{self.out_basename}.{self.out_ext}", "w"
+        )
 
-        # Loop over all root keys apart from the mass grid itself
-        for root_key in {key for key in hdf_rank0.keys()} - set(
-            ["OverDensity", "GridIndices"]
-        ):
+        # Loop over all root keys apart from the overdensity grids themselves
+        for root_key in {key for key in hdf_rank0.keys()} - set(["CellGrids"]):
             grp = hdf_out.create_group(root_key)
             for key in hdf_rank0[root_key].attrs.keys():
                 grp.attrs[key] = hdf_rank0[root_key].attrs[key]
         hdf_rank0.close()
 
-        # Create an empty resizable dataset to store the full mass grid.
-        # This lets us only load a slice at the time but write a single
-        # grid
-        dset = hdf_out.create_dataset(
-            "OverDensity",
-            shape=self.grid_ncells,
-            chunks=True,
-            compression="gzip",
-        )
-        dset.attrs["Units"] = "dimensionless"
-        dset.attrs["Description"] = (
-            "A flattened 3D grid of overdensities in terms of 1 + delta. "
-            "The multidimensional shape of this array "
-            "is given by hdf['Grid'].attrs['Cdim']"
+        # Create the group for each SWIFT cell's grid points
+        cell_grids_grp = hdf_out.create_group("CellGrids")
+        cell_grids_grp.attrs["Description"] = (
+            "This group contains an overdensity grid split into each "
+            "individual SWIFT cell. To extract a grid point's overdensity "
+            "You need to first find the SWIFT cell the point is inside and "
+            "then find the grid point relative to the the edge of the cell. "
+            "A function for doing this is available in region_tools.py"
         )
 
-        # Loop over the other ranks adding their grid cells to the array
+        # Loop over all ranks adding their grid points to the file
         for other_rank in range(self.nranks):
             # Open this ranks file
             rankfile = (
-                f"{self.out_dir}{self.out_basename}_rank{other_rank}.{self.out_ext}"
+                f"{self.out_dir}{self.out_basename}_rank{other_rank}"
+                f".{self.out_ext}"
             )
             hdf_rank = h5py.File(rankfile, "r")
 
-            # Get the rank's overdensities
-            grid = hdf_rank["OverDensity"][...]
+            # Get the cell grids group
+            other_cell_grid_grp = hdf_rank["CellGrids"]
 
-            # And get the indices of these values
-            grid_indices = hdf_rank["rank"]["GridIndices"][...]
+            # Loop over the cells adding their grid to the file
+            for key in other_cell_grid_grp.keys():
+                this_grid = other_cell_grid_grp[key]["OverDensity"][:]
+                cell_grp = cell_grids_grp.create_group(key)
+                dset = cell_grp.create_dataset(
+                    "OverDensity",
+                    data=this_grid,
+                    shape=this_grid.shape,
+                    dtype=this_grid.dtype,
+                    compression="gzip",
+                )
+                dset.attrs["Units"] = "dimensionless"
+                dset.attrs["Description"] = (
+                    "An array containing the overdensity in terms of 1 + delta"
+                    "for a SWIFT simulation cell."
+                )
 
-            # Reassign the slice
-            dset[grid_indices] = grid
+                # Include the edge of this cell for ease of use later
+                i, j, k = [int(n) for n in key.split("_")]
+                cell_grp.attrs["CellEdge"] = np.array(
+                    [
+                        i * self.sim_width[0],
+                        j * self.sim_width[1],
+                        k * self.sim_width[2],
+                    ]
+                )
 
             hdf_rank.close()
 
