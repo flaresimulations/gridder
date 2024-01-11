@@ -446,7 +446,10 @@ class RegionGenerator:
         # cells, get their particles, construct a tree, populate the grid,
         # and finally write that subgrid to a HDF5 group
         for cid in range(self.my_cells_low, self.my_cells_high):
-            print(self.rank, f"On {cid/self.my_cells_high}")
+            print(
+                self.rank,
+                f"{(cid - self.my_cells_low)/(self.my_cells_high - self.my_cells_low) * 100}%",
+            )
             # Get the simulation integer coordinates of this cell
             i, j, k = self.get_sim_cell_ijk(cid)
 
