@@ -91,37 +91,4 @@ public:
   }
 };
 
-void getGridPoints(std::vector<std::unique_ptr<GridPoint>> &grid_points) {
-
-  // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
-
-  // Get the grid size and simulation box size
-  int grid_cdim = metadata.grid_cdim;
-  double *dim = metadata.dim;
-
-  // Warn the user the spacing will be uneven if the simulation isn't cubic
-  if (dim[0] != dim[1] || dim[0] != dim[2]) {
-    message("Warning: The simulation box is not cubic. The grid spacing "
-            "will be uneven. (dim= %f %f %f)",
-            dim[0], dim[1], dim[2]);
-  }
-
-  // Compute the grid spacing
-  double grid_spacing[3] = {dim[0] / grid_cdim, dim[1] / grid_cdim,
-                            dim[2] / grid_cdim};
-
-  // Create the grid points
-  for (int i = 0; i < grid_cdim; i++) {
-    for (int j = 0; j < grid_cdim; j++) {
-      for (int k = 0; k < grid_cdim; k++) {
-        double loc[3] = {(i + 0.5) * grid_spacing[0],
-                         (j + 0.5) * grid_spacing[1],
-                         (k + 0.5) * grid_spacing[2]};
-        grid_points.push_back(std::make_unique<GridPoint>(loc));
-      }
-    }
-  }
-}
-
 #endif // GRID_POINT_HPP

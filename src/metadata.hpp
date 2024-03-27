@@ -24,6 +24,9 @@ public:
     return instance;
   }
 
+  // MPI information
+  int rank;
+
   // HDF5 file paths
   std::string input_file;
   std::string output_file;

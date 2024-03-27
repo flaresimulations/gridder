@@ -14,6 +14,7 @@
 
 // Local includes
 #include "cell.hpp"
+#include "grid_point.hpp"
 #include "logger.hpp"
 #include "metadata.hpp"
 #include "params.hpp"
@@ -42,6 +43,7 @@ int main(int argc, char *argv[]) {
 
   // Set the MPI rank of the logger
   Logging::getInstance()->setRank(rank);
+  Metadata::getInstance().rank = rank;
 
   if (rank == 0) {
     message("Running on %d MPI ranks", size);
@@ -101,7 +103,8 @@ int main(int argc, char *argv[]) {
     toc("Setting all cells to rank 0");
   }
 
-  // Right, now we can finally associate particles to grid points.
+  // Now we know which cells are where we can make the grid points, and assign
+  // them and the particles to the cells
   tic();
   try {
     assignPartsAndPointsToCells(cells);

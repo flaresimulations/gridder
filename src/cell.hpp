@@ -272,6 +272,26 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
   hdf.close();
 }
 
+// Get the cell that contains a given point
+std::shared_ptr<Cell>
+getCellContainingPoint(const std::vector<std::shared_ptr<Cell>> &cells,
+                       const double pos[3]) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Get the cell index
+  int i = static_cast<int>(pos[0] / metadata.width[0]);
+  int j = static_cast<int>(pos[1] / metadata.width[1]);
+  int k = static_cast<int>(pos[2] / metadata.width[2]);
+
+  // Get the cell index
+  int cid = i * metadata.cdim[1] * metadata.cdim[2] + j * metadata.cdim[2] + k;
+
+  // Return the cell
+  return cells[cid];
+}
+
 void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
 
   // Get the metadata
@@ -292,12 +312,16 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
   // Loop over cells attaching particles and grid points
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
+    // Get the cell
+    std::shared_ptr<Cell> cell = cells[cid];
+
+    // Skip if this cell isn't on this rank
+    if (cell->rank != metadata.rank)
+      continue;
+
     // Get the particle slice start and length
     const int offset = offsets[cid];
     const int count = counts[cid];
-
-    // Get the cell
-    std::shared_ptr<Cell> cell = cells[cid];
 
     // Get the particle data
     std::vector<double> poss;
@@ -328,6 +352,49 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
       error("Particle count mismatch in cell %d (particles.size = %d, "
             "cell->part_count = %d)",
             cid, cell->particles.size(), cell->part_count);
+  }
+
+  // With the particles done we can now move on to creating and assigning grid
+  // points
+
+  // Get the grid size and simulation box size
+  int grid_cdim = metadata.grid_cdim;
+  double *dim = metadata.dim;
+
+  // Warn the user the spacing will be uneven if the simulation isn't cubic
+  if (dim[0] != dim[1] || dim[0] != dim[2]) {
+    message("Warning: The simulation box is not cubic. The grid spacing "
+            "will be uneven. (dim= %f %f %f)",
+            dim[0], dim[1], dim[2]);
+  }
+
+  // Compute the grid spacing
+  double grid_spacing[3] = {dim[0] / grid_cdim, dim[1] / grid_cdim,
+                            dim[2] / grid_cdim};
+
+  // Create the grid points
+  for (int i = 0; i < grid_cdim; i++) {
+    for (int j = 0; j < grid_cdim; j++) {
+      for (int k = 0; k < grid_cdim; k++) {
+        double loc[3] = {(i + 0.5) * grid_spacing[0],
+                         (j + 0.5) * grid_spacing[1],
+                         (k + 0.5) * grid_spacing[2]};
+
+        // Get the cell this grid point is in
+        std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
+
+        // Skip if this grid point isn't on this rank
+        if (cell->rank != metadata.rank)
+          continue;
+
+        // Create the grid point
+        std::unique_ptr<GridPoint> grid_point =
+            std::make_unique<GridPoint>(loc);
+
+        // And attach the grid point to the cell
+        cell->grid_points.push_back(std::move(grid_point));
+      }
+    }
   }
 }
 
