@@ -121,3 +121,6 @@ out/
 
 # Ignore the version file
 src/version.h
+
+# Ignore emacs linter files
+*flycheck*
