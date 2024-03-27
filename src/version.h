@@ -1,0 +1,9 @@
+#define PROJECT_VERSION_MAJOR 0
+#define PROJECT_VERSION_MINOR 1
+#define PROJECT_VERSION_PATCH 0
+#define GIT_REVISION "8eeb7b0"
+#define GIT_BRANCH "cpp_version"
+#define GIT_DATE "2024-02-29"
+#define COMPILER_INFO "AppleClang@15.0.0.15000100"
+#define CFLAGS_INFO ""
+#define HDF5_VERSION "1.14.3"
