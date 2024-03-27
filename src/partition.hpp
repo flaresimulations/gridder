@@ -14,6 +14,7 @@
 #include <mpi.h>
 
 // Local includes
+#include "cell.hpp"
 #include "logger.hpp"
 #include "partition.hpp"
 
@@ -23,7 +24,7 @@
 // a 1D array of cells that can be distributed across MPI ranks. While keeping
 // spatial locality, this will allow for a more even distribution of cells
 // across the MPI ranks.
-void sortPeanoHilbert(std::vector<Cell *> cells) {
+void sortPeanoHilbert(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata instance
   Metadata &metadata = Metadata::getInstance();
@@ -48,14 +49,14 @@ void sortPeanoHilbert(std::vector<Cell *> cells) {
   });
 
   // Rearrange the cells according to the sorted indices
-  std::vector<Cell *> temp = cells;
+  std::vector<std::shared_ptr<Cell>> temp = cells;
   for (size_t i = 0; i < indices.size(); ++i) {
     cells[i] = temp[indices[i]];
   }
 }
 
 // @brief Function to decompose the cells
-void decomposeCells(std::vector<Cell *> cells) {
+void decomposeCells(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata instance
   Metadata &metadata = Metadata::getInstance();

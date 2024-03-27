@@ -8,6 +8,7 @@
 #include <H5Cpp.h>
 #include <array>
 #include <cmath>
+#include <malloc/_malloc.h>
 #include <memory>
 #include <sys/_types/_int64_t.h>
 #include <utility>
@@ -19,7 +20,7 @@
 #include "particle.hpp"
 #include "serial_io.hpp"
 
-class Cell {
+class Cell : public std::enable_shared_from_this<Cell> {
 public:
   // Cell metadata members
   double loc[3];
@@ -36,22 +37,23 @@ public:
 
   // Cell particle members
   // NOTE: particles are stored such that they are in child cell order
-  std::vector<Particle> particles;
+  std::vector<std::shared_ptr<Particle>> particles;
 
   // Grid points in cell
   std::vector<std::unique_ptr<GridPoint>> grid_points;
 
   // Child cells
-  std::array<Cell *, 8> children;
+  std::array<std::shared_ptr<Cell>, 8> children;
 
   // Parent cell
-  Cell *parent;
+  std::shared_ptr<Cell> parent;
 
   // Store the neighbouring cells
-  std::vector<Cell *> neighbours;
+  std::vector<std::shared_ptr<Cell>> neighbours;
 
   // Constructor
-  Cell(double loc[3], double width[3], Cell *parent = NULL) {
+  Cell(const double loc[3], const double width[3],
+       std::shared_ptr<Cell> parent = nullptr) {
     this->loc[0] = loc[0];
     this->loc[1] = loc[1];
     this->loc[2] = loc[2];
@@ -68,12 +70,7 @@ public:
     this->peanoHilbertIndex();
   }
 
-  // Method to attach an array of particles to the cell
-  void attach_particles(std::vector<Particle> &particles) {
-    this->particles = particles;
-  }
-
-  // Method to split this cell into 8 children (constructing an octree)
+  // method to split this cell into 8 children (constructing an octree)
   void split() {
 
     // Get the metadata
@@ -105,31 +102,32 @@ public:
           new_loc[1] = this->loc[1] + j * new_width[1];
           new_loc[2] = this->loc[2] + k * new_width[2];
 
-          // Create the child
-          Cell child(new_loc, new_width, this);
+          // Create the child (here we have to do some pointer magic to get the
+          // shared pointer to work)
+          std::shared_ptr<Cell> child =
+              std::make_shared<Cell>(new_loc, new_width, shared_from_this());
 
           // Set the rank of the child
-          child.rank = this->rank;
+          child->rank = this->rank;
 
           // Attach the child to this cell
-          this->children[iprogeny] = &child;
+          this->children[iprogeny] = child;
 
           // Attach the particles to the child and count them while we're at it
-          std::vector<Particle> child_particles = child.particles;
-          for (int p = 0; p < this->particles.size(); p++) {
-            if (this->particles[p].pos[0] >= new_loc[0] &&
-                this->particles[p].pos[0] < new_loc[0] + new_width[0] &&
-                this->particles[p].pos[1] >= new_loc[1] &&
-                this->particles[p].pos[1] < new_loc[1] + new_width[1] &&
-                this->particles[p].pos[2] >= new_loc[2] &&
-                this->particles[p].pos[2] < new_loc[2] + new_width[2]) {
-              child_particles.push_back(this->particles[p]);
-              child.part_count++;
+          for (int p = 0; p < this->part_count; p++) {
+            if (this->particles[p]->pos[0] >= new_loc[0] &&
+                this->particles[p]->pos[0] < new_loc[0] + new_width[0] &&
+                this->particles[p]->pos[1] >= new_loc[1] &&
+                this->particles[p]->pos[1] < new_loc[1] + new_width[1] &&
+                this->particles[p]->pos[2] >= new_loc[2] &&
+                this->particles[p]->pos[2] < new_loc[2] + new_width[2]) {
+              child->particles.push_back(this->particles[p]);
+              child->part_count++;
             }
           }
 
           // Split this child
-          child.split();
+          child->split();
         }
       }
     }
@@ -179,7 +177,7 @@ private:
   }
 };
 
-void getTopCells(std::vector<Cell *> &cells) {
+void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
@@ -205,18 +203,31 @@ void getTopCells(std::vector<Cell *> &cells) {
                      k * metadata.width[2]};
 
     // Create the cell
-    Cell cell(loc, metadata.width);
+    std::shared_ptr<Cell> cell =
+        std::make_shared<Cell>(loc, metadata.width, /*parent*/ nullptr);
 
-    // Attach the particle count to the cell
-    cell.part_count = counts[cid];
+    // Assign the particle count in this cell
+    cell->part_count = counts[cid];
 
     // Add the cell to the cells vector
-    cells.push_back(&cell);
+    cells.push_back(cell);
   }
 
   // How many cells do we need to walk out? The number of cells we need to walk
   // out is the maximum kernel radius divided by the cell width
-  int nwalk = std::ceil(metadata.max_kernel_radius / metadata.width[0]) + 1;
+  const int nwalk =
+      std::ceil(metadata.max_kernel_radius / metadata.width[0]) + 1;
+  int nwalk_upper = nwalk;
+  int nwalk_lower = nwalk;
+
+  // If nwalk is greater than the number of cells in the simulation, we need to
+  // walk out to the edge of the simulation
+  if (nwalk > metadata.cdim[0] / 2) {
+    nwalk_upper = metadata.cdim[0] / 2;
+    nwalk_lower = metadata.cdim[0] / 2;
+  }
+
+  message("Looking for neighbours within %d cells", nwalk);
 
   // Loop over the cells attaching the pointers the neighbouring cells (taking
   // into account periodic boudnary conditions)
@@ -232,9 +243,9 @@ void getTopCells(std::vector<Cell *> &cells) {
                      k * metadata.width[2]};
 
     // Get the cell
-    Cell *cell = cells[cid];
+    std::shared_ptr<Cell> cell = cells[cid];
 
-    // Loop over the 26 neighbours
+    // Loop over the neighbours
     int nid = 0;
     for (int ii = -nwalk; ii < nwalk + 1; ii++) {
       for (int jj = -nwalk; jj < nwalk + 1; jj++) {
@@ -261,6 +272,63 @@ void getTopCells(std::vector<Cell *> &cells) {
   hdf.close();
 }
 
-void assignPartsToGridPoints(std::vector<Cell *> &cells) { ; }
+void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Open the HDF5 file
+  HDF5Helper hdf(metadata.input_file);
+
+  // Get the dark matter offsets and counts for each simulation cell
+  std::vector<int64_t> offsets;
+  std::vector<int64_t> counts;
+  if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"), counts))
+    error("Failed to read cell counts");
+  if (!hdf.readDataset<int64_t>(std::string("Cells/OffsetsInFile/PartType1"),
+                                offsets))
+    error("Failed to read cell offsets");
+
+  // Loop over cells attaching particles and grid points
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+
+    // Get the particle slice start and length
+    const int count = counts[cid];
+    const int offset = offsets[cid];
+
+    // Get the cell
+    std::shared_ptr<Cell> cell = cells[cid];
+
+    // Get the particle data
+    // std::vector<double> pos;
+    std::vector<double> masses;
+    // if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), pos))
+    //   error("Failed to read particle coordinates");
+    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
+                                      offset, count))
+      error("Failed to read particle masses");
+
+    // Loop over the particle data making particles
+    for (int p = 0; p < count; p++) {
+
+      // Get the mass and position of the particle
+      const double mass = masses[p];
+      // const double pos[3] = {pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]};
+      const double pos[3] = {0, 0, 0};
+
+      // Create the particle
+      std::shared_ptr<Particle> part = std::make_shared<Particle>(pos, mass);
+
+      // Attach the particle to the cell
+      cell->particles.push_back(part);
+    }
+
+    // Double check something hasn't gone wrong with the particle count
+    if (cell->particles.size() != cell->part_count)
+      error("Particle count mismatch in cell %d (particles.size = %d, "
+            "cell->part_count = %d)",
+            cid, cell->particles.size(), cell->part_count);
+  }
+}
 
 #endif // CELL_HPP

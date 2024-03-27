@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
 
   // Get the cell array itself
   tic();
-  std::vector<Cell *> cells;
+  std::vector<std::shared_ptr<Cell>> cells;
   try {
     getTopCells(cells);
   } catch (const std::exception &e) {
@@ -132,6 +132,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   toc("Creating top level cells");
+
+  message("Number of top level cells: %d", metadata.nr_cells);
 
   // Decomose the cells over the MPI ranks (if we need to)
   if (size > 1) {
@@ -155,12 +157,12 @@ int main(int argc, char *argv[]) {
   // Right, now we can finally associate particles to grid points.
   tic();
   try {
-    assignPartsToGridPoints(cells);
+    assignPartsAndPointsToCells(cells);
   } catch (const std::exception &e) {
     report_error();
     return 1;
   }
-  toc("Assigning particles to grid points");
+  toc("Assigning particles and grid points to cells");
 
   // Exit properly in MPI land
   MPI_Finalize();
