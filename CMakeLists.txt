@@ -13,6 +13,12 @@ set(PROJECT_VERSION_MAJOR 0)
 set(PROJECT_VERSION_MINOR 1)
 set(PROJECT_VERSION_PATCH 0)
 
+# ================= BUILD MODE =================
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+endif()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 # ================= DEPENDANCIES =================
 
 # Find HDF5 with parallel support if available
@@ -23,6 +29,18 @@ find_package(Threads REQUIRED)
 
 # MPI
 find_package(MPI REQUIRED)
+
+# ================= COMPILER FLAGS =================
+
+# Set the compiler flags
+# -Wall: Enable all warnings
+# -Wextra: Enable extra warnings
+# -Wpedantic: Enable pedantic warnings
+# -Werror: Treat warnings as errors
+# -O3: Optimize for speed
+# -g: Generate debug information
+# -march=native: Optimize for the current machine
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O3 -g -march=native")
 
 # ================= METADATA COLLECTION =================
 
@@ -76,6 +94,7 @@ set(SOURCE_FILES
 # Create the executable using the source files
 add_executable(${TARGET} ${SOURCE_FILES})
 
+
 # ================= LIBRARY INCLUSION =================
 
 # HDF5
@@ -88,3 +107,16 @@ target_link_libraries(${TARGET} PRIVATE Threads::Threads)
 # MPI
 target_link_libraries(${TARGET} PUBLIC MPI::MPI_CXX)
 target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
+
+# Display compiler flags being used.
+message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
+message(STATUS "CXXFLAGS for ${CMAKE_BUILD_TYPE}:")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  message(STATUS "  ${CMAKE_CXX_FLAGS_DEBUG}")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+  message(STATUS "  ${CMAKE_CXX_FLAGS_RELEASE}")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "MinSizeRel")
+  message(STATUS "  ${CMAKE_CXX_FLAGS_MINSIZEREL}")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+  message(STATUS "  ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
