@@ -1,7 +1,7 @@
 Kernels:
   nkernels: 2
   kernel_radius_1: 0.01
-  kernel_radius_2: 0.5
+  kernel_radius_2: 0.1
 
 Grid:
   cdim: 100
