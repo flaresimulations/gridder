@@ -293,17 +293,18 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the particle slice start and length
-    const int count = counts[cid];
     const int offset = offsets[cid];
+    const int count = counts[cid];
 
     // Get the cell
     std::shared_ptr<Cell> cell = cells[cid];
 
     // Get the particle data
-    // std::vector<double> pos;
+    std::vector<double> poss;
     std::vector<double> masses;
-    // if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), pos))
-    //   error("Failed to read particle coordinates");
+    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Coordinates"),
+                                      poss, offset, count))
+      error("Failed to read particle coordinates");
     if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
                                       offset, count))
       error("Failed to read particle masses");
@@ -313,8 +314,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
 
       // Get the mass and position of the particle
       const double mass = masses[p];
-      // const double pos[3] = {pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]};
-      const double pos[3] = {0, 0, 0};
+      const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
 
       // Create the particle
       std::shared_ptr<Particle> part = std::make_shared<Particle>(pos, mass);
