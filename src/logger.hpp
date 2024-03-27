@@ -210,9 +210,11 @@ public:
 
     // Calculate the duration...
     auto duration =
-        std::chrono::duration_cast<std::chrono::microseconds>(_toc - _tic);
+        std::chrono::duration_cast<std::chrono::milliseconds>(_toc - _tic);
 
-    log(file, func, "%s took %lld microseconds", message, duration.count());
+    // And report it...
+    log(file, func, "%s took %lld ms", message,
+        static_cast<long long>(duration.count()));
   }
 
 private:
