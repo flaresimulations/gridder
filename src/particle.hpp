@@ -11,7 +11,7 @@ public:
   double mass;
 
   // Constructor
-  Particle(double pos[3], double mass) {
+  Particle(const double pos[3], const double mass) {
     this->pos[0] = pos[0];
     this->pos[1] = pos[1];
     this->pos[2] = pos[2];
