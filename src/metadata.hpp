@@ -6,6 +6,7 @@
 
 // Standard includes
 #include <cmath>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -36,6 +37,7 @@ public:
 
   // Kernel information
   std::vector<double> kernel_radii;
+  int nkernels;
   double max_kernel_radius;
 
   // Particle properties
@@ -44,8 +46,13 @@ public:
   // Cell properties
   size_t nr_cells;
   int cdim[3];
-  double dim[3];
   double width[3];
+
+  // Simulation properties
+  double dim[3];
+
+  // Grid properties
+  int grid_cdim;
 
   // Deleted copy constructor and copy assignment to prevent duplication
   Metadata(const Metadata &) = delete;            // Copy constructor
@@ -107,6 +114,18 @@ void readMetadata(std::string input_file) {
   // Count the cells
   metadata->nr_cells =
       metadata->cdim[0] * metadata->cdim[1] * metadata->cdim[2];
+
+  // Report interesting things
+  message("Running with %d dark matter particles", metadata->nr_dark_matter);
+  message("Mean density at z=%.2f: %e Msun / Mpc^3", metadata->redshift,
+          metadata->mean_density);
+  std::stringstream ss;
+  ss << "Kernel radii (nkernels=%d):";
+  for (int i = 0; i < metadata->nkernels; i++) {
+    ss << " " << metadata->kernel_radii[i] << ",";
+  }
+  message(ss.str().c_str(), metadata->nkernels);
+  message("Max kernel radius: %f", metadata->max_kernel_radius);
 }
 
 #endif // METADATA_HPP

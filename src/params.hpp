@@ -253,4 +253,42 @@ private:
   }
 };
 
+void parseParams(Parameters &params, const std::string &param_file) {
+
+  // Read the parameter file
+  params.parseYAMLFile(param_file);
+
+  // params.printAllParameters();
+
+  // Get the metadata instance
+  Metadata &metadata = Metadata::getInstance();
+
+  // Get the kernel radii
+  metadata.nkernels = params.getParameterNoDefault<int>("Kernels/nkernels");
+  metadata.kernel_radii.resize(metadata.nkernels);
+  for (int i = 0; i < metadata.nkernels; i++) {
+    std::stringstream kernel_param;
+    kernel_param << "Kernels/kernel_radius_" << i + 1;
+    metadata.kernel_radii[i] =
+        params.getParameterNoDefault<double>(kernel_param.str());
+  }
+
+  // Get the maximum kernel radius (they may not be in order in the parameter
+  // file)
+  std::sort(metadata.kernel_radii.begin(), metadata.kernel_radii.end());
+  metadata.max_kernel_radius = metadata.kernel_radii[metadata.nkernels - 1];
+
+  // Get the key we should use to read the mean density
+  metadata.density_key =
+      params.getParameterNoDefault<std::string>("Metadata/density_key");
+
+  // Get the input file path
+  std::string input_file;
+  metadata.input_file =
+      params.getParameterNoDefault<std::string>("Input/filepath");
+
+  // Get the grid resolution
+  metadata.grid_cdim = params.getParameterNoDefault<int>("Grid/cdim");
+}
+
 #endif // PARAMS_H_
