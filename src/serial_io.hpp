@@ -161,8 +161,7 @@ public:
 
       // Read the data into a buffer
       std::vector<T> buffer(count); // Adjust the buffer size
-      dataset.read(buffer.data(), H5::PredType::NATIVE_INT, memspace,
-                   dataspace);
+      dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace, dataspace);
 
       // Assign the buffer to the output data vector
       data = std::move(buffer);
