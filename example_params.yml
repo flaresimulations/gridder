@@ -1,11 +1,13 @@
 Kernels:
   nkernels: 2
   kernel_radius_1: 0.01
-  kernel_radius_2: 0.1
+  kernel_radius_2: 0.5
 
 Grid:
   cdim: 100
 
+Tree:
+  max_leaf_count: 200
 
 Metadata:
   density_key: Critical density [internal units]

@@ -56,6 +56,9 @@ public:
   // Simulation properties
   double dim[3];
 
+  // Tree properties
+  int max_leaf_count;
+
   // Grid properties
   int grid_cdim;
 

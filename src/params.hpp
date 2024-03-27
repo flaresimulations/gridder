@@ -289,6 +289,10 @@ void parseParams(Parameters &params, const std::string &param_file) {
 
   // Get the grid resolution
   metadata.grid_cdim = params.getParameterNoDefault<int>("Grid/cdim");
+
+  // Get the maximum number of particles in a leaf of the tree
+  metadata.max_leaf_count =
+      params.getParameter<int>("Tree/max_leaf_count", 1000);
 }
 
 #endif // PARAMS_H_

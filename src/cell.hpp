@@ -89,7 +89,7 @@ public:
                            this->width[2] / 2.0};
 
     // Check we actually need to split
-    if (new_width[0] < metadata.max_kernel_radius || this->part_count < 100) {
+    if (this->part_count < metadata.max_leaf_count) {
       this->is_split = false;
       return;
     }
