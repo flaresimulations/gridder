@@ -148,10 +148,8 @@ public:
             }
           }
 
-          // Split this child if we need to
-          if (child->part_count > 0 && child->grid_points.size() > 0) {
-            child->split();
-          }
+          // Split this child
+          child->split();
 
           // Attach the child to this cell
           this->children[iprogeny] = child;
