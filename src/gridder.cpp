@@ -103,6 +103,8 @@ int main(int argc, char *argv[]) {
     toc("Setting all cells to rank 0");
   }
 
+  // TODO: Need to create and communicate proxies
+
   // Now we know which cells are where we can make the grid points, and assign
   // them and the particles to the cells
   tic();
@@ -113,6 +115,28 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   toc("Assigning particles and grid points to cells");
+
+  // And before we can actually get going we need to split the cells
+  tic();
+  try {
+    splitCells(cells);
+  } catch (const std::exception &e) {
+    report_error();
+    return 1;
+  }
+  toc("Splitting cells");
+  message("Maximum depth in the tree: %d", metadata.max_depth);
+
+  // Now we can start the actual work... Associate particles with the grid
+  // points within the maximum kernel radius
+  tic();
+  try {
+    associatePartsToPoints(cells);
+  } catch (const std::exception &e) {
+    report_error();
+    return 1;
+  }
+  toc("Associating particles with grid points");
 
   // Exit properly in MPI land
   MPI_Finalize();

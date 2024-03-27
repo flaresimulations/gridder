@@ -51,6 +51,9 @@ public:
   // Store the neighbouring cells
   std::vector<std::shared_ptr<Cell>> neighbours;
 
+  // Depth in the tree
+  int depth;
+
   // Constructor
   Cell(const double loc[3], const double width[3],
        std::shared_ptr<Cell> parent = nullptr) {
@@ -65,6 +68,7 @@ public:
     this->mass = 0.0;
     this->part_count = 0;
     this->rank = 0;
+    this->depth = parent ? parent->depth + 1 : 0;
 
     // Compute the peano-hilbert index
     this->peanoHilbertIndex();
@@ -76,12 +80,16 @@ public:
     // Get the metadata
     Metadata &metadata = Metadata::getInstance();
 
+    // Update the max depth
+    if (this->depth > metadata.max_depth)
+      metadata.max_depth = this->depth;
+
     // Calculate the new width of the children
     double new_width[3] = {this->width[0] / 2.0, this->width[1] / 2.0,
                            this->width[2] / 2.0};
 
     // Check we actually need to split
-    if (new_width[0] < metadata.max_kernel_radius) {
+    if (new_width[0] < metadata.max_kernel_radius || this->part_count < 100) {
       this->is_split = false;
       return;
     }
@@ -110,9 +118,6 @@ public:
           // Set the rank of the child
           child->rank = this->rank;
 
-          // Attach the child to this cell
-          this->children[iprogeny] = child;
-
           // Attach the particles to the child and count them while we're at it
           for (int p = 0; p < this->part_count; p++) {
             if (this->particles[p]->pos[0] >= new_loc[0] &&
@@ -126,11 +131,43 @@ public:
             }
           }
 
-          // Split this child
-          child->split();
+          // Attach the grid points to the child
+          for (int g = 0; g < this->grid_points.size(); g++) {
+            // Skip grid points already assigned
+            if (this->grid_points[g] == nullptr)
+              continue;
+
+            // Is the grid point in this child?
+            if (this->grid_points[g]->loc[0] >= new_loc[0] &&
+                this->grid_points[g]->loc[0] < new_loc[0] + new_width[0] &&
+                this->grid_points[g]->loc[1] >= new_loc[1] &&
+                this->grid_points[g]->loc[1] < new_loc[1] + new_width[1] &&
+                this->grid_points[g]->loc[2] >= new_loc[2] &&
+                this->grid_points[g]->loc[2] < new_loc[2] + new_width[2]) {
+              child->grid_points.push_back(std::move(this->grid_points[g]));
+            }
+          }
+
+          // Split this child if we need to
+          if (child->part_count > 0 && child->grid_points.size() > 0) {
+            child->split();
+          }
+
+          // Attach the child to this cell
+          this->children[iprogeny] = child;
         }
       }
     }
+
+    // Make sure the sum of child particle counts is the same as the parent
+    size_t child_part_count = 0;
+    for (int i = 0; i < 8; i++) {
+      child_part_count += this->children[i]->part_count;
+    }
+    if (child_part_count != this->part_count)
+      error("Particle count mismatch in cell %d (child_part_count = %d, "
+            "this->part_count = %d)",
+            this->ph_ind, child_part_count, this->part_count);
   }
 
   void peanoHilbertIndex() {
@@ -394,6 +431,162 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
         // And attach the grid point to the cell
         cell->grid_points.push_back(std::move(grid_point));
       }
+    }
+  }
+}
+
+void splitCells(const std::vector<std::shared_ptr<Cell>> &cells) {
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Loop over the cells and split them
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+
+    // Skip cells that aren't on this rank
+    if (cells[cid]->rank != metadata.rank)
+      continue;
+
+    cells[cid]->split();
+  }
+}
+
+void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
+                                std::shared_ptr<Cell> other) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Ensure we have grid points
+  if (cell->grid_points.size() == 0)
+    return;
+
+  // Ensure the other cell has particles
+  if (other->part_count == 0)
+    return;
+
+  // Early exit if the cells are too far apart
+  double dijx = cell->loc[0] - other->loc[0];
+  double dijy = cell->loc[1] - other->loc[1];
+  double dijz = cell->loc[2] - other->loc[2];
+  double rij2 = dijx * dijx + dijy * dijy + dijz * dijz;
+  if (rij2 > metadata.max_kernel_radius2 * 4.0)
+    return;
+
+  // If the cell is split then we need to recurse
+  // over the children
+  if (cell->is_split) {
+    for (int i = 0; i < 8; i++) {
+      recursivePairPartsToPoints(cell->children[i], other);
+    }
+  } else if (other->is_split) {
+    for (int i = 0; i < 8; i++) {
+      recursivePairPartsToPoints(cell, other->children[i]);
+    }
+  } else {
+    // Loop over the grid points in the cell
+    for (int g = 0; g < cell->grid_points.size(); g++) {
+
+      // Skip grid points already assigned
+      if (cell->grid_points[g] == nullptr)
+        continue;
+
+      // Get the grid point
+      GridPoint &grid_point = *cell->grid_points[g];
+
+      // Loop over the particles in the other cell and assign them to the grid
+      // point
+      for (int p = 0; p < other->part_count; p++) {
+        std::shared_ptr<Particle> part = other->particles[p];
+
+        // Get the distance between the particle and the grid point
+        double dx = part->pos[0] - grid_point.loc[0];
+        double dy = part->pos[1] - grid_point.loc[1];
+        double dz = part->pos[2] - grid_point.loc[2];
+        double r2 = dx * dx + dy * dy + dz * dz;
+
+        // If the particle is within the kernel radius of the grid point then
+        // assign it
+        if (r2 < metadata.max_kernel_radius2) {
+          grid_point.add_particle(part);
+        }
+      }
+    }
+  }
+}
+
+void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Ensure we have grid points
+  if (cell->grid_points.size() == 0)
+    return;
+
+  // If the cell is split then we need to recurse
+  // over the children but only if the cell is larger than the kernel radius
+  if (cell->is_split && cell->width[0] > metadata.max_kernel_radius) {
+    for (int i = 0; i < 8; i++) {
+      recursiveSelfPartsToPoints(cell->children[i]);
+
+      // And do the pair assignment
+      for (int j = 0; j < 8; j++) {
+        if (i == j)
+          continue;
+        recursivePairPartsToPoints(cell->children[i], cell->children[j]);
+      }
+    }
+  } else {
+    // Loop over the grid points in the cell
+    for (int g = 0; g < cell->grid_points.size(); g++) {
+
+      // Skip grid points already assigned
+      if (cell->grid_points[g] == nullptr)
+        continue;
+
+      // Get the grid point
+      GridPoint &grid_point = *cell->grid_points[g];
+
+      // Loop over the particles in the cell and assign them to the grid point
+      for (int p = 0; p < cell->part_count; p++) {
+        std::shared_ptr<Particle> part = cell->particles[p];
+
+        // Get the distance between the particle and the grid point
+        double dx = part->pos[0] - grid_point.loc[0];
+        double dy = part->pos[1] - grid_point.loc[1];
+        double dz = part->pos[2] - grid_point.loc[2];
+        double r2 = dx * dx + dy * dy + dz * dz;
+
+        // If the particle is within the kernel radius of the grid point then
+        // assign it
+        if (r2 < metadata.max_kernel_radius2) {
+          grid_point.add_particle(part);
+        }
+      }
+    }
+  }
+}
+
+void associatePartsToPoints(std::vector<std::shared_ptr<Cell>> cells) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Loop over the cells
+  for (std::shared_ptr<Cell> cell : cells) {
+
+    // Skip cells that aren't on this rank
+    if (cell->rank != metadata.rank)
+      continue;
+
+    // Recursively assign particles within a cell to the grid points within
+    // the cell
+    recursiveSelfPartsToPoints(cell);
+
+    // Recursively assign particles within any neighbours to the grid points
+    // within a cell
+    for (std::shared_ptr<Cell> neighbour : cell->neighbours) {
+      recursivePairPartsToPoints(cell, neighbour);
     }
   }
 }

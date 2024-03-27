@@ -42,6 +42,7 @@ public:
   std::vector<double> kernel_radii;
   int nkernels;
   double max_kernel_radius;
+  double max_kernel_radius2;
 
   // Particle properties
   size_t nr_dark_matter;
@@ -50,6 +51,7 @@ public:
   size_t nr_cells;
   int cdim[3];
   double width[3];
+  int max_depth = 0;
 
   // Simulation properties
   double dim[3];
@@ -129,6 +131,10 @@ void readMetadata(std::string input_file) {
   }
   message(ss.str().c_str(), metadata->nkernels);
   message("Max kernel radius: %f", metadata->max_kernel_radius);
+
+  // Set the maximum kernel radius squared
+  metadata->max_kernel_radius2 =
+      metadata->max_kernel_radius * metadata->max_kernel_radius;
 }
 
 #endif // METADATA_HPP
