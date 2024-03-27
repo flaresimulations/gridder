@@ -26,6 +26,9 @@
 #include <string>
 #include <vector>
 
+// Local includes
+#include "logger.hpp"
+
 class HDF5Helper {
 public:
   H5::H5File file;
@@ -132,47 +135,63 @@ public:
                         const hsize_t start, const hsize_t count) {
     try {
       // Open the dataset
-      H5::DataSet dataset = file.openDataSet(datasetName);
+      H5::DataSet dataset = this->file.openDataSet(datasetName);
 
       // Get the dataspace of the dataset
       H5::DataSpace dataspace = dataset.getSpace();
 
       // Get the rank (number of dimensions) of the dataspace
       int rank = dataspace.getSimpleExtentNdims();
-      if (rank != 1) { // Assuming you're focusing on 1D or 2D arrays
-        std::cerr << "Dataset rank is not supported.\n";
-        return false;
-      }
+      std::vector<hsize_t> dims(rank);
+      dataspace.getSimpleExtentDims(dims.data(), NULL);
 
       // Prepare arrays for hyperslab parameters
       std::vector<hsize_t> start_array(rank, 0); // Initialize start positions
       std::vector<hsize_t> count_array(rank, 1); // Initialize counts
 
-      // Adjust the start and count for the first dimension
-      start_array[0] = start;
-      count_array[0] = count;
+      if (rank == 1) {
+        // For a 1D array
+        start_array[0] = start;
+        count_array[0] = count;
+      } else if (rank == 2 && dims[1] == 3) {
+        // For a 2D array with shape (N, 3)
+        start_array[0] = start; // Start from the 'start'th row
+        start_array[1] = 0;     // Start from the first column
+        count_array[0] = count; // Read 'count' rows
+        count_array[1] = 3;     // Read all 3 columns
+      } else {
+        error("Unsupported dataset rank or dimensions (rank=%d).", rank);
+        return false;
+      }
 
       // Select the hyperslab
       dataspace.selectHyperslab(H5S_SELECT_SET, count_array.data(),
                                 start_array.data(), NULL, NULL);
 
       // Define the memory dataspace
-      H5::DataSpace memspace(rank, count_array.data());
-
-      // Read the data into a buffer
-      std::vector<T> buffer(count); // Adjust the buffer size
-      dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace, dataspace);
-
-      // Assign the buffer to the output data vector
-      data = std::move(buffer);
+      if (rank == 2 && dims[1] == 3) {
+        // Adjust buffer size for 2D arrays to hold all elements
+        std::vector<hsize_t> mem_dims = {count, 3};
+        H5::DataSpace memspace(2, mem_dims.data());
+        std::vector<T> buffer(count * 3); // Adjust the buffer size
+        dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace,
+                     dataspace);
+        data = std::move(buffer);
+      } else {
+        // Proceed as before for 1D arrays
+        H5::DataSpace memspace(rank, count_array.data());
+        std::vector<T> buffer(count); // Adjust the buffer size
+        dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace,
+                     dataspace);
+        data = std::move(buffer);
+      }
 
       return true;
     } catch (const H5::Exception &err) {
-      std::cerr << "HDF5 Error: " << err.getCDetailMsg() << std::endl;
+      error(err.getCDetailMsg());
       return false;
     }
   }
-
   template <typename T>
   bool readAttribute(const std::string &objName,
                      const std::string &attributeName, T &attributeValue) {
