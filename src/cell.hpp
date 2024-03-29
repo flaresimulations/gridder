@@ -625,18 +625,22 @@ void recursivePercolateUp(std::shared_ptr<Cell> cell) {
     for (int i = 0; i < 8; i++) {
       recursivePercolateUp(cell->children[i]);
     }
-  } else {
-    // If the cell is not split then we need to percolate the grid points up
-    // to the parent
-    auto it = cell->grid_points.begin();
-    while (it != cell->grid_points.end()) {
+  }
 
-      // Move the unique_ptr to the parent's grid_points
-      cell->parent->grid_points.push_back(std::move(*it));
+  // Early exit if we are are the top level
+  if (cell->parent == nullptr)
+    return;
 
-      // Remove the unique_ptr from the current vector
-      it = cell->grid_points.erase(it);
-    }
+  // Once recursion is done we need to percolate the grid points up
+  // to the parent
+  auto it = cell->grid_points.begin();
+  while (it != cell->grid_points.end()) {
+
+    // Move the unique_ptr to the parent's grid_points
+    cell->parent->grid_points.push_back(std::move(*it));
+
+    // Remove the unique_ptr from the current vector
+    it = cell->grid_points.erase(it);
   }
 }
 
