@@ -585,7 +585,8 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell) {
       if (r2 < metadata.max_kernel_radius2) {
         grid_point.add_particle(part);
         message("Particle assigned to grid point (current overdensity = "
-                "%f) " grid_point.getOverDensity(metadata.max_kernel_radius));
+                "%f) ",
+                grid_point.getOverDensity(metadata.max_kernel_radius));
       }
     }
   }
