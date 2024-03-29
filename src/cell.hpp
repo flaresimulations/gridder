@@ -49,6 +49,9 @@ public:
   // Parent cell
   std::shared_ptr<Cell> parent;
 
+  // Pointer to the top level cell
+  std::shared_ptr<Cell> top;
+
   // Store the neighbouring cells
   std::vector<std::shared_ptr<Cell>> neighbours;
 
@@ -57,7 +60,8 @@ public:
 
   // Constructor
   Cell(const double loc[3], const double width[3],
-       std::shared_ptr<Cell> parent = nullptr) {
+       std::shared_ptr<Cell> parent = nullptr,
+       std::shared_ptr<Cell> top = nullptr) {
     this->loc[0] = loc[0];
     this->loc[1] = loc[1];
     this->loc[2] = loc[2];
@@ -70,6 +74,7 @@ public:
     this->part_count = 0;
     this->rank = 0;
     this->depth = parent ? parent->depth + 1 : 0;
+    this->top = top ? top : shared_from_this();
 
     // Compute the peano-hilbert index
     this->peanoHilbertIndex();
@@ -113,8 +118,8 @@ public:
 
           // Create the child (here we have to do some pointer magic to get the
           // shared pointer to work)
-          std::shared_ptr<Cell> child =
-              std::make_shared<Cell>(new_loc, new_width, shared_from_this());
+          std::shared_ptr<Cell> child = std::make_shared<Cell>(
+              new_loc, new_width, shared_from_this(), this->top);
 
           // Set the rank of the child
           child->rank = this->rank;
@@ -604,6 +609,8 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
       recursivePairPartsToPoints(cell, neighbour);
     }
   }
+
+  // Now we need to hand the grid points back up the trees
 }
 
 void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
