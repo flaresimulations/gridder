@@ -131,12 +131,12 @@ int main(int argc, char *argv[]) {
   // points within the maximum kernel radius
   tic();
   try {
-    associatePartsToPoints(cells);
+    getKernelMasses(cells);
   } catch (const std::exception &e) {
     report_error();
     return 1;
   }
-  toc("Associating particles with grid points");
+  toc("Computing kernel masses");
 
   // Exit properly in MPI land
   MPI_Finalize();

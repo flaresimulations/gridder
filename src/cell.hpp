@@ -580,7 +580,7 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell) {
   }
 }
 
-void associatePartsToPoints(std::vector<std::shared_ptr<Cell>> cells) {
+void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();

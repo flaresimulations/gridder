@@ -6,6 +6,7 @@
 
 // Standard includes
 #include <cmath>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -18,57 +19,56 @@ public:
   // Grid point metadata members
   double loc[3];
 
-  // Pointers to the particles associated with this grid point
-  // This includes all particles within the maximum kernel radius
-  // of this grid point and is in distance from the grid point order
-  std::vector<std::shared_ptr<Particle>> parts;
-
-  // Vector of particle distances from the grid point
-  std::vector<double> part_dists;
+  // Define a map to accumulate the mass of particles within each kernel
+  // radius
+  std::map<double, double> mass_map;
 
   // Constructor
   GridPoint(double loc[3]) {
     this->loc[0] = loc[0];
     this->loc[1] = loc[1];
     this->loc[2] = loc[2];
+
+    // Zero the mass maps
+    Metadata &metadata = Metadata::getInstance();
+    for (int i = 0; i < metadata.kernel_radii.size(); i++) {
+      this->mass_map[metadata.kernel_radii[i]] = 0.0;
+    }
   }
 
   // Method to add a particle to the grid point
   void add_particle(std::shared_ptr<Particle> part) {
-    {
-      std::lock_guard<std::mutex> lock(part->mtx);
+    // Get the metadata
+    Metadata &metadata = Metadata::getInstance();
 
-      this->parts.push_back(part);
+    // Compute the distance from the grid point to the particle
+    double dist = 0.0;
+    for (int i = 0; i < 3; i++) {
+      dist += pow(part->pos[i] - this->loc[i], 2);
+    }
+    dist = sqrt(dist);
+
+    // Add the mass to all the kernel radii that this particle is within
+    for (int i = 0; i < metadata.kernel_radii.size(); i++) {
+      if (dist <= metadata.kernel_radii[i]) {
+        this->mass_map[metadata.kernel_radii[i]] += part->mass;
+      }
     }
   }
 
   // Method to get over density inside kernel radius
-  double get_over_density(double kernel_radius) {
+  double get_over_density(const double kernel_radius) {
     // Compute the volume of the kernel
-    double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
+    const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
 
-    // Initialize the over density
-    double mass = 0.0;
+    // Compute the density
+    const double density = this->mass_map[kernel_radius] / kernel_volume;
 
-    // Get the mean density of the universe for converting to over density
-    Metadata &metadata = Metadata::getInstance();
-    double mean_density = metadata.mean_density;
+    // Compute the over density
+    const double over_density =
+        (density / Metadata::getInstance().mean_density) - 1;
 
-    // Loop over the particles
-    for (int i = 0; i < this->parts.size(); i++) {
-      // Skip if the particle is outside the kernel radius and compute and
-      // return the over density
-      if (this->part_dists[i] > kernel_radius) {
-        return ((mass / kernel_volume) / mean_density) - 1.0;
-      }
-
-      // Add the mass of the particle to the over density
-      mass += this->parts[i]->mass;
-    }
-
-    // If we got here the grid point had no local particles within the kernel
-    // radius
-    return -1.0;
+    return over_density;
   }
 };
 
