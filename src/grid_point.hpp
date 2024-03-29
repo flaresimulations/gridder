@@ -33,34 +33,13 @@ public:
     this->loc[2] = loc[2];
   }
 
-  // Method to add a particle to the grid point in distance from the grid point
-  // order
+  // Method to add a particle to the grid point
   void add_particle(std::shared_ptr<Particle> part) {
-    // Get the distance between the particle and the grid point
-    double dist = 0.0;
-    for (int i = 0; i < 3; i++) {
-      dist += pow(part->pos[i] - this->loc[i], 2);
+    {
+      std::lock_guard<std::mutex> lock(part->mtx);
+
+      this->parts.push_back(part);
     }
-    dist = sqrt(dist);
-
-    this->parts.push_back(part);
-
-    // // If the particle list is empty, append the particle and its distance
-    // if (this->parts.size() == 0) {
-    //   this->parts.push_back(part);
-    //   this->part_dists.push_back(dist);
-    //   return;
-    // }
-
-    // // Otherwise, loop over the particles and insert the new particle in
-    // // distance from the grid point order
-    // for (int i = 0; i < this->parts.size(); i++) {
-    //   if (dist < this->part_dists[i]) {
-    //     this->parts.insert(this->parts.begin() + i, part);
-    //     this->part_dists.insert(this->part_dists.begin() + i, sqrt(dist));
-    //     return;
-    //   }
-    // }
   }
 
   // Method to get over density inside kernel radius
