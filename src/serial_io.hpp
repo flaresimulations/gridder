@@ -279,7 +279,7 @@ template <> H5::PredType HDF5Helper::getHDF5Type<int>() {
 }
 
 template <> H5::PredType HDF5Helper::getHDF5Type<double[3]>() {
-  return H5::PredType::NATIVE_DOUBLE[3];
+  return H5::PredType::NATIVE_DOUBLE;
 }
 
 #endif // SERIAL_IO_H_
