@@ -10,6 +10,7 @@
 #include <cmath>
 #include <malloc/_malloc.h>
 #include <memory>
+#include <omp.h>
 #include <sys/_types/_int64_t.h>
 #include <utility>
 #include <vector>
@@ -128,23 +129,31 @@ public:
                 this->particles[p]->pos[2] < new_loc[2] + new_width[2]) {
               child->particles.push_back(this->particles[p]);
               child->part_count++;
+              child->mass += this->particles[p]->mass;
             }
           }
 
           // Attach the grid points to the child
-          for (int g = 0; g < this->grid_points.size(); g++) {
-            // Skip grid points already assigned
-            if (this->grid_points[g] == nullptr)
-              continue;
+          // NOTE: because grid points are unique pointers we need to move them
+          // to the child before erasing them from the parent to avoid nullptrs
+          // in the parent's grid_points vector
+          auto it = this->grid_points.begin();
+          while (it != this->grid_points.end()) {
 
             // Is the grid point in this child?
-            if (this->grid_points[g]->loc[0] >= new_loc[0] &&
-                this->grid_points[g]->loc[0] < new_loc[0] + new_width[0] &&
-                this->grid_points[g]->loc[1] >= new_loc[1] &&
-                this->grid_points[g]->loc[1] < new_loc[1] + new_width[1] &&
-                this->grid_points[g]->loc[2] >= new_loc[2] &&
-                this->grid_points[g]->loc[2] < new_loc[2] + new_width[2]) {
-              child->grid_points.push_back(std::move(this->grid_points[g]));
+            if ((*it)->loc[0] >= new_loc[0] &&
+                (*it)->loc[0] < new_loc[0] + new_width[0] &&
+                (*it)->loc[1] >= new_loc[1] &&
+                (*it)->loc[1] < new_loc[1] + new_width[1] &&
+                (*it)->loc[2] >= new_loc[2] &&
+                (*it)->loc[2] < new_loc[2] + new_width[2]) {
+              // Move the unique_ptr to the child's grid_points
+              child->grid_points.push_back(std::move(*it));
+
+              // Remove the unique_ptr from the current vector
+              it = this->grid_points.erase(it);
+            } else {
+              ++it; // Only increment if not erased
             }
           }
 
@@ -378,6 +387,9 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
       // Create the particle
       std::shared_ptr<Particle> part = std::make_shared<Particle>(pos, mass);
 
+      // Add the mass to the cell
+      cell->mass += mass;
+
       // Attach the particle to the cell
       cell->particles.push_back(part);
     }
@@ -462,12 +474,22 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   if (other->part_count == 0)
     return;
 
-  // Early exit if the cells are too far apart
+  // Calculate maximum cell distance corner to corner
+  double max_cell_width = std::sqrt(cell->width[0] * cell->width[0] +
+                                    cell->width[1] * cell->width[1] +
+                                    cell->width[2] * cell->width[2]) +
+                          std::sqrt(other->width[0] * other->width[0] +
+                                    other->width[1] * other->width[1] +
+                                    other->width[2] * other->width[2]);
+
+  // Early exit if the cells are too far apart. Here we use the maximum kernel
+  // plus the diagonal widths of the cells as a measure of the maximum possible
+  // separation
   double dijx = cell->loc[0] - other->loc[0];
   double dijy = cell->loc[1] - other->loc[1];
   double dijz = cell->loc[2] - other->loc[2];
   double rij2 = dijx * dijx + dijy * dijy + dijz * dijz;
-  if (rij2 > metadata.max_kernel_radius2 * 4.0)
+  if (rij2 > metadata.max_kernel_radius2 + max_cell_width * max_cell_width)
     return;
 
   // If the cell is split then we need to recurse
@@ -481,12 +503,9 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
       recursivePairPartsToPoints(cell, other->children[i]);
     }
   } else {
+
     // Loop over the grid points in the cell
     for (int g = 0; g < cell->grid_points.size(); g++) {
-
-      // Skip grid points already assigned
-      if (cell->grid_points[g] == nullptr)
-        continue;
 
       // Get the grid point
       GridPoint &grid_point = *cell->grid_points[g];
@@ -538,10 +557,6 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell) {
     // Loop over the grid points in the cell
     for (int g = 0; g < cell->grid_points.size(); g++) {
 
-      // Skip grid points already assigned
-      if (cell->grid_points[g] == nullptr)
-        continue;
-
       // Get the grid point
       GridPoint &grid_point = *cell->grid_points[g];
 
@@ -570,7 +585,8 @@ void associatePartsToPoints(std::vector<std::shared_ptr<Cell>> cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
-  // Loop over the cells
+// Loop over the cells
+#pragma omp parallel
   for (std::shared_ptr<Cell> cell : cells) {
 
     // Skip cells that aren't on this rank

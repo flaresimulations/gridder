@@ -30,6 +30,9 @@ find_package(Threads REQUIRED)
 # MPI
 find_package(MPI REQUIRED)
 
+# Check for OpenMP support
+find_package(OpenMP REQUIRED)
+
 # ================= COMPILER FLAGS =================
 
 # Set the compiler flags
@@ -40,7 +43,8 @@ find_package(MPI REQUIRED)
 # -O3: Optimize for speed
 # -g: Generate debug information
 # -march=native: Optimize for the current machine
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O3 -g -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O3 -g -march=native -fopenmp")
+message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
 
 # ================= METADATA COLLECTION =================
 
@@ -99,7 +103,7 @@ add_executable(${TARGET} ${SOURCE_FILES})
 
 # HDF5
 target_include_directories(${TARGET} PRIVATE ${HDF5_INCLUDE_DIRS})
-target_link_libraries(${TARGET} PRIVATE ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
+target_link_libraries(parent_gridder PRIVATE ${HDF5_LIBRARIES} ${HDF5_CXX_LIBRARIES})
 
 # pthreads
 target_link_libraries(${TARGET} PRIVATE Threads::Threads)
@@ -107,6 +111,9 @@ target_link_libraries(${TARGET} PRIVATE Threads::Threads)
 # MPI
 target_link_libraries(${TARGET} PUBLIC MPI::MPI_CXX)
 target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
+
+# OpenMP
+target_link_libraries(${TARGET} PRIVATE OpenMP::OpenMP_CXX)
 
 # Display compiler flags being used.
 message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
