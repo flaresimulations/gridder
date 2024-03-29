@@ -68,6 +68,11 @@ public:
     // Compute the density
     const double density = this->mass_map[kernel_radius] / kernel_volume;
 
+    if (this->mass_map[kernel_radius] > 0) {
+      message("Grid point: mass[%f] = %f", kernel_radius,
+              this->mass_map[kernel_radius]);
+    }
+
     // Compute the over density
     const double over_density =
         (density / Metadata::getInstance().mean_density) - 1;
