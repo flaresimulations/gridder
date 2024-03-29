@@ -649,6 +649,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       std::array<hsize_t, 3> start = {static_cast<hsize_t>(metadata.grid_cdim),
                                       static_cast<hsize_t>(metadata.grid_cdim),
                                       static_cast<hsize_t>(metadata.grid_cdim)};
+      std::array<hsize_t, 3> end = {0, 0, 0};
       for (const std::unique_ptr<GridPoint> &gp : cell->grid_points) {
         grid_data.push_back(gp->getOverDensity(kernel_rad));
 
@@ -658,23 +659,27 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
           start[1] = gp->index[1];
         if (gp->index[2] < start[2])
           start[2] = gp->index[2];
+
+        if (gp->index[0] > end[0])
+          end[0] = gp->index[0];
+        if (gp->index[1] > end[1])
+          end[1] = gp->index[1];
+        if (gp->index[2] > end[2])
+          end[2] = gp->index[2];
       }
 
-      // Get the number of grid points along an axis in this slice (the cube
-      // root of the number of grid points in the cell)
-      int sub_grid_cdim = std::cbrt(cell->grid_points.size());
+      // Get the number of grid points along each axis in this slice
       std::array<hsize_t, 3> sub_grid_shape = {
-          static_cast<hsize_t>(sub_grid_cdim),
-          static_cast<hsize_t>(sub_grid_cdim),
-          static_cast<hsize_t>(sub_grid_cdim)};
+          end[0] - start[0] + 1, end[1] - start[1] + 1, end[2] - start[2] + 1};
 
       // Ensure we haven't somehow lost a grid point
-      if (sub_grid_cdim * sub_grid_cdim * sub_grid_cdim !=
+      if (sub_grid_shape[0] * sub_grid_shape[1] * sub_grid_shape[2] !=
           cell->grid_points.size()) {
-        error("Number of grid points in cell is not a cube. (cell->grid_points."
-              "size = %d, sub_grid_cdim^3 = %d)",
-              cell->grid_points.size(),
-              sub_grid_cdim * sub_grid_cdim * sub_grid_cdim);
+        error("Number of grid points in cell inconsistent. (cell->grid_points."
+              "size = %d, sub_grid_shape = [%d, %d, %d], expected = %d",
+              cell->grid_points.size(), sub_grid_shape[0], sub_grid_shape[1],
+              sub_grid_shape[2],
+              sub_grid_shape[0] * sub_grid_shape[1] * sub_grid_shape[2]);
       }
 
       // Write this cell's grid data to the HDF5 file
