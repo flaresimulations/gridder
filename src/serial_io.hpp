@@ -27,6 +27,7 @@
 #include <vector>
 
 // Local includes
+#include "cell.hpp"
 #include "logger.hpp"
 
 class HDF5Helper {
@@ -87,7 +88,7 @@ public:
       H5::DataSpace dataspace(H5S_SCALAR);
       H5::Attribute attr =
           group.createAttribute(attributeName, getHDF5Type<T>(), dataspace);
-      attr.write(strType, attributeValue);
+      attr.write(getHDF5Type<T>(), attributeValue);
       group.close();
       dataspace.close();
       attr.close();
