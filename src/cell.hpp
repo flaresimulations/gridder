@@ -499,8 +499,8 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   double dijy = cell->loc[1] - other->loc[1];
   double dijz = cell->loc[2] - other->loc[2];
   double rij2 = dijx * dijx + dijy * dijy + dijz * dijz;
-  // if (rij2 > metadata.max_kernel_radius2 + (max_cell_width * max_cell_width))
-  //   return;
+  if (rij2 > metadata.max_kernel_radius2 + (max_cell_width * max_cell_width))
+    return;
 
   // If the cell is split then we need to recurse
   // over the children
