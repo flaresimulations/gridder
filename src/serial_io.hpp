@@ -215,15 +215,14 @@ private:
 
   // Template declaration
   template <typename T> H5::PredType getHDF5Type();
-
-  // Template specializations for supported types
-  template <> H5::PredType getHDF5Type<int64_t>() {
-    return H5::PredType::NATIVE_INT64;
-  }
-
-  template <> H5::PredType getHDF5Type<double>() {
-    return H5::PredType::NATIVE_DOUBLE;
-  }
 };
 
+// Template specializations for supported types
+template <> H5::PredType HDF5Helper::getHDF5Type<int64_t>() {
+  return H5::PredType::NATIVE_INT64;
+}
+
+template <> H5::PredType HDF5Helper::getHDF5Type<double>() {
+  return H5::PredType::NATIVE_DOUBLE;
+}
 #endif // SERIAL_IO_H_
