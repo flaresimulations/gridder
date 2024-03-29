@@ -52,13 +52,9 @@ public:
     }
     dist = sqrt(dist);
 
-    message("Distance: %f", dist);
-
     // Add the mass to all the kernel radii that this particle is within
     for (int i = 0; i < metadata.kernel_radii.size(); i++) {
       if (dist <= metadata.kernel_radii[i]) {
-        message("Adding mass %f to kernel radius %f", part->mass,
-                metadata.kernel_radii[i]);
         this->mass_map[metadata.kernel_radii[i]] += part->mass;
       }
     }
