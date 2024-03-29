@@ -8,10 +8,10 @@
 #include <H5Cpp.h>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <omp.h>
-#include <sys/_types/_int64_t.h>
 #include <utility>
 #include <vector>
 
