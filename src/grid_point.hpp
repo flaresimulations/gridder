@@ -18,16 +18,20 @@ class GridPoint {
 public:
   // Grid point metadata members
   double loc[3];
+  int index[3];
 
   // Define a map to accumulate the mass of particles within each kernel
   // radius
   std::map<double, double> mass_map;
 
   // Constructor
-  GridPoint(double loc[3]) {
+  GridPoint(double loc[3], int index[3]) {
     this->loc[0] = loc[0];
     this->loc[1] = loc[1];
     this->loc[2] = loc[2];
+    this->index[0] = index[0];
+    this->index[1] = index[1];
+    this->index[2] = index[2];
 
     // Zero the mass maps
     Metadata &metadata = Metadata::getInstance();
@@ -57,7 +61,7 @@ public:
   }
 
   // Method to get over density inside kernel radius
-  double get_over_density(const double kernel_radius) {
+  double getOverDensity(const double kernel_radius) {
     // Compute the volume of the kernel
     const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
 

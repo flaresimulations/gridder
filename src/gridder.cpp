@@ -138,6 +138,16 @@ int main(int argc, char *argv[]) {
   }
   toc("Computing kernel masses");
 
+  // We're done write the output
+  tic();
+  try {
+    writeGridFile(cells);
+  } catch (const std::exception &e) {
+    report_error();
+    return 1;
+  }
+  toc("Writing output");
+
   // Exit properly in MPI land
   MPI_Finalize();
   return 0;

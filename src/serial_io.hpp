@@ -79,15 +79,14 @@ public:
     }
   }
 
+  template <typename T>
   bool writeAttribute(const std::string &objName,
-                      const std::string &attributeName,
-                      const std::string &attributeValue) {
+                      const std::string &attributeName, T &attributeValue) {
     try {
       H5::Group group(file.openGroup(objName));
       H5::DataSpace dataspace(H5S_SCALAR);
-      H5::StrType strType(H5::PredType::C_S1, attributeValue.length());
       H5::Attribute attr =
-          group.createAttribute(attributeName, strType, dataspace);
+          group.createAttribute(attributeName, getHDF5Type<T>(), dataspace);
       attr.write(strType, attributeValue);
       group.close();
       dataspace.close();
@@ -98,11 +97,32 @@ public:
     }
   }
 
-  template <typename T>
+  template <typename T, std::size_t Rank>
+  bool createDataset(const std::string group, const std::string &datasetName,
+                     const std::array<hsize_t, Rank> &dims) {
+    try {
+      // Create the data space for the dataset with given dimensions.
+      H5::DataSpace dataspace(Rank, dims.data());
+
+      // Create the dataset within the file using the defined data space.
+      H5::DataSet dataset =
+          file.createDataSet(group + datasetName, getHDF5Type<T>(), dataspace);
+
+      // Optionally set dataset properties or attributes here.
+
+      return true;
+    } catch (const H5::Exception &e) {
+      // Error handling: print the error message or log it.
+      error(e.getCDetailMsg());
+      return false;
+    }
+  }
+
+  template <typename T, std::size_t Rank>
   bool writeDataset(const std::string &datasetName,
                     const std::vector<T> &data) {
     try {
-      H5::DataSpace dataspace(1, data.size());
+      H5::DataSpace dataspace(Rank, data.size());
       H5::DataSet dataset =
           file.createDataSet(datasetName, getHDF5Type<T>(), dataspace);
       dataset.write(data.data(), getHDF5Type<T>());
@@ -110,6 +130,34 @@ public:
       dataset.close();
       return true;
     } catch (H5::Exception &e) {
+      return false;
+    }
+  }
+
+  template <typename T, std::size_t Rank>
+  bool writeDatasetSlice(const std::string &datasetName,
+                         const std::vector<T> &data,
+                         const std::array<hsize_t, Rank> &start,
+                         const std::array<hsize_t, Rank> &count) {
+    try {
+      // Open the existing dataset from the file.
+      H5::DataSet dataset = file.openDataSet(datasetName);
+
+      // Get the dataspace for the dataset.
+      H5::DataSpace filespace = dataset.getSpace();
+
+      // Select the hyperslab in the file dataspace.
+      filespace.selectHyperslab(H5S_SELECT_SET, count.data(), start.data());
+
+      // Define the memory dataspace based on count.
+      H5::DataSpace memspace(Rank, count.data());
+
+      // Write the data to the selected hyperslab in the dataset.
+      dataset.write(data.data(), getHDF5Type<T>(), memspace, filespace);
+
+      return true;
+    } catch (const H5::Exception &e) {
+      error(e.getCDetailMsg());
       return false;
     }
   }
@@ -224,5 +272,73 @@ template <> H5::PredType HDF5Helper::getHDF5Type<int64_t>() {
 
 template <> H5::PredType HDF5Helper::getHDF5Type<double>() {
   return H5::PredType::NATIVE_DOUBLE;
+}
+
+void writeGridFile(const std::string &filename,
+                   std::vector<std::shared_ptr<Cell>> cells) {
+
+  // Get the metadata
+  Metadata metadata = Metadata::getInstance();
+
+  // Create a new HDF5 file
+  HDF5Helper hdf5(filename, H5F_ACC_TRUNC);
+
+  // Create the Header group and write out the metadata
+  hdf5.createGroup("Header");
+  hdf5.writeAttribute<int>("Header", "Grid_CDim", metadata.grid_cdim);
+  hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", metadata.cdim);
+  hdf5.writeAttribute<double[3]>("Header", "BoxSize", metadata.dim);
+
+  // Create the Grids group
+  hdf5.createGroup("Grids");
+
+  // Loop over the kernels and write out the grids themselves
+  for (double kernel_rad : metadata.kernel_radii) {
+    std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+
+    // Create the dataset for this kernels grid data
+    hdf5.createDataset<double, 3>(
+        "Grids/", kernel_name,
+        {metadata.grid_cdim, metadata.grid_cdim, metadata.grid_cdim});
+
+    // Write out the grid data cell by cell
+    for (std::shared_ptr<Cell> cell : cells) {
+      // Create the output array for this cell
+      std::vector<double> grid_data;
+
+      // Populate the output array with the grid point's overdensities and
+      // find the offset into the main grid
+      std::array<hsize_t, 3> start = {metadata.grid_cdim, metadata.grid_cdim,
+                                      metadata.grid_cdim};
+      for (std::unique_ptr<GridPoint> gp : cell->grid_points) {
+        grid_data.push_back(gp->getOverDensity(kernel_rad));
+
+        if (gp->index[0] < start[0])
+          start[0] = gp->index[0];
+        if (gp->index[1] < start[1])
+          start[1] = gp->index[1];
+        if (gp->index[2] < start[2])
+          start[2] = gp->index[2];
+      }
+
+      // Get the number of grid points along an axis in this slice (the cube
+      // root of the number of grid points in the cell)
+      int sub_grid_cdim = std::cbrt(cell->grid_points.size());
+
+      // Ensure we haven't somehow lost a grid point
+      if (sub_grid_cdim * sub_grid_cdim * sub_grid_cdim !=
+          cell->grid_points.size()) {
+        error("Number of grid points in cell is not a cube.");
+      }
+
+      // Write this cell's grid data to the HDF5 file
+      hdf5.writeDatasetSlice<double, 3>(
+          "Grids/" + kernel_name, grid_data, start,
+          {sub_grid_cdim, sub_grid_cdim, sub_grid_cdim});
+    } // End of cell loop
+  } // End of kernel loop
+
+  // Close the HDF5 file
+  hdf5.close();
 }
 #endif // SERIAL_IO_H_

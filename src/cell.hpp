@@ -426,6 +426,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
         double loc[3] = {(i + 0.5) * grid_spacing[0],
                          (j + 0.5) * grid_spacing[1],
                          (k + 0.5) * grid_spacing[2]};
+        int index[3] = {i, j, k};
 
         // Get the cell this grid point is in
         std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
@@ -436,7 +437,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
 
         // Create the grid point
         std::unique_ptr<GridPoint> grid_point =
-            std::make_unique<GridPoint>(loc);
+            std::make_unique<GridPoint>(loc, index);
 
         // And attach the grid point to the cell
         cell->grid_points.push_back(std::move(grid_point));
