@@ -111,7 +111,7 @@ void readMetadata(std::string input_file) {
                             metadata->mean_density);
 
   // Convert mean density from internal units to Mpc and Msun
-  double internal_to_Msun = 1.989e23 / grams_to_internal;
+  double internal_to_Msun = 1.989e43 / grams_to_internal;
   double internal_to_Mpc = 3.086e24 / length_to_internal;
   metadata->mean_density =
       metadata->mean_density / internal_to_Msun * pow(internal_to_Mpc, 3);
