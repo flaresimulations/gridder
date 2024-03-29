@@ -87,7 +87,7 @@ public:
       H5::DataSpace dataspace(H5S_SCALAR);
       H5::Attribute attr =
           group.createAttribute(attributeName, getHDF5Type<T>(), dataspace);
-      attr.write(getHDF5Type<T>(), attributeValue);
+      attr.write(getHDF5Type<T>(), &attributeValue);
       group.close();
       dataspace.close();
       attr.close();
