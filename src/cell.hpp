@@ -8,7 +8,7 @@
 #include <H5Cpp.h>
 #include <array>
 #include <cmath>
-#include <malloc/_malloc.h>
+#include <cstdlib>
 #include <memory>
 #include <omp.h>
 #include <sys/_types/_int64_t.h>
