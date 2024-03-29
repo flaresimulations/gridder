@@ -19,6 +19,7 @@ public:
   // Grid point metadata members
   double loc[3];
   int index[3];
+  int count = 0;
 
   // Define a map to accumulate the mass of particles within each kernel
   // radius
@@ -45,7 +46,10 @@ public:
     // Get the metadata
     Metadata &metadata = Metadata::getInstance();
 
-    // Compute the distance from the grid point to the particle
+    // Count that we've added a particle
+    this->count++;
+
+    // compute the distance from the grid point to the particle
     double dist = 0.0;
     for (int i = 0; i < 3; i++) {
       dist += pow(part->pos[i] - this->loc[i], 2);
