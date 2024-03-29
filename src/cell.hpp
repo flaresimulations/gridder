@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <memory>
 #include <omp.h>
 #include <utility>
 #include <vector>
@@ -609,8 +610,36 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
       recursivePairPartsToPoints(cell, neighbour);
     }
   }
+}
 
-  // Now we need to hand the grid points back up the trees
+// Function to bring the unique pointers for grid points back to the top level
+void percolateGridPointsTop(std::vector<std::shared_ptr<Cell>> cells) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Loop over the cells
+  for (std::shared_ptr<Cell> cell : cells) {
+
+    // Skip cells that aren't on this rank
+    if (cell->rank != metadata.rank)
+      continue;
+
+    // If the cell is split then we need to recurse over the children
+    if (cell->is_split) {
+      percolateGridPointsTop(cell->children);
+    } else {
+      auto it = cell->grid_points.begin();
+      while (it != cell->grid_points.end()) {
+
+        // Move the unique_ptr to the parent's grid_points
+        cell->parent->grid_points.push_back(std::move(*it));
+
+        // Remove the unique_ptr from the current vector
+        it = cell->grid_points.erase(it);
+      }
+    }
+  }
 }
 
 void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
