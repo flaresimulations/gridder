@@ -606,4 +606,73 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
   }
 }
 
+void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
+
+  // Get the metadata
+  Metadata metadata = Metadata::getInstance();
+
+  // Get the output filepath
+  const std::string filename = metadata.output_file;
+
+  // Create a new HDF5 file
+  HDF5Helper hdf5(filename, H5F_ACC_TRUNC);
+
+  // Create the Header group and write out the metadata
+  hdf5.createGroup("Header");
+  hdf5.writeAttribute<int>("Header", "Grid_CDim", metadata.grid_cdim);
+  hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", metadata.cdim);
+  hdf5.writeAttribute<double[3]>("Header", "BoxSize", metadata.dim);
+
+  // Create the Grids group
+  hdf5.createGroup("Grids");
+
+  // Loop over the kernels and write out the grids themselves
+  for (double kernel_rad : metadata.kernel_radii) {
+    std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+
+    // Create the dataset for this kernels grid data
+    hdf5.createDataset<double, 3>(
+        "Grids/", kernel_name,
+        {metadata.grid_cdim, metadata.grid_cdim, metadata.grid_cdim});
+
+    // Write out the grid data cell by cell
+    for (std::shared_ptr<Cell> cell : cells) {
+      // Create the output array for this cell
+      std::vector<double> grid_data;
+
+      // Populate the output array with the grid point's overdensities and
+      // find the offset into the main grid
+      std::array<hsize_t, 3> start = {metadata.grid_cdim, metadata.grid_cdim,
+                                      metadata.grid_cdim};
+      for (std::unique_ptr<GridPoint> gp : cell->grid_points) {
+        grid_data.push_back(gp->getOverDensity(kernel_rad));
+
+        if (gp->index[0] < start[0])
+          start[0] = gp->index[0];
+        if (gp->index[1] < start[1])
+          start[1] = gp->index[1];
+        if (gp->index[2] < start[2])
+          start[2] = gp->index[2];
+      }
+
+      // Get the number of grid points along an axis in this slice (the cube
+      // root of the number of grid points in the cell)
+      int sub_grid_cdim = std::cbrt(cell->grid_points.size());
+
+      // Ensure we haven't somehow lost a grid point
+      if (sub_grid_cdim * sub_grid_cdim * sub_grid_cdim !=
+          cell->grid_points.size()) {
+        error("Number of grid points in cell is not a cube.");
+      }
+
+      // Write this cell's grid data to the HDF5 file
+      hdf5.writeDatasetSlice<double, 3>(
+          "Grids/" + kernel_name, grid_data, start,
+          {sub_grid_cdim, sub_grid_cdim, sub_grid_cdim});
+    } // End of cell loop
+  } // End of kernel loop
+
+  // Close the HDF5 file
+  hdf5.close();
+}
 #endif // CELL_HPP
