@@ -592,7 +592,7 @@ void associatePartsToPoints(std::vector<std::shared_ptr<Cell>> cells) {
   Metadata &metadata = Metadata::getInstance();
 
 // Loop over the cells
-#pragma omp parallel
+#pragma omp parallel for
   for (std::shared_ptr<Cell> cell : cells) {
 
     // Skip cells that aren't on this rank

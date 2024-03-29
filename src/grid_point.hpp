@@ -43,22 +43,24 @@ public:
     }
     dist = sqrt(dist);
 
-    // If the particle list is empty, append the particle and its distance
-    if (this->parts.size() == 0) {
-      this->parts.push_back(part);
-      this->part_dists.push_back(dist);
-      return;
-    }
+    this->parts.push_back(part);
 
-    // Otherwise, loop over the particles and insert the new particle in
-    // distance from the grid point order
-    for (int i = 0; i < this->parts.size(); i++) {
-      if (dist < this->part_dists[i]) {
-        this->parts.insert(this->parts.begin() + i, part);
-        this->part_dists.insert(this->part_dists.begin() + i, sqrt(dist));
-        return;
-      }
-    }
+    // // If the particle list is empty, append the particle and its distance
+    // if (this->parts.size() == 0) {
+    //   this->parts.push_back(part);
+    //   this->part_dists.push_back(dist);
+    //   return;
+    // }
+
+    // // Otherwise, loop over the particles and insert the new particle in
+    // // distance from the grid point order
+    // for (int i = 0; i < this->parts.size(); i++) {
+    //   if (dist < this->part_dists[i]) {
+    //     this->parts.insert(this->parts.begin() + i, part);
+    //     this->part_dists.insert(this->part_dists.begin() + i, sqrt(dist));
+    //     return;
+    //   }
+    // }
   }
 
   // Method to get over density inside kernel radius
