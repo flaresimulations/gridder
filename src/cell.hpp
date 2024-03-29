@@ -499,8 +499,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   double dijy = cell->loc[1] - other->loc[1];
   double dijz = cell->loc[2] - other->loc[2];
   double rij2 = dijx * dijx + dijy * dijy + dijz * dijz;
-  if (rij2 >
-      metadata.max_kernel_radius2 + (max_cell_width * max_cell_width * 4))
+  if (rij2 > metadata.max_kernel_radius2 + (max_cell_width * max_cell_width))
     return;
 
   // If the cell is split then we need to recurse
@@ -513,30 +512,29 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     for (int i = 0; i < 8; i++) {
       recursivePairPartsToPoints(cell, other->children[i]);
     }
-  } else {
+  }
 
-    // Loop over the grid points in the cell
-    for (int g = 0; g < cell->grid_points.size(); g++) {
+  // Loop over the grid points in the cell
+  for (int g = 0; g < cell->grid_points.size(); g++) {
 
-      // Get the grid point
-      GridPoint &grid_point = *cell->grid_points[g];
+    // Get the grid point
+    GridPoint &grid_point = *cell->grid_points[g];
 
-      // Loop over the particles in the other cell and assign them to the grid
-      // point
-      for (int p = 0; p < other->part_count; p++) {
-        std::shared_ptr<Particle> part = other->particles[p];
+    // Loop over the particles in the other cell and assign them to the grid
+    // point
+    for (int p = 0; p < other->part_count; p++) {
+      std::shared_ptr<Particle> part = other->particles[p];
 
-        // Get the distance between the particle and the grid point
-        double dx = part->pos[0] - grid_point.loc[0];
-        double dy = part->pos[1] - grid_point.loc[1];
-        double dz = part->pos[2] - grid_point.loc[2];
-        double r2 = dx * dx + dy * dy + dz * dz;
+      // Get the distance between the particle and the grid point
+      double dx = part->pos[0] - grid_point.loc[0];
+      double dy = part->pos[1] - grid_point.loc[1];
+      double dz = part->pos[2] - grid_point.loc[2];
+      double r2 = dx * dx + dy * dy + dz * dz;
 
-        // If the particle is within the kernel radius of the grid point then
-        // assign it
-        if (r2 < metadata.max_kernel_radius2) {
-          grid_point.add_particle(part);
-        }
+      // If the particle is within the kernel radius of the grid point then
+      // assign it
+      if (r2 < metadata.max_kernel_radius2) {
+        grid_point.add_particle(part);
       }
     }
   }
@@ -564,28 +562,31 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell) {
         recursivePairPartsToPoints(cell->children[i], cell->children[j]);
       }
     }
-  } else {
-    // Loop over the grid points in the cell
-    for (int g = 0; g < cell->grid_points.size(); g++) {
+  }
 
-      // Get the grid point
-      GridPoint &grid_point = *cell->grid_points[g];
+  // Loop over the grid points in the cell
+  for (int g = 0; g < cell->grid_points.size(); g++) {
 
-      // Loop over the particles in the cell and assign them to the grid point
-      for (int p = 0; p < cell->part_count; p++) {
-        std::shared_ptr<Particle> part = cell->particles[p];
+    // Get the grid point
+    GridPoint &grid_point = *cell->grid_points[g];
 
-        // Get the distance between the particle and the grid point
-        double dx = part->pos[0] - grid_point.loc[0];
-        double dy = part->pos[1] - grid_point.loc[1];
-        double dz = part->pos[2] - grid_point.loc[2];
-        double r2 = dx * dx + dy * dy + dz * dz;
+    // Loop over the particles in the cell and assign them to the grid point
+    for (int p = 0; p < cell->part_count; p++) {
+      std::shared_ptr<Particle> part = cell->particles[p];
 
-        // If the particle is within the kernel radius of the grid point then
-        // assign it
-        if (r2 < metadata.max_kernel_radius2) {
-          grid_point.add_particle(part);
-        }
+      // Get the distance between the particle and the grid point
+      double dx = part->pos[0] - grid_point.loc[0];
+      double dy = part->pos[1] - grid_point.loc[1];
+      double dz = part->pos[2] - grid_point.loc[2];
+      double r2 = dx * dx + dy * dy + dz * dz;
+
+      message("r2 = %f, max_kernel_radius2 = %f", r2,
+              metadata.max_kernel_radius2);
+
+      // If the particle is within the kernel radius of the grid point then
+      // assign it
+      if (r2 < metadata.max_kernel_radius2) {
+        grid_point.add_particle(part);
       }
     }
   }
