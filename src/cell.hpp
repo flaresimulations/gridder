@@ -7,6 +7,7 @@
 // Standard includes
 #include <H5Cpp.h>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -38,7 +39,7 @@ public:
 
   // Cell particle members
   // NOTE: particles are stored such that they are in child cell order
-  std::vector<std::shared_ptr<Particle>> particles;
+  std::vector<std::atomic<std::shared_ptr<Particle>>> particles;
 
   // Grid points in cell
   std::vector<std::unique_ptr<GridPoint>> grid_points;
@@ -385,7 +386,8 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
       const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
 
       // Create the particle
-      std::shared_ptr<Particle> part = std::make_shared<Particle>(pos, mass);
+      std::atomic<std::shared_ptr<Particle>> part =
+          std::make_shared<Particle>(pos, mass);
 
       // Add the mass to the cell
       cell->mass += mass;
@@ -513,7 +515,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
       // Loop over the particles in the other cell and assign them to the grid
       // point
       for (int p = 0; p < other->part_count; p++) {
-        std::shared_ptr<Particle> part = other->particles[p];
+        std::atomic<std::shared_ptr<Particle>> part = other->particles[p];
 
         // Get the distance between the particle and the grid point
         double dx = part->pos[0] - grid_point.loc[0];
@@ -562,7 +564,7 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell) {
 
       // Loop over the particles in the cell and assign them to the grid point
       for (int p = 0; p < cell->part_count; p++) {
-        std::shared_ptr<Particle> part = cell->particles[p];
+        std::atomic<std::shared_ptr<Particle>> part = cell->particles[p];
 
         // Get the distance between the particle and the grid point
         double dx = part->pos[0] - grid_point.loc[0];

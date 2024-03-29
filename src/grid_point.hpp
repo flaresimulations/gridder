@@ -21,7 +21,7 @@ public:
   // Pointers to the particles associated with this grid point
   // This includes all particles within the maximum kernel radius
   // of this grid point and is in distance from the grid point order
-  std::vector<std::shared_ptr<Particle>> parts;
+  std::vector<std::atomic<std::shared_ptr<Particle>>> parts;
 
   // Vector of particle distances from the grid point
   std::vector<double> part_dists;
@@ -35,7 +35,7 @@ public:
 
   // Method to add a particle to the grid point in distance from the grid point
   // order
-  void add_particle(std::shared_ptr<Particle> part) {
+  void add_particle(std::atomic<std::shared_ptr<Particle>> part) {
     // Get the distance between the particle and the grid point
     double dist = 0.0;
     for (int i = 0; i < 3; i++) {
