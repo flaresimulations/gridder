@@ -269,7 +269,7 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
   // How many cells do we need to walk out? The number of cells we need to walk
   // out is the maximum kernel radius divided by the cell width
   const int nwalk =
-      std::ceil(metadata.max_kernel_radius / metadata.width[0]) + 1;
+      std::ceil(metadata.max_kernel_radius / metadata.width[0]) + 4;
   int nwalk_upper = nwalk;
   int nwalk_lower = nwalk;
 
