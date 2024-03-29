@@ -75,7 +75,7 @@ public:
     this->part_count = 0;
     this->rank = 0;
     this->depth = parent ? parent->depth + 1 : 0;
-    this->top = top ? top : shared_from_this();
+    this->top = top;
 
     // Compute the peano-hilbert index
     this->peanoHilbertIndex();
@@ -258,6 +258,9 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
 
     // Assign the particle count in this cell
     cell->part_count = counts[cid];
+
+    // We need to set top outside the constructor
+    cell->top = cell;
 
     // Add the cell to the cells vector
     cells.push_back(cell);
