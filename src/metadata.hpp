@@ -111,7 +111,7 @@ void readMetadata(std::string input_file) {
                             metadata->mean_density);
 
   // Convert mean density from internal units to Mpc and Msun
-  double internal_to_Msun = 1.989e33 / grams_to_internal;
+  double internal_to_Msun = 1.989e23 / grams_to_internal;
   double internal_to_Mpc = 3.086e24 / length_to_internal;
   metadata->mean_density =
       metadata->mean_density / internal_to_Msun * pow(internal_to_Mpc, 3);
@@ -125,7 +125,7 @@ void readMetadata(std::string input_file) {
 
   // Report interesting things
   message("Running with %d dark matter particles", metadata->nr_dark_matter);
-  message("Mean density at z=%.2f: %e Msun / Mpc^3", metadata->redshift,
+  message("Mean density at z=%.2f: %e 10**10 Msun / Mpc^3", metadata->redshift,
           metadata->mean_density);
   std::stringstream ss;
   ss << "Kernel radii (nkernels=%d):";
