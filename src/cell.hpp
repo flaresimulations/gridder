@@ -524,7 +524,10 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
         // If the particle is within the kernel radius of the grid point then
         // assign it
         if (r2 < metadata.max_kernel_radius2) {
-          grid_point.add_particle(part);
+          {
+            std::lock_guard<std::mutex> lock(part->mtx);
+            grid_point.add_particle(part);
+          }
         }
       }
     }
