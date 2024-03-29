@@ -499,8 +499,8 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   double dijy = cell->loc[1] - other->loc[1];
   double dijz = cell->loc[2] - other->loc[2];
   double rij2 = dijx * dijx + dijy * dijy + dijz * dijz;
-  if (rij2 > metadata.max_kernel_radius2 + (max_cell_width * max_cell_width))
-    return;
+  // if (rij2 > metadata.max_kernel_radius2 + (max_cell_width * max_cell_width))
+  //   return;
 
   // If the cell is split then we need to recurse
   // over the children
@@ -545,13 +545,13 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
-  // Ensure we have grid points
-  if (cell->grid_points.size() == 0)
+  // Ensure we have grid points and particles
+  if (cell->grid_points.size() == 0 || cell->part_count == 0)
     return;
 
   // If the cell is split then we need to recurse
   // over the children but only if the cell is larger than the kernel radius
-  if (cell->is_split && cell->width[0] > metadata.max_kernel_radius) {
+  if (cell->is_split) {
     for (int i = 0; i < 8; i++) {
       recursiveSelfPartsToPoints(cell->children[i]);
 
