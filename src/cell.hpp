@@ -631,8 +631,10 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
     std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
 
     // Define the grid shape
-    std::array<hsize_t, 3> grid_shape = {metadata.grid_cdim, metadata.grid_cdim,
-                                         metadata.grid_cdim};
+    std::array<hsize_t, 3> grid_shape = {
+        static_cast<hsize_t>(metadata.grid_cdim),
+        static_cast<hsize_t>(metadata.grid_cdim),
+        static_cast<hsize_t>(metadata.grid_cdim)};
 
     // Create the dataset for this kernels grid data
     hdf5.createDataset<double, 3>("Grids/", kernel_name, grid_shape);
@@ -660,6 +662,10 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       // Get the number of grid points along an axis in this slice (the cube
       // root of the number of grid points in the cell)
       int sub_grid_cdim = std::cbrt(cell->grid_points.size());
+      std::array<hsize_t, 3> sub_grid_shape = {
+          static_cast<hsize_t>(sub_grid_cdim),
+          static_cast<hsize_t>(sub_grid_cdim),
+          static_cast<hsize_t>(sub_grid_cdim)};
 
       // Ensure we haven't somehow lost a grid point
       if (sub_grid_cdim * sub_grid_cdim * sub_grid_cdim !=
@@ -668,9 +674,8 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       }
 
       // Write this cell's grid data to the HDF5 file
-      hdf5.writeDatasetSlice<double, 3>(
-          "Grids/" + kernel_name, grid_data, start,
-          {sub_grid_cdim, sub_grid_cdim, sub_grid_cdim});
+      hdf5.writeDatasetSlice<double, 3>("Grids/" + kernel_name, grid_data,
+                                        start, sub_grid_shape);
     } // End of cell loop
   } // End of kernel loop
 
