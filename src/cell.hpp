@@ -671,7 +671,10 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       // Ensure we haven't somehow lost a grid point
       if (sub_grid_cdim * sub_grid_cdim * sub_grid_cdim !=
           cell->grid_points.size()) {
-        error("Number of grid points in cell is not a cube.");
+        error("Number of grid points in cell is not a cube. (cell->grid_points."
+              "size = %d, sub_grid_cdim^3 = %d)",
+              cell->grid_points.size(),
+              sub_grid_cdim * sub_grid_cdim * sub_grid_cdim);
       }
 
       // Write this cell's grid data to the HDF5 file
