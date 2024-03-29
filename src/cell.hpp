@@ -11,8 +11,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <memory>
-#include <mutex>
 #include <omp.h>
 #include <utility>
 #include <vector>
@@ -53,9 +51,6 @@ public:
 
   // Store the neighbouring cells
   std::vector<std::shared_ptr<Cell>> neighbours;
-
-  // Define the particle mutex
-  std::mutex particle_mutex;
 
   // Depth in the tree
   int depth;
@@ -529,10 +524,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
         // If the particle is within the kernel radius of the grid point then
         // assign it
         if (r2 < metadata.max_kernel_radius2) {
-          {
-            std::lock_guard<std::mutex> lock(grid_point.particle_mutex);
-            grid_point.add_particle(part);
-          }
+          grid_point.add_particle(part);
         }
       }
     }
