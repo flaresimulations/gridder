@@ -646,8 +646,9 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
       // Populate the output array with the grid point's overdensities and
       // find the offset into the main grid
-      std::array<hsize_t, 3> start = {metadata.grid_cdim, metadata.grid_cdim,
-                                      metadata.grid_cdim};
+      std::array<hsize_t, 3> start = {static_cast<hsize_t>(metadata.grid_cdim),
+                                      static_cast<hsize_t>(metadata.grid_cdim),
+                                      static_cast<hsize_t>(metadata.grid_cdim)};
       for (const std::unique_ptr<GridPoint> &gp : cell->grid_points) {
         grid_data.push_back(gp->getOverDensity(kernel_rad));
 
