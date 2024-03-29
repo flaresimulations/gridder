@@ -612,6 +612,31 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
   }
 }
 
+void recursivePercolateUp(std::shared_ptr<Cell> cell) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // If the cell is split then we need to recurse over the children
+  if (cell->is_split) {
+    for (int i = 0; i < 8; i++) {
+      recursivePercolateUp(cell->children[i]);
+    }
+  } else {
+    // If the cell is not split then we need to percolate the grid points up
+    // to the parent
+    auto it = cell->grid_points.begin();
+    while (it != cell->grid_points.end()) {
+
+      // Move the unique_ptr to the parent's grid_points
+      cell->parent->grid_points.push_back(std::move(*it));
+
+      // Remove the unique_ptr from the current vector
+      it = cell->grid_points.erase(it);
+    }
+  }
+}
+
 // Function to bring the unique pointers for grid points back to the top level
 void percolateGridPointsTop(std::vector<std::shared_ptr<Cell>> cells) {
 
@@ -625,20 +650,8 @@ void percolateGridPointsTop(std::vector<std::shared_ptr<Cell>> cells) {
     if (cell->rank != metadata.rank)
       continue;
 
-    // If the cell is split then we need to recurse over the children
-    if (cell->is_split) {
-      percolateGridPointsTop(cell->children);
-    } else {
-      auto it = cell->grid_points.begin();
-      while (it != cell->grid_points.end()) {
-
-        // Move the unique_ptr to the parent's grid_points
-        cell->parent->grid_points.push_back(std::move(*it));
-
-        // Remove the unique_ptr from the current vector
-        it = cell->grid_points.erase(it);
-      }
-    }
+    // Recursively percolate the grid points up to the top level
+    recursivePercolateUp(cell);
   }
 }
 
