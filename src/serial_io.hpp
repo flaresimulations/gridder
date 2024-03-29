@@ -275,11 +275,13 @@ template <> H5::PredType HDF5Helper::getHDF5Type<double>() {
   return H5::PredType::NATIVE_DOUBLE;
 }
 
-void writeGridFile(const std::string &filename,
-                   std::vector<std::shared_ptr<Cell>> cells) {
+void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata
   Metadata metadata = Metadata::getInstance();
+
+  // Get the output filepath
+  const std::string filename = metadata.output_file;
 
   // Create a new HDF5 file
   HDF5Helper hdf5(filename, H5F_ACC_TRUNC);

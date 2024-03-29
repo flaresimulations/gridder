@@ -14,3 +14,7 @@ Metadata:
 
 Input:
   filepath: /Users/willroper/Documents/3D Printing/Python/ani_hydro_1379.hdf5
+
+Output:
+  filepath: data/
+  basename: test_grid.hdf5

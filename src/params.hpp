@@ -287,6 +287,12 @@ void parseParams(Parameters &params, const std::string &param_file) {
   metadata.input_file =
       params.getParameterNoDefault<std::string>("Input/filepath");
 
+  // Get the output file path
+  metadata.output_file =
+      params.getParameterNoDefault<std::string>("Output/filepath");
+  metadata.output_file +=
+      "/" + params.getParameterNoDefault<std::string>("Output/basename");
+
   // Get the grid resolution
   metadata.grid_cdim = params.getParameterNoDefault<int>("Grid/cdim");
 
