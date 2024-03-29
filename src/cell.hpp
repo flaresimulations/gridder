@@ -609,7 +609,7 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
 void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata
-  Metadata metadata = Metadata::getInstance();
+  Metadata &metadata = Metadata::getInstance();
 
   // Get the output filepath
   const std::string filename = metadata.output_file;
