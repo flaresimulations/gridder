@@ -644,6 +644,10 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       // Create the output array for this cell
       std::vector<double> grid_data;
 
+      // If cell has no grid points then we have a problem
+      if (cell->grid_points.size() == 0)
+        error("Cell %d has no grid points", cell->ph_ind);
+
       // Populate the output array with the grid point's overdensities and
       // find the offset into the main grid
       std::array<hsize_t, 3> start = {static_cast<hsize_t>(metadata.grid_cdim),
