@@ -181,6 +181,18 @@ public:
       error("Particle count mismatch in cell %d (child_part_count = %d, "
             "this->part_count = %d)",
             this->ph_ind, child_part_count, this->part_count);
+
+    // Make sure the sum of the child grid point counts is the same as the
+    // parent
+    size_t child_grid_point_count = 0;
+    for (int i = 0; i < 8; i++) {
+      child_grid_point_count += this->children[i]->grid_points.size();
+    }
+    if (child_grid_point_count != this->grid_points.size())
+      error(
+          "Grid point count mismatch in cell %d (child_grid_point_count = %d, "
+          "this->grid_points.size = %d)",
+          this->ph_ind, child_grid_point_count, this->grid_points.size());
   }
 
   void peanoHilbertIndex() {
