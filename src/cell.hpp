@@ -133,7 +133,7 @@ public:
                         other->width[2] * other->width[2];
 
     // Get the minimum separation
-    double min_separation = this->min_separation(other);
+    double min_separation = this->min_separation2(other);
 
     // If we add the diagnols of the two cells to the minimum separation we
     // get the maximum separation
@@ -573,19 +573,18 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
             cell->grid_points.size());
     }
 
+    // Get the single grid point in this leaf
+    GridPoint &grid_point = *cell->grid_points[0];
+
     // If the maximum separation is less than the kernel radius then we can just
     // add the whole cell to each grid point.
     if (cell->max_separation2(other) < kernel_rad2) {
-      cell->grid_points[0].add_cell(other->part_count, other->mass, kernel_rad);
+      grid_point.add_cell(other->part_count, other->mass, kernel_rad);
       return;
     }
 
-    // Otherwise get the single grid_point in this leaf and test the other
-    // cell's particles against it
-    GridPoint &grid_point = *cell->grid_points[0];
-
-    // Loop over the particles in the other cell and assign them to the grid
-    // point
+    // Otherwise, loop over the particles in the other cell and assign them to
+    // the grid point
     for (int p = 0; p < other->part_count; p++) {
       std::shared_ptr<Particle> part = other->particles[p];
 
