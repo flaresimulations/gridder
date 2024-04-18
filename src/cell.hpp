@@ -42,7 +42,7 @@ public:
   std::vector<std::shared_ptr<Particle>> particles;
 
   // Grid points in cell
-  std::vector<std::unique_ptr<GridPoint>> grid_points;
+  std::vector<std::shared_ptr<GridPoint>> grid_points;
 
   // Child cells
   std::array<std::shared_ptr<Cell>, 8> children;
@@ -140,26 +140,14 @@ public:
           }
 
           // Attach the grid points to the child
-          // NOTE: because grid points are unique pointers we need to move them
-          // to the child before erasing them from the parent to avoid nullptrs
-          // in the parent's grid_points vector
-          auto it = this->grid_points.begin();
-          while (it != this->grid_points.end()) {
-
-            // Is the grid point in this child?
-            if ((*it)->loc[0] >= new_loc[0] &&
-                (*it)->loc[0] < new_loc[0] + new_width[0] &&
-                (*it)->loc[1] >= new_loc[1] &&
-                (*it)->loc[1] < new_loc[1] + new_width[1] &&
-                (*it)->loc[2] >= new_loc[2] &&
-                (*it)->loc[2] < new_loc[2] + new_width[2]) {
-              // Move the unique_ptr to the child's grid_points
-              child->grid_points.push_back(std::move(*it));
-
-              // Remove the unique_ptr from the current vector
-              it = this->grid_points.erase(it);
-            } else {
-              ++it; // Only increment if not erased
+          for (int p = 0; p < this->grid_points.size; p++) {
+            if (this->grid_points[p]->loc[0] >= new_loc[0] &&
+                this->grid_points[p]->loc[0] < new_loc[0] + new_width[0] &&
+                this->grid_points[p]->loc[1] >= new_loc[1] &&
+                this->grid_points[p]->loc[1] < new_loc[1] + new_width[1] &&
+                this->grid_points[p]->loc[2] >= new_loc[2] &&
+                this->grid_points[p]->loc[2] < new_loc[2] + new_width[2]) {
+              child->grid_points.push_back(this->particles[p]);
             }
           }
 
@@ -457,11 +445,11 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
           continue;
 
         // Create the grid point
-        std::unique_ptr<GridPoint> grid_point =
-            std::make_unique<GridPoint>(loc, index);
+        std::shared_ptr<GridPoint> grid_point =
+            std::make_shared<GridPoint>(loc, index);
 
         // And attach the grid point to the cell
-        cell->grid_points.push_back(std::move(grid_point));
+        cell->grid_points.push_back(grid_point);
       }
     }
   }
@@ -626,53 +614,6 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
   }
 }
 
-void recursivePercolateUp(std::shared_ptr<Cell> cell) {
-
-  // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
-
-  // If the cell is split then we need to recurse over the children
-  if (cell->is_split) {
-    for (int i = 0; i < 8; i++) {
-      recursivePercolateUp(cell->children[i]);
-    }
-  }
-
-  // Early exit if we are are the top level
-  if (cell->parent == nullptr)
-    return;
-
-  // Once recursion is done we need to percolate the grid points up
-  // to the parent
-  auto it = cell->grid_points.begin();
-  while (it != cell->grid_points.end()) {
-
-    // Move the unique_ptr to the parent's grid_points
-    cell->parent->grid_points.push_back(std::move(*it));
-
-    // Remove the unique_ptr from the current vector
-    it = cell->grid_points.erase(it);
-  }
-}
-
-// Function to bring the unique pointers for grid points back to the top level
-void percolateGridPointsTop(std::vector<std::shared_ptr<Cell>> cells) {
-
-  // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
-
-  // Loop over the cells
-  for (std::shared_ptr<Cell> cell : cells) {
-
-    // Skip cells that aren't on this rank
-    if (cell->rank != metadata.rank)
-      continue;
-
-    // Recursively percolate the grid points up to the top level
-    recursivePercolateUp(cell);
-  }
-}
-
 void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata
@@ -721,8 +662,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
                                       static_cast<hsize_t>(metadata.grid_cdim),
                                       static_cast<hsize_t>(metadata.grid_cdim)};
       std::array<hsize_t, 3> end = {0, 0, 0};
-      for (const std::unique_ptr<GridPoint> &gp : cell->grid_points) {
-        // grid_data.push_back(gp->getOverDensity(kernel_rad));
+      for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
 
         grid_data.push_back(gp->count);
 
