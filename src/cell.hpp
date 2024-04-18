@@ -128,16 +128,13 @@ public:
     double this_diag = this->width[0] * this->width[0] +
                        this->width[1] * this->width[1] +
                        this->width[2] * this->width[2];
-    double other_diag = other->width[0] * other->width[0] +
-                        other->width[1] * other->width[1] +
-                        other->width[2] * other->width[2];
 
     // Get the minimum separation
     double min_separation = this->min_separation2(other);
 
     // If we add the diagnols of the two cells to the minimum separation we
     // get the maximum separation
-    return min_separation + this_diag + other_diag;
+    return min_separation + this_diag;
   }
 
   // method to split this cell into 8 children (constructing an octree)
@@ -544,13 +541,9 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   if (other->part_count == 0)
     return;
 
-  // // Early exit if the cells are too far apart. Here we use the maximum
-  // kernel
-  // // plus the diagonal widths of the cells as a measure of the maximum
-  // // possible separation
-  // if (cell->max_separation2(other) > kernel_rad2 &&
-  //     cell->min_separation2(other) > kernel_rad2)
-  //   return;
+  // Early exit if the cells are too far apart.
+  if (cell->max_separation2(other) > kernel_rad2)
+    return;
 
   // If the cell is split then we need to recurse
   // over the children
