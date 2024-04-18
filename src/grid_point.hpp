@@ -14,6 +14,24 @@
 #include "metadata.hpp"
 #include "particle.hpp"
 
+/**
+ * @brief Find the smallest distance dx along one axis within a box of size
+ * box_size
+ *
+ * This macro evaluates its arguments exactly once.
+ *
+ * Only wraps once. If dx > 2b, the returned value will be larger than b.
+ * Similarly for dx < -b.
+ *
+ */
+__attribute__((always_inline, const)) INLINE static double
+nearest(const double dx, const double box_size) {
+
+  return ((dx > 0.5 * box_size)
+              ? (dx - box_size)
+              : ((dx < -0.5 * box_size) ? (dx + box_size) : dx));
+}
+
 class GridPoint {
 public:
   // Grid point metadata members
@@ -42,26 +60,25 @@ public:
   }
 
   // Method to add a particle to the grid point
-  void add_particle(std::shared_ptr<Particle> part) {
+  void add_particle(std::shared_ptr<Particle> part, double kernel_radius) {
     // Get the metadata
     Metadata &metadata = Metadata::getInstance();
 
     // Count that we've added a particle
     this->count++;
 
-    // compute the distance from the grid point to the particle
-    double dist = 0.0;
-    for (int i = 0; i < 3; i++) {
-      dist += pow(part->pos[i] - this->loc[i], 2);
-    }
-    dist = sqrt(dist);
+    this->mass_map[kernel_radius] += part->mass;
+  }
 
-    // Add the mass to all the kernel radii that this particle is within
-    for (int i = 0; i < metadata.kernel_radii.size(); i++) {
-      if (dist <= metadata.kernel_radii[i]) {
-        this->mass_map[metadata.kernel_radii[i]] += part->mass;
-      }
-    }
+  // Method to add a whole cell to the grid point
+  void add_cell(std::shared_ptr<Cell> cell, double kernel_radius) {
+    // Get the metadata
+    Metadata &metadata = Metadata::getInstance();
+
+    // Count that we've added a particle
+    this->count += cell->part_count;
+
+    this->mass_map[kernel_radius] += cell->mass;
   }
 
   // Method to get over density inside kernel radius
