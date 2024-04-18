@@ -147,7 +147,7 @@ public:
                 this->grid_points[p]->loc[1] < new_loc[1] + new_width[1] &&
                 this->grid_points[p]->loc[2] >= new_loc[2] &&
                 this->grid_points[p]->loc[2] < new_loc[2] + new_width[2]) {
-              child->grid_points.push_back(this->particles[p]);
+              child->grid_points.push_back(this->grid_points[p]);
             }
           }
 
