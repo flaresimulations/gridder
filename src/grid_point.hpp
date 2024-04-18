@@ -73,6 +73,9 @@ public:
     this->count += cell_part_count;
 
     this->mass_map[kernel_radius] += cell_mass;
+
+    message("Assigned cell with mass=%f and count=%d", cell_mass,
+            cell_part_count);
   }
 
   // Method to get over density inside kernel radius
