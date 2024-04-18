@@ -138,19 +138,6 @@ int main(int argc, char *argv[]) {
   }
   toc("Computing kernel masses");
 
-  // Because the grid points are unique pointers we need to bring them back
-  // up from the leaves so we can write them out at the top level. This could
-  // be entirely avoided if we used shared pointers for the grid points, but
-  // we currently favour unique pointers to limit memory usage.
-  tic();
-  try {
-    percolateGridPointsTop(cells);
-  } catch (const std::exception &e) {
-    report_error();
-    return 1;
-  }
-  toc("Percolating up grid points");
-
   // We're done write the output
   tic();
   try {
