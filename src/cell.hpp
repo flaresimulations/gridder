@@ -397,7 +397,8 @@ getCellContainingPoint(const std::vector<std::shared_ptr<Cell>> &cells,
   int k = static_cast<int>(pos[2] / metadata.width[2]);
 
   // Get the cell index
-  int cid = i * metadata.cdim[1] * metadata.cdim[2] + j * metadata.cdim[2] + k;
+  int cid =
+      (i * metadata.cdim[1] * metadata.cdim[2]) + (j * metadata.cdim[2]) + k;
 
   // Return the cell
   return cells[cid];
