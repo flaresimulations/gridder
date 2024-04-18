@@ -56,7 +56,7 @@ if [ ! -d "\$(dirname "\$output_dir")" ]; then
 fi
 
 # Your mpirun command with variable filepaths
-mpirun -np \$SLURM_NTASKS python3 generate_regions.py \
+mpirun -np \$SLURM_NTASKS python3 generate_grid.py \
     --input "\$input_file" \
     --output "\$output_file" \
     --nthreads=\$SLURM_CPUS_PER_TASK \
@@ -73,4 +73,4 @@ EOL
 sbatch "$temp_script"
 
 # Remove the temporary script
-rm "$temp_script"
+# rm "$temp_script"

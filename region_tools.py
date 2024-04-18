@@ -7,6 +7,7 @@ Example Usage:
     )
 
 """
+
 import h5py
 import numpy as np
 
@@ -19,11 +20,11 @@ def _get_single_grid_point(filepath, ix, iy, iz, pos):
         filepath (str):
             The path to the grid file.
         ix (int):
-            The x index of the grid point.
+            The x index of the cell.
         iy (int):
-            The y index of the grid point.
+            The y index of the cell.
         iz (int):
-            The z index of the grid point.
+            The z index of the cell.
         pos (np.ndarray):
             The position of the grid point.
     """
@@ -81,3 +82,49 @@ def get_grid_points(filepath, pos):
         return point_ovden
 
     return _get_single_grid_point(filepath, x_index, y_index, z_index, pos)
+
+
+def get_all_grid_points(filepath, coordinates=False):
+    """
+    Return all grid point coordinates and their overdensity
+
+    Warning: may lead to memory errors for very large grids/
+
+    Args:
+        filepath (string)
+            grid file path
+        coordinates (bool)
+            should we extract coordinates as well as overdensities?
+    """
+
+    # Open the grid file
+    with h5py.File(filepath, "r") as hdf:
+        cdim = hdf["Parent"].attrs["CDim"]
+        gdim = (hdf["Grid"].attrs["CDim"] / cdim).astype(int)
+        grid_width = hdf["Grid"].attrs["CellWidth"]
+
+        grid_overdensity = np.zeros(
+            np.append(cdim, np.product(gdim)), dtype=np.float32
+        )
+        if coordinates:
+            coods_overdensity = np.zeros(
+                np.append(cdim, np.product(gdim)), dtype=np.float32
+            )
+
+        for ix in np.arange(cdim[0]):
+            for iy in np.arange(cdim[1]):
+                for iz in np.arange(cdim[2]):
+                    grid_overdensity[ix, iy, iz] = hdf["CellGrids"][
+                        f"{ix}_{iy}_{iz}"
+                    ]["OverDensity"][:].flatten()
+
+                    if coordinates:
+                        coods_overdensity = hdf["CellGrids"][
+                            f"{ix}_{iy}_{iz}"
+                        ]["CellEdge"]
+
+                        coods_overdensity[0] += ix * grid_width
+                        coods_overdensity[1] += iy * grid_width
+                        coods_overdensity[2] += iz * grid_width
+
+        return grid_overdensity, coods_overdensity
