@@ -84,6 +84,10 @@ public:
   // Minimum separation between this cell and another
   double min_separation2(const std::shared_ptr<Cell> &other) {
 
+    // Get the metadata
+    Metadata &metadata = Metadata::getInstance();
+    double *dim = metadata.dim;
+
     // Compute the minimum separation
     const double thisx_min = this->loc[0];
     const double thisy_min = this->loc[1];
@@ -673,12 +677,12 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
 
       // Recursively assign particles within a cell to the grid points within
       // the cell
-      recursiveSelfPartsToPoints(cell, kernel_rad2);
+      recursiveSelfPartsToPoints(cell, kernel_rad, kernel_rad2);
 
       // Recursively assign particles within any neighbours to the grid points
       // within a cell
       for (std::shared_ptr<Cell> neighbour : cell->neighbours) {
-        recursivePairPartsToPoints(cell, neighbour, kernel_rad2);
+        recursivePairPartsToPoints(cell, neighbour, kernel_rad, kernel_rad2);
       }
     }
   }
