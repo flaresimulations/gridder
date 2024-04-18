@@ -103,20 +103,20 @@ public:
     const double othery_max = other->loc[1] + other->width[1];
     const double otherz_max = other->loc[2] + other->width[2];
 
-    const double dx = min4(fabs(nearest(thisx_min - otherx_min, dim[0])),
-                           fabs(nearest(thisx_min - otherx_max, dim[0])),
-                           fabs(nearest(thisx_max - otherx_min, dim[0])),
-                           fabs(nearest(thisx_max - otherx_max, dim[0])));
+    const double dx = std::min({fabs(nearest(thisx_min - otherx_min, dim[0])),
+                                fabs(nearest(thisx_min - otherx_max, dim[0])),
+                                fabs(nearest(thisx_max - otherx_min, dim[0])),
+                                fabs(nearest(thisx_max - otherx_max, dim[0]))});
 
-    const double dy = min4(fabs(nearest(thisy_min - othery_min, dim[1])),
-                           fabs(nearest(thisy_min - othery_max, dim[1])),
-                           fabs(nearest(thisy_max - othery_min, dim[1])),
-                           fabs(nearest(thisy_max - othery_max, dim[1])));
+    const double dy = std::min({fabs(nearest(thisy_min - othery_min, dim[1])),
+                                fabs(nearest(thisy_min - othery_max, dim[1])),
+                                fabs(nearest(thisy_max - othery_min, dim[1])),
+                                fabs(nearest(thisy_max - othery_max, dim[1]))});
 
-    const double dz = min4(fabs(nearest(thisz_min - otherz_min, dim[2])),
-                           fabs(nearest(thisz_min - otherz_max, dim[2])),
-                           fabs(nearest(thisz_max - otherz_min, dim[2])),
-                           fabs(nearest(thisz_max - otherz_max, dim[2])));
+    const double dz = std::min({fabs(nearest(thisz_min - otherz_min, dim[2])),
+                                fabs(nearest(thisz_min - otherz_max, dim[2])),
+                                fabs(nearest(thisz_max - otherz_min, dim[2])),
+                                fabs(nearest(thisz_max - otherz_max, dim[2]))});
 
     return dx * dx + dy * dy + dz * dz;
   }
