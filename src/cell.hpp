@@ -421,6 +421,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
     error("Failed to read cell offsets");
 
   // Loop over cells attaching particles and grid points
+  size_t total_part_count = 0;
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the cell
@@ -433,6 +434,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
     // Get the particle slice start and length
     const int offset = offsets[cid];
     const int count = counts[cid];
+    total_part_count += count;
 
     // Get the particle data
     std::vector<double> poss;
@@ -466,6 +468,18 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
       error("Particle count mismatch in cell %d (particles.size = %d, "
             "cell->part_count = %d)",
             cid, cell->particles.size(), cell->part_count);
+  }
+
+  // Make sure we have attached all the particles
+  size_t total_cell_part_count = 0;
+  for (std::shared_ptr<Cell> cell : cells) {
+    total_cell_part_count += cell->part_count;
+  }
+  if (total_part_count != total_cell_part_count) {
+    error("Particle count mismatch (total_part_count = %d, "
+          "total_cell_part_count = "
+          "%d)",
+          total_part_count, total_cell_part_count);
   }
 
   // With the particles done we can now move on to creating and assigning grid
@@ -661,8 +675,6 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
     // Skip cells that aren't on this rank
     if (cell->rank != metadata.rank)
       continue;
-
-    message("Working on cell (%d)", i++);
 
     // Loop over kernels
     for (double kernel_rad : metadata.kernel_radii) {
