@@ -660,13 +660,16 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
-// Loop over the cells
+  // Loop over the cells
+  int i = 0;
 #pragma omp parallel for
   for (std::shared_ptr<Cell> cell : cells) {
 
     // Skip cells that aren't on this rank
     if (cell->rank != metadata.rank)
       continue;
+
+    message("Working on cell (%d)", i++);
 
     // Loop over kernels
     for (double kernel_rad : metadata.kernel_radii) {
