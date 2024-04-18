@@ -140,7 +140,7 @@ public:
           }
 
           // Attach the grid points to the child
-          for (int p = 0; p < this->grid_points.size; p++) {
+          for (int p = 0; p < this->grid_points.size(); p++) {
             if (this->grid_points[p]->loc[0] >= new_loc[0] &&
                 this->grid_points[p]->loc[0] < new_loc[0] + new_width[0] &&
                 this->grid_points[p]->loc[1] >= new_loc[1] &&
