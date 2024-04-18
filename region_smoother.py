@@ -7,13 +7,12 @@ Example usage:
     gridder.domain_decomp()
     gridder.get_grid()
 
-This module provides a class, RegionGenerator, that generates all possible
-regions smoothed over a spherical top hat kernel on a regular grid of
-region centres. It includes methods for initializing the generator, setting
-up MPI communication, reading simulation metadata, generating overdensity
-grids from HDF5 simulation data, combining distributed files, and more.
+This module provides a class, RegionGenerator, that generates all possible regions
+smoothed over a spherical top hat kernel on a regular grid of region centres.
+It includes methods for initializing the generator, setting up MPI communication,
+reading simulation metadata, generating overdensity grids from HDF5 simulation data,
+combining distributed files, and more.
 """
-
 import os
 from functools import lru_cache
 import h5py
@@ -22,10 +21,10 @@ from scipy.spatial import cKDTree
 from mpi4py import MPI
 
 
-class GridGenerator:
+class RegionGenerator:
     """
-    Generates overdensity grid smoothed over a series of spherical top hat
-    kernels.
+    Generates all possible regions smoothed over a spherical top hat kernel
+    on a regular grid of region centres.
 
     Attributes:
         input_path (str):
@@ -163,9 +162,9 @@ class GridGenerator:
         self.rank_cells_low = None
         self.rank_cells_high = None
 
-        # assert (
-        #     self.grid_width[0] < self.kernel_rad
-        # ), "grid spacing must be less than the kernel radius"
+        assert (
+            self.grid_width[0] < self.kernel_rad
+        ), "grid spacing must be less than the kernel radius"
 
     def _setup_mpi(self):
         """
@@ -469,7 +468,7 @@ class GridGenerator:
             # Get a list of the cells we'll need
             sim_cells = []
 
-            # Get neighbouring cells out to distance covered by the kernel
+            # Get the neighbouring cells out to a distance covered by the kernel
             for ii in range(i - delta_ijk, i + delta_ijk + 1):
                 ii = (ii + self.sim_cdim[0]) % self.sim_cdim[0]
                 for jj in range(j - delta_ijk, j + delta_ijk + 1):
