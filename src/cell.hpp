@@ -572,7 +572,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     // If the maximum separation is less than the kernel radius then we can just
     // add the whole cell to each grid point.
     if (cell->max_separation2(other) < kernel_rad2) {
-      cell->grid_points[0].add_cell(other, kernel_rad);
+      cell->grid_points[0].add_cell(other->part_count, other->mass, kernel_rad);
       return;
     }
 

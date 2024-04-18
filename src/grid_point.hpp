@@ -60,9 +60,6 @@ public:
 
   // Method to add a particle to the grid point
   void add_particle(std::shared_ptr<Particle> part, double kernel_radius) {
-    // Get the metadata
-    Metadata &metadata = Metadata::getInstance();
-
     // Count that we've added a particle
     this->count++;
 
@@ -70,14 +67,12 @@ public:
   }
 
   // Method to add a whole cell to the grid point
-  void add_cell(std::shared_ptr<Cell> cell, double kernel_radius) {
-    // Get the metadata
-    Metadata &metadata = Metadata::getInstance();
-
+  void add_cell(const int cell_part_count, const double cell_mass,
+                double kernel_radius) {
     // Count that we've added a particle
-    this->count += cell->part_count;
+    this->count += cell_part_count;
 
-    this->mass_map[kernel_radius] += cell->mass;
+    this->mass_map[kernel_radius] += cell_mass;
   }
 
   // Method to get over density inside kernel radius
