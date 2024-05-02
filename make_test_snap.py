@@ -32,7 +32,7 @@ def get_cell_index(x, y, z, cell_size, cdim):
     i = int(x / cell_size)
     j = int(y / cell_size)
     k = int(z / cell_size)
-    return i + j * cdim + k * cdim * cdim
+    return k + j * cdim + i * cdim * cdim
 
 
 def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):

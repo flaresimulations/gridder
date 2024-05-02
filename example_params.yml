@@ -1,7 +1,7 @@
 Kernels:
   nkernels: 2
-  kernel_radius_1: 0.01
-  kernel_radius_2: 0.1
+  kernel_radius_1: 0.5
+  kernel_radius_2: 1.0
 
 Grid:
   cdim: 100
@@ -13,7 +13,7 @@ Metadata:
   density_key: Critical density [internal units]
 
 Input:
-  filepath: /Users/willroper/Documents/3D Printing/Python/ani_hydro_1379.hdf5
+  filepath: uniform_test.hdf5
 
 Output:
   filepath: data/
