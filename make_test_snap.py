@@ -56,7 +56,7 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
 
     print(
         f"Creating a {gdim}x{gdim}x{gdim} grid of "
-        "particles with a separation of {grid_sep}."
+        f"particles with a separation of {grid_sep}."
     )
 
     # Create the grid of particles
