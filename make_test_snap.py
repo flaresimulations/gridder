@@ -51,7 +51,13 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
         The size of the box.
     """
     # Get the number of grid points from the boxsize and grid separation
-    gdim = int(boxsize / grid_sep)
+    gdim = int(boxsize * 0.99 / grid_sep)
+    grid_sep = boxsize * 0.99 / gdim
+
+    print(
+        f"Creating a {gdim}x{gdim}x{gdim} grid of "
+        "particles with a separation of {grid_sep}."
+    )
 
     # Create the grid of particles
     x = np.linspace(0, boxsize * 0.99, gdim)
@@ -64,11 +70,11 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     # in each cell
     cell_size = boxsize / cdim
     cell_count = np.zeros(cdim**3, dtype=np.int32)
-    cells = {}
+    cells = {k: [] for k in range(gdim**3)}
     for i, (x, y, z) in enumerate(tqdm(pos)):
         cell = get_cell_index(x, y, z, cell_size, cdim)
         cell_count[cell] += 1
-        cells.get(cell, []).append(i)
+        cells[cell].append(i)
 
     # Convert counts into offsets
     cell_offset = np.cumsum(cell_count)
