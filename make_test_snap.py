@@ -4,6 +4,7 @@ This will generate a grid of particles in a box and write them to a
 SWIFT snapshot file including the cell structure.
 """
 import argparse
+from tqdm import tqdm
 import h5py
 import numpy as np
 
@@ -64,7 +65,7 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     cell_size = boxsize / cdim
     cell_count = np.zeros(cdim**3, dtype=np.int32)
     cells = {}
-    for i, (x, y, z) in enumerate(pos):
+    for i, (x, y, z) in tqdm(enumerate(pos)):
         cell = get_cell_index(x, y, z, cell_size, cdim)
         print(i, x, y, z, cell)
         cell_count[cell] += 1
