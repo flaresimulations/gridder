@@ -66,7 +66,7 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     cells = {}
     for i, (x, y, z) in enumerate(pos):
         cell = get_cell_index(x, y, z, cell_size, cdim)
-        print(i, x, y, z, cell, end="\r")
+        print(i, x, y, z, cell)
         cell_count[cell] += 1
         cells.get(cell, []).append(i)
 
