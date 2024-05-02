@@ -65,7 +65,7 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     cell_size = boxsize / cdim
     cell_count = np.zeros(cdim**3, dtype=np.int32)
     cells = {}
-    for i, (x, y, z) in tqdm(enumerate(pos)):
+    for i, (x, y, z) in enumerate(tqdm(pos)):
         cell = get_cell_index(x, y, z, cell_size, cdim)
         cell_count[cell] += 1
         cells.get(cell, []).append(i)
@@ -74,12 +74,15 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     cell_offset = np.cumsum(cell_count)
     cell_offset = np.insert(cell_offset, 0, 0)
 
+    print("Number of particles in each cell:")
+    print(cell_count)
+
     # Sort the particles by cell
     sinds = np.zeros(pos.shape[0], dtype=np.int32)
-    for i in range(cdim):
+    for i in tqdm(range(cdim)):
         for j in range(cdim):
             for k in range(cdim):
-                cell = i + j * cdim + k * cdim * cdim
+                cell = k + j * cdim + i * cdim * cdim
                 start = cell_offset[cell]
                 end = start + cell_count[cell]
                 sinds[start:end] = cells[cell]
