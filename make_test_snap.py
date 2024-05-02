@@ -53,9 +53,9 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     gdim = int(boxsize / grid_sep)
 
     # Create the grid of particles
-    x = np.linspace(0, boxsize, gdim)
-    y = np.linspace(0, boxsize, gdim)
-    z = np.linspace(0, boxsize, gdim)
+    x = np.linspace(0, boxsize * 0.99, gdim)
+    y = np.linspace(0, boxsize * 0.99, gdim)
+    z = np.linspace(0, boxsize * 0.99, gdim)
     xx, yy, zz = np.meshgrid(x, y, z)
     pos = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()])
 
