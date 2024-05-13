@@ -44,7 +44,7 @@ find_package(OpenMP REQUIRED)
 # -O3: Optimize for speed
 # -g: Generate debug information
 # -march=native: Optimize for the current machine
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O3 -g -march=native -fopenmp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O0 -g -march=native -fopenmp")
 message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
 
 # ================= METADATA COLLECTION =================
