@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 # Project metadata
 set(TARGET parent_gridder)
-project(ZoomParentGridder C CXX)
+project(ZoomParentGridder CXX)
 
 # Set the version
 set(PROJECT_VERSION_MAJOR 0)
