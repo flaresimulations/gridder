@@ -34,6 +34,10 @@ find_package(MPI REQUIRED)
 # Check for OpenMP support
 find_package(OpenMP REQUIRED)
 
+# ================= DEFINE OPTIONS =================
+option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
+option(EANBLE_DEBUG "Enable debugging symbols" OFF)
+
 # ================= COMPILER FLAGS =================
 
 # Set the compiler flags
@@ -42,9 +46,17 @@ find_package(OpenMP REQUIRED)
 # -Wpedantic: Enable pedantic warnings
 # -Werror: Treat warnings as errors
 # -O3: Optimize for speed
+if(DISABLE_OPTIMIZATIONS)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif()
 # -g: Generate debug information
+if(EANBLE_DEBUG)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+endif()
 # -march=native: Optimize for the current machine
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O0 -g -march=native -fopenmp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fopenmp")
 message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
 
 # ================= METADATA COLLECTION =================
