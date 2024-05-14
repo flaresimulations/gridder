@@ -51,7 +51,7 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
         The size of the box.
     """
     # Get the number of grid points from the boxsize and grid separation
-    grid_sep = boxsize / (gdim - 1)
+    grid_sep = boxsize / gdim
 
     print(
         f"Creating a {gdim}x{gdim}x{gdim} grid of "
