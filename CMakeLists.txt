@@ -15,8 +15,12 @@ set(PROJECT_VERSION_MINOR 1)
 set(PROJECT_VERSION_PATCH 0)
 
 # ================= BUILD MODE =================
+# Define build types
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;MinSizeRel;RelWithDebInfo" CACHE STRING "Build types" FORCE)
+
+# Set default build type to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
@@ -110,6 +114,14 @@ set(SOURCE_FILES
 
 # Create the executable using the source files
 add_executable(${TARGET} ${SOURCE_FILES})
+
+
+# ================= DEFINE PREPROCESSOR DIRECTIVES =================
+
+# Define DEBUGGING_CHECKS if the build type is Debug
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  target_compile_definitions(${TARGET} PRIVATE DEBUGGING_CHECKS)
+endif()
 
 
 # ================= LIBRARY INCLUSION =================

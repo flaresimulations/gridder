@@ -213,6 +213,7 @@ public:
     if (this->depth > metadata.max_depth)
       metadata.max_depth = this->depth;
 
+#ifdef DEBUGGING_CHECKS
     // Ensure all the particles within this cell are in the correct place
     for (int p = 0; p < this->part_count; p++) {
       if (this->particles[p]->pos[0] < this->loc[0] ||
@@ -234,6 +235,7 @@ public:
           this->grid_points[p]->loc[2] >= this->loc[2] + this->width[2])
         error("Grid point not in correct cell");
     }
+#endif
 
     // Calculate the new width of the children
     double new_width[3] = {this->width[0] / 2.0, this->width[1] / 2.0,
@@ -306,6 +308,7 @@ public:
       }
     }
 
+#ifdef DEBUGGING_CHECKS
     // Make sure the sum of child particle counts is the same as the parent
     size_t child_part_count = 0;
     for (int i = 0; i < 8; i++) {
@@ -327,6 +330,7 @@ public:
             "%d, "
             "this->grid_points.size = %d)",
             this->ph_ind, child_grid_point_count, this->grid_points.size());
+#endif
   }
 
   void peanoHilbertIndex() {
@@ -552,13 +556,16 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
       cell->particles.push_back(part);
     }
 
+#ifdef DEBUGGING_CHECKS
     // Double check something hasn't gone wrong with the particle count
     if (cell->particles.size() != cell->part_count)
       error("Particle count mismatch in cell %d (particles.size = %d, "
             "cell->part_count = %d)",
             cid, cell->particles.size(), cell->part_count);
+#endif
   }
 
+#ifdef DEBUGGING_CHECKS
   // Make sure we have attached all the particles
   size_t total_cell_part_count = 0;
   for (std::shared_ptr<Cell> cell : cells) {
@@ -570,6 +577,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
           "%d)",
           total_part_count, total_cell_part_count);
   }
+#endif
 
   // With the particles done we can now move on to creating and assigning grid
   // points
@@ -618,6 +626,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
     }
   }
 
+#ifdef DEBUGGING_CHECKS
   // Check particles are in the right cells
   for (std::shared_ptr<Cell> cell : cells) {
     for (std::shared_ptr<Particle> part : cell->particles) {
@@ -643,6 +652,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
         error("Grid point not in correct cell");
     }
   }
+#endif
 }
 
 void splitCells(const std::vector<std::shared_ptr<Cell>> &cells) {
@@ -900,6 +910,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       std::array<hsize_t, 3> sub_grid_shape = {
           end[0] - start[0] + 1, end[1] - start[1] + 1, end[2] - start[2] + 1};
 
+#ifdef DEBUGGING_CHECKS
       // Ensure we haven't somehow lost a grid point
       if (sub_grid_shape[0] * sub_grid_shape[1] * sub_grid_shape[2] !=
           cell->grid_points.size()) {
@@ -909,6 +920,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
               sub_grid_shape[2],
               sub_grid_shape[0] * sub_grid_shape[1] * sub_grid_shape[2]);
       }
+#endif
 
       // Write this cell's grid data to the HDF5 file
       hdf5.writeDatasetSlice<double, 3>("Grids/" + kernel_name, grid_data,
