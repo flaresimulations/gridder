@@ -101,8 +101,8 @@ void readMetadata(std::string input_file) {
   hdf.readAttribute<int[6]>(std::string("Header"), std::string("NumPart_Total"),
                             nr_particles);
   metadata->nr_dark_matter = nr_particles[1];
-  hdf.readAttribute<int[3]>(std::string("Cells/Meta-data"),
-                            std::string("dimension"), metadata->cdim);
+  hdf.readAttribute<int64_t[3]>(std::string("Cells/Meta-data"),
+                                std::string("dimension"), metadata->cdim);
   hdf.readAttribute<double[3]>(std::string("Cells/Meta-data"),
                                std::string("size"), metadata->width);
   hdf.readAttribute<double[3]>(std::string("Header"), std::string("BoxSize"),
