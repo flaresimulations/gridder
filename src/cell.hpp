@@ -623,7 +623,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
 
     // Ok, we can't just add the whole cell to the grid point, instead check
     // the particles in the other cell
-    addPartsToGridPoint(other, &grid_point, kernel_rad, kernel_rad2);
+    addPartsToGridPoint(other, cell->grid_points[0], kernel_rad, kernel_rad2);
   }
 }
 
@@ -658,7 +658,7 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
     }
 
     // Associate particles
-    addPartsToGridPoint(cell, &cell->grid_points[0], kernel_rad, kernel_rad2);
+    addPartsToGridPoint(cell, cell->grid_points[0], kernel_rad, kernel_rad2);
   }
 }
 
