@@ -200,8 +200,21 @@ public:
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
     const double r2 = dx * dx + dy * dy + dz * dz;
 
-    if (r2 > kernel_rad2 && r2 < 5.0 * kernel_rad2)
-      message("Exiting on distance %f (kernel_rad=%f)", r2, sqrt(kernel_rad2));
+#ifdef DEBUGGING_CHECKS
+    // Ensure we aren't report we're outside when particles are inside
+    if (r2 > kernel_rad2) {
+      for (int p = 0; p < this->part_count; p++) {
+        std::shared_ptr<Particle> part = this->particles[p];
+        const double dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
+        const double dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
+        const double dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
+        const double p_r2 = dx * dx + dy * dy + dz * dz;
+        if (p_r2 <= kernel_rad2) {
+          error("Particle inside kernel radius but cell outside");
+        }
+      }
+    }
+#endif
 
     return r2 > kernel_rad2;
   }
