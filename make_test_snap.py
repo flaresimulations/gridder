@@ -36,7 +36,7 @@ def get_cell_index(x, y, z, cell_size, cdim):
     return k + j * cdim + i * cdim * cdim
 
 
-def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
+def make_ics(filepath, cdim, gdim, boxsize, doner_path):
     """Create a snapshot with a uniform grid of particles.
 
     Parameters
@@ -46,13 +46,12 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     cdim : int
         The number of cells in each dimension.
     grid_sep : float
-        The separation between particles in the grid.
+        The number of grid points in each dimension.
     boxsize : float
         The size of the box.
     """
     # Get the number of grid points from the boxsize and grid separation
-    gdim = int(boxsize * 0.99 / grid_sep)
-    grid_sep = boxsize * 0.99 / gdim
+    grid_sep = boxsize / (gdim - 1)
 
     print(
         f"Creating a {gdim}x{gdim}x{gdim} grid of "
@@ -60,9 +59,9 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
     )
 
     # Create the grid of particles
-    x = np.linspace(0, boxsize * 0.99, gdim)
-    y = np.linspace(0, boxsize * 0.99, gdim)
-    z = np.linspace(0, boxsize * 0.99, gdim)
+    x = np.linspace(grid_sep / 2, boxsize - (grid_sep / 2), gdim)
+    y = np.linspace(grid_sep / 2, boxsize - (grid_sep / 2), gdim)
+    z = np.linspace(grid_sep / 2, boxsize - (grid_sep / 2), gdim)
     xx, yy, zz = np.meshgrid(x, y, z)
     pos = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()])
 
@@ -117,12 +116,12 @@ def make_ics(filepath, cdim, grid_sep, boxsize, doner_path):
         header.attrs["MassTable"] = np.array([0, 1, 0, 0, 0, 0])
         header.attrs["Time"] = 0.0
         header.attrs["Redshift"] = 0.0
-        header.attrs["BoxSize"] = boxsize
+        header.attrs["BoxSize"] = np.array([boxsize, boxsize, boxsize])
 
         # Write the cells metadata
         cell_meta = cell_struct.create_group("Meta-data")
-        cell_meta.attrs["dimension"] = cdim
-        cell_meta.attrs["size"] = cell_size
+        cell_meta.attrs["dimension"] = np.array([cdim, cdim, cdim])
+        cell_meta.attrs["size"] = np.array([cell_size, cell_size, cell_size])
 
         # Get the units from the doner snapshot
         with h5py.File(doner_path, "r") as doner:
