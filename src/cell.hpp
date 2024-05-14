@@ -627,7 +627,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     return;
 
   // Compute the maximum separation between the two cells
-  const double max_sep2 = cell->min_separation2(other);
+  const double max_sep2 = cell->max_separation2(other);
 
   // Early exit if the cells are too far apart.
   if (max_sep2 > kernel_rad2 * 2)
