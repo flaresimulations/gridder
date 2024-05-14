@@ -153,7 +153,7 @@ public:
     // Conditional compilation based on the number of arguments
     if constexpr (sizeof...(args) > 0) {
       // If there are arguments, process them with the format
-      char buffer[256];
+      char buffer[512];
       std::snprintf(buffer, sizeof(buffer), format,
                     std::forward<Args>(args)...);
       this->error_message_ = buffer;
