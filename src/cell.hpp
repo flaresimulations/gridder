@@ -157,7 +157,7 @@ public:
                                 fabs(nearest(thisy_max - gridy, dim[1]))});
     const double dz = std::max({fabs(nearest(thisz_min - gridz, dim[2])),
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
-    const r2 = dx * dx + dy * dy + dz * dz;
+    const double r2 = dx * dx + dy * dy + dz * dz;
 
     return r2 <= kernel_rad2;
   }
@@ -638,17 +638,17 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     }
 
     // Get the single grid point in this leaf
-    GridPoint &grid_point = *cell->grid_points[0];
+    std::shared_ptr<GridPoint> grid_point = cell->grid_points[0];
 
     // Can we just add the whole cell to the grid point?
     if (other->inKernel(grid_point, kernel_rad2)) {
-      grid_point.add_cell(other->part_count, other->mass, kernel_rad);
+      grid_point->add_cell(other->part_count, other->mass, kernel_rad);
       return;
     }
 
     // Ok, we can't just add the whole cell to the grid point, instead check
     // the particles in the other cell
-    addPartsToGridPoint(other, cell->grid_points[0], kernel_rad, kernel_rad2);
+    addPartsToGridPoint(other, grid_point, kernel_rad, kernel_rad2);
   }
 }
 
