@@ -80,7 +80,8 @@ public:
     // Compute the volume of the kernel
     const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
 
-    message("Returning mass map value: %f", this->mass_map[kernel_radius]);
+    message("Returning mass map value: %f for kernel %f",
+            this->mass_map[kernel_radius], kernel_radius);
 
     return this->mass_map[kernel_radius];
 
