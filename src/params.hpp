@@ -23,6 +23,7 @@
 
 /* Includes */
 #include <cctype>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -290,6 +291,12 @@ void parseParams(Parameters &params, const std::string &param_file) {
   // Get the output file path
   metadata.output_file =
       params.getParameterNoDefault<std::string>("Output/filepath");
+
+  // Ensure the output file path exists, if not create it
+  if (!std::filesystem::exists(metadata.output_file)) {
+    std::filesystem::create_directories(metadata.output_file);
+  }
+
   metadata.output_file +=
       "/" + params.getParameterNoDefault<std::string>("Output/basename");
 
