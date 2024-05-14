@@ -671,9 +671,9 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   // Get the single grid point in this leaf
   std::shared_ptr<GridPoint> grid_point = cell->grid_points[0];
 
-  // Early exit if the cells are too far apart.
-  if (other->outsideKernel(grid_point, kernel_rad2))
-    return;
+  // // Early exit if the cells are too far apart.
+  // if (other->outsideKernel(grid_point, kernel_rad2))
+  //   return;
 
   // Can we just add the whole cell to the grid point?
   if (other->inKernel(grid_point, kernel_rad2)) {
