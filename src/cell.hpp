@@ -549,7 +549,8 @@ void splitCells(const std::vector<std::shared_ptr<Cell>> &cells) {
   }
 }
 
-void addPartsToGridPoint(std::shared_ptr<Cell> cell, GridPoint *grid_point,
+void addPartsToGridPoint(std::shared_ptr<Cell> cell,
+                         std::shared_ptr<GridPoint> grid_point,
                          const double kernel_rad, const double kernel_rad2) {
 
   // Loop over the particles in the cell and assign them to the grid point
