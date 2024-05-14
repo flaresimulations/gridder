@@ -611,7 +611,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     return;
 
   // Early exit if the cells are too far apart.
-  if (cell->min_separation2(other) > kernel_rad2)
+  if (cell->min_separation2(other) > kernel_rad2 * 2)
     return;
 
   // Get an instance of the metadata
