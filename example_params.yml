@@ -1,10 +1,10 @@
 Kernels:
   nkernels: 5
   kernel_radius_1: 0.5
-  kernel_radius_2: 1.5
-  kernel_radius_3: 5.0
-  kernel_radius_4: 10.0
-  kernel_radius_5: 1.0
+  kernel_radius_2: 1.0
+  kernel_radius_3: 2.0
+  kernel_radius_4: 3.0
+  kernel_radius_5: 5.0
 
 Grid:
   cdim: 100
