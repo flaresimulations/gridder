@@ -595,6 +595,32 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
       }
     }
   }
+
+  // Check particles are in the right cells
+  for (std::shared_ptr<Cell> cell : cells) {
+    for (std::shared_ptr<Particle> part : cell->particles) {
+      if (part->pos[0] < cell->loc[0] ||
+          part->pos[0] >= cell->loc[0] + cell->width[0] ||
+          part->pos[1] < cell->loc[1] ||
+          part->pos[1] >= cell->loc[1] + cell->width[1] ||
+          part->pos[2] < cell->loc[2] ||
+          part->pos[2] >= cell->loc[2] + cell->width[2])
+        error("Particle not in correct cell");
+    }
+  }
+
+  // Check grid points are in the right cells
+  for (std::shared_ptr<Cell> cell : cells) {
+    for (std::shared_ptr<GridPoint> grid_point : cell->grid_points) {
+      if (grid_point->loc[0] < cell->loc[0] ||
+          grid_point->loc[0] >= cell->loc[0] + cell->width[0] ||
+          grid_point->loc[1] < cell->loc[1] ||
+          grid_point->loc[1] >= cell->loc[1] + cell->width[1] ||
+          grid_point->loc[2] < cell->loc[2] ||
+          grid_point->loc[2] >= cell->loc[2] + cell->width[2])
+        error("Grid point not in correct cell");
+    }
+  }
 }
 
 void splitCells(const std::vector<std::shared_ptr<Cell>> &cells) {
