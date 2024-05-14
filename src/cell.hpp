@@ -557,9 +557,9 @@ void addPartsToGridPoint(std::shared_ptr<Cell> cell, GridPoint *grid_point,
     std::shared_ptr<Particle> part = cell->particles[p];
 
     // Get the distance between the particle and the grid point
-    double dx = part->pos[0] - grid_point.loc[0];
-    double dy = part->pos[1] - grid_point.loc[1];
-    double dz = part->pos[2] - grid_point.loc[2];
+    double dx = part->pos[0] - grid_point->loc[0];
+    double dy = part->pos[1] - grid_point->loc[1];
+    double dz = part->pos[2] - grid_point->loc[2];
     double r2 = dx * dx + dy * dy + dz * dz;
 
     // If the particle is within the kernel radius of the grid point then
@@ -586,6 +586,9 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   // Early exit if the cells are too far apart.
   if (cell->max_separation2(other) > kernel_rad2 * 2)
     return;
+
+  // Get an instance of the metadata
+  Metadata &metadata = Metadata::getInstance();
 
   // If the cell is split then we need to recurse over the children
   if (cell->is_split && cell->grid_points.size() > 1) {
