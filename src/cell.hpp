@@ -554,11 +554,11 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
                                 const double kernel_rad,
                                 const double kernel_rad2) {
 
-  // Ensure we have grid points
+  // Ensure we have grid points, otherwise there's nothing to add to
   if (cell->grid_points.size() == 0)
     return;
 
-  // Ensure the other cell has particles
+  // Ensure the other cell has particles, otherwise there's nothing to add
   if (other->part_count == 0)
     return;
 
@@ -566,14 +566,13 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   if (cell->max_separation2(other) > kernel_rad2 * 2)
     return;
 
-  // If the cell is split then we need to recurse
-  // over the children
-  if (cell->is_split) {
+  // If the cell is split then we need to recurse over the children
+  if (cell->is_split && cell->grid_points.size() > 1) {
     for (int i = 0; i < 8; i++) {
       recursivePairPartsToPoints(cell->children[i], other, kernel_rad,
                                  kernel_rad2);
     }
-  } else if (other->is_split) {
+  } else if (other->is_split && other->part_count > metadata.max_leaf_count) {
     for (int i = 0; i < 8; i++) {
       recursivePairPartsToPoints(cell, other->children[i], kernel_rad,
                                  kernel_rad2);
@@ -597,23 +596,9 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
       return;
     }
 
-    // Otherwise, loop over the particles in the other cell and assign them to
-    // the grid point
-    for (int p = 0; p < other->part_count; p++) {
-      std::shared_ptr<Particle> part = other->particles[p];
-
-      // Get the distance between the particle and the grid point
-      double dx = part->pos[0] - grid_point.loc[0];
-      double dy = part->pos[1] - grid_point.loc[1];
-      double dz = part->pos[2] - grid_point.loc[2];
-      double r2 = dx * dx + dy * dy + dz * dz;
-
-      // If the particle is within the kernel radius of the grid point then
-      // assign it
-      if (r2 <= kernel_rad2) {
-        grid_point.add_particle(part, kernel_rad);
-      }
-    }
+    // Ok, we can't just add the whole cell to the grid point, instead check
+    // the particles in the other cell
+    addPartsToGridPoint(other, &grid_point, kernel_rad, kernel_rad2);
   }
 }
 
@@ -626,7 +611,7 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
     return;
 
   // If the cell is split then we need to recurse over the children
-  if (cell->is_split) {
+  if (cell->is_split && cell->grid_points.size() > 1) {
     for (int i = 0; i < 8; i++) {
       recursiveSelfPartsToPoints(cell->children[i], kernel_rad, kernel_rad2);
 
@@ -647,25 +632,8 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
             cell->grid_points.size());
     }
 
-    // Get the grid point
-    GridPoint &grid_point = *cell->grid_points[0];
-
-    // Loop over the particles in the cell and assign them to the grid point
-    for (int p = 0; p < cell->part_count; p++) {
-      std::shared_ptr<Particle> part = cell->particles[p];
-
-      // Get the distance between the particle and the grid point
-      double dx = part->pos[0] - grid_point.loc[0];
-      double dy = part->pos[1] - grid_point.loc[1];
-      double dz = part->pos[2] - grid_point.loc[2];
-      double r2 = dx * dx + dy * dy + dz * dz;
-
-      // If the particle is within the kernel radius of the grid point then
-      // assign it
-      if (r2 <= kernel_rad2) {
-        grid_point.add_particle(part, kernel_rad);
-      }
-    }
+    // Associate particles
+    addPartsToGridPoint(cell, &cell->grid_points[0], kernel_rad, kernel_rad2);
   }
 }
 

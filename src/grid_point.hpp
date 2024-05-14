@@ -107,4 +107,26 @@ public:
   }
 };
 
+void add_parts_to_grid_point(std::shared_ptr<Cell> cell, GridPoint *grid_point,
+                             const double kernel_rad,
+                             const double kernel_rad2) {
+
+  // Loop over the particles in the cell and assign them to the grid point
+  for (int p = 0; p < cell->part_count; p++) {
+    std::shared_ptr<Particle> part = cell->particles[p];
+
+    // Get the distance between the particle and the grid point
+    double dx = part->pos[0] - grid_point.loc[0];
+    double dy = part->pos[1] - grid_point.loc[1];
+    double dz = part->pos[2] - grid_point.loc[2];
+    double r2 = dx * dx + dy * dy + dz * dz;
+
+    // If the particle is within the kernel radius of the grid point then
+    // assign it
+    if (r2 <= kernel_rad2) {
+      grid_point->add_particle(part, kernel_rad);
+    }
+  }
+}
+
 #endif // GRID_POINT_HPP
