@@ -191,7 +191,7 @@ public:
     const double gridy = grid_point->loc[1];
     const double gridz = grid_point->loc[2];
 
-    int no_overlap = {1, 1, 1};
+    int no_overlap[3] = {1, 1, 1};
     if (gridx < thisx_max && gridx > thisx_min)
       no_overlap[0] = 0;
     if (gridy < thisy_max && gridy > thisy_min)
