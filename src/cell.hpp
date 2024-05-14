@@ -201,14 +201,14 @@ public:
     const double r2 = dx * dx + dy * dy + dz * dz;
 
 #ifdef DEBUGGING_CHECKS
-    // Ensure we aren't report we're outside when particles are inside
+    // Ensure we aren't reporting we're outside when particles are inside
     if (r2 > kernel_rad2) {
       for (int p = 0; p < this->part_count; p++) {
         std::shared_ptr<Particle> part = this->particles[p];
         const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
         const double p_dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
         const double p_dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
-        const double p_r2 = dx * dx + dy * dy + dz * dz;
+        const double p_r2 = p_dx * p_dx + p_dy * p_dy + p_dz * p_dz;
         if (p_r2 <= kernel_rad2) {
           error("Particle inside kernel radius but cell outside (r2 = %f, "
                 "kernel_rad2 = %f, part->pos = %f %f %f, grid_point->loc = %f "
