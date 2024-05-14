@@ -746,7 +746,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       std::array<hsize_t, 3> end = {0, 0, 0};
       for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
 
-        grid_data.push_back(gp->getOverDensity());
+        grid_data.push_back(gp->getOverDensity(kernel_rad));
 
         if (gp->index[0] < start[0])
           start[0] = gp->index[0];
