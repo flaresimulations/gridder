@@ -49,7 +49,7 @@ public:
 
   // Cell properties
   size_t nr_cells;
-  int cdim[3];
+  int64_t cdim[3];
   double width[3];
   int max_depth = 0;
 
