@@ -657,12 +657,12 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
       // If the particle is within the kernel radius of the grid point then
       // assign it
       if (r2 < kernel_rad2) {
-        message("Adding particle to grid point (cell=%d, kernel_rad = %f, "
-                "part->mass=%f, "
-                "part->pos = [%f, %f, %f], grid_point.loc = [%f, %f, %f])",
-                cell->ph_ind, kernel_rad, part->mass, part->pos[0],
-                part->pos[1], part->pos[2], grid_point.loc[0],
-                grid_point.loc[1], grid_point.loc[2]);
+        // message("Adding particle to grid point (cell=%d, kernel_rad = %f, "
+        //         "part->mass=%f, "
+        //         "part->pos = [%f, %f, %f], grid_point.loc = [%f, %f, %f])",
+        //         cell->ph_ind, kernel_rad, part->mass, part->pos[0],
+        //         part->pos[1], part->pos[2], grid_point.loc[0],
+        //         grid_point.loc[1], grid_point.loc[2]);
         grid_point.add_particle(part, kernel_rad);
       }
     }

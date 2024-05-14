@@ -51,17 +51,22 @@ public:
     this->index[1] = index[1];
     this->index[2] = index[2];
 
-    // Zero the mass maps
-    Metadata &metadata = Metadata::getInstance();
-    for (int i = 0; i < metadata.kernel_radii.size(); i++) {
-      this->mass_map[metadata.kernel_radii[i]] = 0.0;
-    }
+    // // Zero the mass maps
+    // Metadata &metadata = Metadata::getInstance();
+    // for (int i = 0; i < metadata.kernel_radii.size(); i++) {
+    //   this->mass_map[metadata.kernel_radii[i]] = 0.0;
+    // }
   }
 
   // Method to add a particle to the grid point
   void add_particle(std::shared_ptr<Particle> part, double kernel_radius) {
     // Count that we've added a particle
     this->count++;
+
+    // Ensure the key exists
+    if (mass_map.find(kernel_radius) == mass_map.end()) {
+      mass_map[kernel_radius] = 0;
+    }
 
     this->mass_map[kernel_radius] += part->mass;
   }
