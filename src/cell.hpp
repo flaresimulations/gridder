@@ -162,6 +162,47 @@ public:
     return r2 <= kernel_rad2;
   }
 
+  /**
+   * @brief Is this cell entirely outside a grid point's kernel radius?
+   *
+   * @param grid_point The grid point to check
+   * @param kernel_rad2 The squared kernel radius
+   *
+   * @return True if the cell is outside the kernel radius of the grid point,
+   * false otherwise.
+   */
+  bool outsideKernel(std::shared_ptr<GridPoint> grid_point,
+                     const double kernel_rad2) {
+
+    // Get the boxsize from the metadata
+    Metadata &metadata = Metadata::getInstance();
+    double *dim = metadata.dim;
+
+    // Get the minimum and maximum positions for the cell.
+    const double thisx_min = this->loc[0];
+    const double thisy_min = this->loc[1];
+    const double thisz_min = this->loc[2];
+    const double thisx_max = this->loc[0] + this->width[0];
+    const double thisy_max = this->loc[1] + this->width[1];
+    const double thisz_max = this->loc[2] + this->width[2];
+
+    // Get the position of the grid point
+    const double gridx = grid_point->loc[0];
+    const double gridy = grid_point->loc[1];
+    const double gridz = grid_point->loc[2];
+
+    // Get the maximum distance between the particle and the grid point
+    const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
+                                fabs(nearest(thisx_max - gridx, dim[0]))});
+    const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
+                                fabs(nearest(thisy_max - gridy, dim[1]))});
+    const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
+                                fabs(nearest(thisz_max - gridz, dim[2]))});
+    const double r2 = dx * dx + dy * dy + dz * dz;
+
+    return r2 > kernel_rad2;
+  }
+
   // method to split this cell into 8 children (constructing an octree)
   void split() {
 
@@ -610,46 +651,52 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   if (other->part_count == 0)
     return;
 
-  // Early exit if the cells are too far apart.
-  if (cell->min_separation2(other) > kernel_rad2 * 4)
-    return;
-
-  // Get an instance of the metadata
-  Metadata &metadata = Metadata::getInstance();
-
-  // If the cell is split then we need to recurse over the children
-  if (cell->is_split && cell->grid_points.size() > 1) {
+  // If we have more than one grid point recurse (we can always do this since
+  // the cell tree was constructed such that the leaves have only 1 grid point)
+  if (cell->grid_points.size() > 1) {
     for (int i = 0; i < 8; i++) {
       recursivePairPartsToPoints(cell->children[i], other, kernel_rad,
                                  kernel_rad2);
     }
-  } else if (other->is_split && other->part_count > metadata.max_leaf_count) {
+    return;
+  }
+
+  // Ensure we only have 1 grid point now we are in a leaf
+  if (cell->grid_points.size() > 1) {
+    error("We shouldn't be able to find a leaf with more than 1 grid point "
+          "(leaf->grid_points.size()=%d",
+          cell->grid_points.size());
+  }
+
+  // Get the single grid point in this leaf
+  std::shared_ptr<GridPoint> grid_point = cell->grid_points[0];
+
+  // Early exit if the cells are too far apart.
+  if (other->outsideKernel(grid_point, kernel_rad2))
+    return;
+
+  // Can we just add the whole cell to the grid point?
+  if (other->inKernel(grid_point, kernel_rad2)) {
+    grid_point->add_cell(other->part_count, other->mass, kernel_rad);
+    return;
+  }
+
+  // Get an instance of the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // If the other cell is split then we need to recurse over the children before
+  // trying to add the particles
+  if (other->is_split && other->part_count > metadata.max_leaf_count) {
     for (int i = 0; i < 8; i++) {
       recursivePairPartsToPoints(cell, other->children[i], kernel_rad,
                                  kernel_rad2);
     }
-  } else {
-
-    // Ensure we only have 1 grid point now we are in a leaf
-    if (cell->grid_points.size() > 1) {
-      error("We shouldn't be able to find a leaf with more than 1 grid point "
-            "(leaf->grid_points.size()=%d",
-            cell->grid_points.size());
-    }
-
-    // Get the single grid point in this leaf
-    std::shared_ptr<GridPoint> grid_point = cell->grid_points[0];
-
-    // Can we just add the whole cell to the grid point?
-    if (other->inKernel(grid_point, kernel_rad2)) {
-      grid_point->add_cell(other->part_count, other->mass, kernel_rad);
-      return;
-    }
-
-    // Ok, we can't just add the whole cell to the grid point, instead check
-    // the particles in the other cell
-    addPartsToGridPoint(other, grid_point, kernel_rad, kernel_rad2);
+    return;
   }
+
+  // Ok, we can't just add the whole cell to the grid point, instead check
+  // the particles in the other cell
+  addPartsToGridPoint(other, grid_point, kernel_rad, kernel_rad2);
 }
 
 void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
