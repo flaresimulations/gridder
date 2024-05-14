@@ -204,7 +204,7 @@ public:
     const double diag_width2 = this->width[0] * this->width[0] +
                                this->width[1] * this->width[1] +
                                this->width[2] * this->width[2];
-    r2 -= diag_width2;
+    r2 += diag_width2;
 
 #ifdef DEBUGGING_CHECKS
     // Ensure we aren't reporting we're outside when particles are inside
