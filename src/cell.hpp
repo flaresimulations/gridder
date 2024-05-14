@@ -198,7 +198,13 @@ public:
                                 fabs(nearest(thisy_max - gridy, dim[1]))});
     const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
-    const double r2 = dx * dx + dy * dy + dz * dz;
+    double r2 = dx * dx + dy * dy + dz * dz;
+
+    // Include the diagonal width of the cell for safety
+    const double diag_width2 = this->width[0] * this->width[0] +
+                               this->width[1] * this->width[1] +
+                               this->width[2] * this->width[2];
+    r2 += diag_width2;
 
 #ifdef DEBUGGING_CHECKS
     // Ensure we aren't reporting we're outside when particles are inside
