@@ -157,9 +157,9 @@ if __name__ == "__main__":
         help="The number of cells in each dimension.",
     )
     parser.add_argument(
-        "--grid_sep",
-        type=float,
-        help="The separation between particles in the grid.",
+        "--grid_dim",
+        type=int,
+        help="The number of particles along an axis of the grid.",
     )
     parser.add_argument(
         "--boxsize",
