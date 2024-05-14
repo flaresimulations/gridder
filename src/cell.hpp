@@ -200,6 +200,9 @@ public:
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
     const double r2 = dx * dx + dy * dy + dz * dz;
 
+    if (r2 > kernel_rad2)
+      message("Exiting on distance %f", r2);
+
     return r2 > kernel_rad2;
   }
 
