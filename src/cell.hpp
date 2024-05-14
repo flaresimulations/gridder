@@ -200,12 +200,6 @@ public:
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
     double r2 = dx * dx + dy * dy + dz * dz;
 
-    // Include the diagonal width of the cell for safety
-    const double diag_width2 = this->width[0] * this->width[0] +
-                               this->width[1] * this->width[1] +
-                               this->width[2] * this->width[2];
-    r2 += diag_width2;
-
 #ifdef DEBUGGING_CHECKS
     // Ensure we aren't reporting we're outside when particles are inside
     if (r2 > kernel_rad2) {
