@@ -585,7 +585,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     return;
 
   // Early exit if the cells are too far apart.
-  if (cell->max_separation2(other) > kernel_rad2 * 2)
+  if (cell->max_separation2(other) > kernel_rad2 * 5)
     return;
 
   // Get an instance of the metadata
@@ -657,7 +657,7 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
             cell->grid_points.size());
     }
 
-    // Associate particles
+    // Associate particles to the single grid point
     addPartsToGridPoint(cell, cell->grid_points[0], kernel_rad, kernel_rad2);
   }
 }
