@@ -134,6 +134,11 @@ void readMetadata(std::string input_file) {
   }
   message(ss.str().c_str(), metadata->nkernels);
   message("Max kernel radius: %f", metadata->max_kernel_radius);
+  message("Running with %d cells", metadata->nr_cells);
+  message("Box size: %f %f %f", metadata->dim[0], metadata->dim[1],
+          metadata->dim[2]);
+  message("Cell size: %f %f %f", metadata->width[0], metadata->width[1],
+          metadata->width[2]);
 
   // Set the maximum kernel radius squared
   metadata->max_kernel_radius2 =
