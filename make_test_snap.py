@@ -120,7 +120,9 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
 
         # Write the cells metadata
         cell_meta = cell_struct.create_group("Meta-data")
-        cell_meta.attrs["dimension"] = np.array([cdim, cdim, cdim], dtype=int)
+        cell_meta.attrs["dimension"] = np.array(
+            [cdim, cdim, cdim], dtype=np.int64
+        )
         cell_meta.attrs["size"] = np.array([cell_size, cell_size, cell_size])
 
         # Get the units from the doner snapshot
