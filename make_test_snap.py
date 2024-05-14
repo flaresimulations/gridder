@@ -175,4 +175,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create the snapshot
-    make_ics(args.output, args.cdim, args.grid_sep, args.boxsize, args.doner)
+    make_ics(args.output, args.cdim, args.grid_dim, args.boxsize, args.doner)
