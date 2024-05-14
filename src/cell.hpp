@@ -563,7 +563,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     return;
 
   // Early exit if the cells are too far apart.
-  if (cell->max_separation2(other) > kernel_rad2)
+  if (cell->max_separation2(other) > kernel_rad2 * 2)
     return;
 
   // If the cell is split then we need to recurse
