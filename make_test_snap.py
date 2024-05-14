@@ -59,11 +59,15 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
     )
 
     # Create the grid of particles
-    x = np.linspace(grid_sep / 2, boxsize - (grid_sep / 2), gdim)
-    y = np.linspace(grid_sep / 2, boxsize - (grid_sep / 2), gdim)
-    z = np.linspace(grid_sep / 2, boxsize - (grid_sep / 2), gdim)
-    xx, yy, zz = np.meshgrid(x, y, z)
-    pos = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()])
+    pos = np.zeros((gdim**3, 3))
+    ind = 0
+    for i in range(gdim):
+        for j in range(gdim):
+            for k in range(gdim):
+                pos[ind, 0] = (i + 0.5) * grid_sep
+                pos[ind, 1] = (j + 0.5) * grid_sep
+                pos[ind, 2] = (k + 0.5) * grid_sep
+                ind += 1
 
     # Assign each particle to a cell keeping track of the number of particles
     # in each cell
