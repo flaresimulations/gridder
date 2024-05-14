@@ -553,14 +553,18 @@ void addPartsToGridPoint(std::shared_ptr<Cell> cell,
                          std::shared_ptr<GridPoint> grid_point,
                          const double kernel_rad, const double kernel_rad2) {
 
+  // Get the boxsize from the metadata
+  Metadata &metadata = Metadata::getInstance();
+  double *dim = metadata.dim;
+
   // Loop over the particles in the cell and assign them to the grid point
   for (int p = 0; p < cell->part_count; p++) {
     std::shared_ptr<Particle> part = cell->particles[p];
 
     // Get the distance between the particle and the grid point
-    double dx = part->pos[0] - grid_point->loc[0];
-    double dy = part->pos[1] - grid_point->loc[1];
-    double dz = part->pos[2] - grid_point->loc[2];
+    double dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
+    double dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
+    double dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
     double r2 = dx * dx + dy * dy + dz * dz;
 
     // If the particle is within the kernel radius of the grid point then
@@ -584,8 +588,11 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   if (other->part_count == 0)
     return;
 
+  // Compute the maximum separation between the two cells
+  const double max_sep2 = cell->max_separation2(other);
+
   // Early exit if the cells are too far apart.
-  if (cell->max_separation2(other) > kernel_rad2 * 5)
+  if (max_sep2 > kernel_rad2 * 2)
     return;
 
   // Get an instance of the metadata
@@ -616,7 +623,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
 
     // If the maximum separation is less than the kernel radius then we can just
     // add the whole cell to each grid point.
-    if (cell->max_separation2(other) <= kernel_rad2) {
+    if (max_sep2 <= kernel_rad2) {
       grid_point.add_cell(other->part_count, other->mass, kernel_rad);
       return;
     }
