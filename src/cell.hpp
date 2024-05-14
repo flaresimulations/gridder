@@ -121,21 +121,45 @@ public:
     return dx * dx + dy * dy + dz * dz;
   }
 
-  // Maximum separation between this cell and another
-  double max_separation2(const std::shared_ptr<Cell> &other) {
+  /**
+   * @brief Is this cell within a grid point's kernel radius?
+   *
+   * @param grid_point The grid point to check
+   * @param kernel_rad2 The squared kernel radius
+   *
+   * @return True if the cell is within the kernel radius of the grid point,
+   * false otherwise.
+   */
+  bool inKernel(std::shared_ptr<GridPoint> grid_point,
+                const double kernel_rad2) {
 
-    // Compute the diagonal of this cell (the maximum separation of two cells
-    // we dont need to is the minimum separation plus the diagonal of this cell)
-    double this_diag = this->width[0] * this->width[0] +
-                       this->width[1] * this->width[1] +
-                       this->width[2] * this->width[2];
+    // Get the boxsize from the metadata
+    Metadata &metadata = Metadata::getInstance();
+    double *dim = metadata.dim;
 
-    // Get the minimum separation
-    double min_separation = this->min_separation2(other);
+    // Get the minimum and maximum positions for the cell.
+    const double thisx_min = this->loc[0];
+    const double thisy_min = this->loc[1];
+    const double thisz_min = this->loc[2];
+    const double thisx_max = this->loc[0] + this->width[0];
+    const double thisy_max = this->loc[1] + this->width[1];
+    const double thisz_max = this->loc[2] + this->width[2];
 
-    // If we add the diagnols of the two cells to the minimum separation we
-    // get the maximum separation
-    return min_separation + this_diag;
+    // Get the position of the grid point
+    const double gridx = grid_point->loc[0];
+    const double gridy = grid_point->loc[1];
+    const double gridz = grid_point->loc[2];
+
+    // Get the maximum distance between the particle and the grid point
+    const double dx = std::max({fabs(nearest(thisx_min - gridx, dim[0])),
+                                fabs(nearest(thisx_max - gridx, dim[0]))});
+    const double dy = std::max({fabs(nearest(thisy_min - gridy, dim[1])),
+                                fabs(nearest(thisy_max - gridy, dim[1]))});
+    const double dz = std::max({fabs(nearest(thisz_min - gridz, dim[2])),
+                                fabs(nearest(thisz_max - gridz, dim[2]))});
+    const r2 = dx * dx + dy * dy + dz * dz;
+
+    return r2 <= kernel_rad2;
   }
 
   // method to split this cell into 8 children (constructing an octree)
@@ -586,12 +610,8 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   if (other->part_count == 0)
     return;
 
-  // Compute the minimum and maximum separation between the two cells
-  const double max_sep2 = cell->max_separation2(other);
-  const double min_sep2 = cell->min_separation2(other);
-
   // Early exit if the cells are too far apart.
-  if (min_sep2 > kernel_rad2)
+  if (cell->min_separation2(other) > kernel_rad2)
     return;
 
   // Get an instance of the metadata
@@ -620,9 +640,8 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
     // Get the single grid point in this leaf
     GridPoint &grid_point = *cell->grid_points[0];
 
-    // If the maximum separation is less than the kernel radius then we can just
-    // add the whole cell to each grid point.
-    if (max_sep2 <= kernel_rad2) {
+    // Can we just add the whole cell to the grid point?
+    if (other->inKernel(grid_point, kernel_rad2)) {
       grid_point.add_cell(other->part_count, other->mass, kernel_rad);
       return;
     }
@@ -667,8 +686,8 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
     GridPoint &grid_point = *cell->grid_points[0];
 
     // If the diagonal of the cell is less than the kernel radius then we can
-    // just add the whole cell to the grid point since the entire cell is within
-    // the kernel radius
+    // just add the whole cell to the grid point since the entire cell is
+    // within the kernel radius
     const double cell_diag = cell->width[0] * cell->width[0] +
                              cell->width[1] * cell->width[1] +
                              cell->width[2] * cell->width[2];
