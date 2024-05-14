@@ -200,7 +200,7 @@ public:
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
     const double r2 = dx * dx + dy * dy + dz * dz;
 
-    return sqrt(r2) > sqrt(kernel_rad2);
+    return r2 > kernel_rad2;
   }
 
   // method to split this cell into 8 children (constructing an octree)
