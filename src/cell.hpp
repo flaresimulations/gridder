@@ -192,11 +192,11 @@ public:
     const double gridz = grid_point->loc[2];
 
     // Get the minimum distance between the particle and the grid point
-    const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
+    const double dx = std::max({fabs(nearest(thisx_min - gridx, dim[0])),
                                 fabs(nearest(thisx_max - gridx, dim[0]))});
-    const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
+    const double dy = std::max({fabs(nearest(thisy_min - gridy, dim[1])),
                                 fabs(nearest(thisy_max - gridy, dim[1]))});
-    const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
+    const double dz = std::max({fabs(nearest(thisz_min - gridz, dim[2])),
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
     const double r2 = dx * dx + dy * dy + dz * dz;
 
