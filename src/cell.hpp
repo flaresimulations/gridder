@@ -103,43 +103,6 @@ public:
     const double othery_max = other->loc[1] + other->width[1];
     const double otherz_max = other->loc[2] + other->width[2];
 
-    // We need to ascertain if the cells overlap in any of the dimensions since
-    // we can have nesting
-    int no_overlap[3] = {1, 1, 1};
-    if (this->width[0] > other->width[0]) {
-      if ((thisx_min <= otherx_min) && (otherx_max <= thisx_max))
-        no_overlap[0] = 0.;
-      else
-        no_overlap[0] = 1.;
-    } else {
-      if ((otherx_min <= thisx_min) && (thisx_max <= otherx_max))
-        no_overlap[0] = 0.;
-      else
-        no_overlap[0] = 1.;
-    }
-    if (this->width[1] > other->width[1]) {
-      if ((thisy_min <= othery_min) && (othery_max <= thisy_max))
-        no_overlap[1] = 0.;
-      else
-        no_overlap[1] = 1.;
-    } else {
-      if ((othery_min <= thisy_min) && (thisy_max <= othery_max))
-        no_overlap[1] = 0.;
-      else
-        no_overlap[1] = 1.;
-    }
-    if (this->width[2] > other->width[2]) {
-      if ((thisz_min <= otherz_min) && (otherz_max <= thisz_max))
-        no_overlap[2] = 0.;
-      else
-        no_overlap[2] = 1.;
-    } else {
-      if ((otherz_min <= thisz_min) && (thisz_max <= otherz_max))
-        no_overlap[2] = 0.;
-      else
-        no_overlap[2] = 1.;
-    }
-
     const double dx = std::min({fabs(nearest(thisx_min - otherx_min, dim[0])),
                                 fabs(nearest(thisx_min - otherx_max, dim[0])),
                                 fabs(nearest(thisx_max - otherx_min, dim[0])),
@@ -155,20 +118,17 @@ public:
                                 fabs(nearest(thisz_max - otherz_min, dim[2])),
                                 fabs(nearest(thisz_max - otherz_max, dim[2]))});
 
-    return dx * dx * no_overlap[0] + dy * dy * no_overlap[1] +
-           dz * dz * no_overlap[2];
+    return dx * dx + dy * dy + dz * dz;
   }
 
   // Maximum separation between this cell and another
   double max_separation2(const std::shared_ptr<Cell> &other) {
 
-    // Compute the diagonals of the two cells
+    // Compute the diagonal of this cell (the maximum separation of two cells
+    // we dont need to is the minimum separation plus the diagonal of this cell)
     double this_diag = this->width[0] * this->width[0] +
                        this->width[1] * this->width[1] +
                        this->width[2] * this->width[2];
-    this_diag += other->width[0] * other->width[0] +
-                 other->width[1] * other->width[1] +
-                 other->width[2] * other->width[2];
 
     // Get the minimum separation
     double min_separation = this->min_separation2(other);
@@ -626,11 +586,12 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   if (other->part_count == 0)
     return;
 
-  // Compute the maximum separation between the two cells
+  // Compute the minimum and maximum separation between the two cells
   const double max_sep2 = cell->max_separation2(other);
+  const double min_sep2 = cell->min_separation2(other);
 
   // Early exit if the cells are too far apart.
-  if (max_sep2 > kernel_rad2 * 2)
+  if (min_sep2 > kernel_rad2)
     return;
 
   // Get an instance of the metadata
@@ -700,6 +661,20 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
       error("We shouldn't be able to find a leaf with more than 1 grid point "
             "(leaf->grid_points.size()=%d",
             cell->grid_points.size());
+    }
+
+    // Get the single grid point in this leaf
+    GridPoint &grid_point = *cell->grid_points[0];
+
+    // If the diagonal of the cell is less than the kernel radius then we can
+    // just add the whole cell to the grid point since the entire cell is within
+    // the kernel radius
+    const double cell_diag = cell->width[0] * cell->width[0] +
+                             cell->width[1] * cell->width[1] +
+                             cell->width[2] * cell->width[2];
+    if (cell_diag <= kernel_rad2) {
+      grid_point.add_cell(cell->part_count, cell->mass, kernel_rad);
+      return;
     }
 
     // Associate particles to the single grid point
