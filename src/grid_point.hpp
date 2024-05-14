@@ -107,9 +107,8 @@ public:
   }
 };
 
-void add_parts_to_grid_point(std::shared_ptr<Cell> cell, GridPoint *grid_point,
-                             const double kernel_rad,
-                             const double kernel_rad2) {
+void addPartsToGridPoint(std::shared_ptr<Cell> cell, GridPoint *grid_point,
+                         const double kernel_rad, const double kernel_rad2) {
 
   // Loop over the particles in the cell and assign them to the grid point
   for (int p = 0; p < cell->part_count; p++) {
