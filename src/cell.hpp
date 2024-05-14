@@ -191,14 +191,23 @@ public:
     const double gridy = grid_point->loc[1];
     const double gridz = grid_point->loc[2];
 
-    // Get the maximum distance between the particle and the grid point
+    int no_overlap = {1, 1, 1};
+    if (gridx < thisx_max && gridx > thisx_min)
+      no_overlap[0] = 0;
+    if (gridy < thisy_max && gridy > thisy_min)
+      no_overlap[1] = 0;
+    if (gridz < thisz_max && gridz > thisz_min)
+      no_overlap[2] = 0;
+
+    // Get the minimum distance between the particle and the grid point
     const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
                                 fabs(nearest(thisx_max - gridx, dim[0]))});
     const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
                                 fabs(nearest(thisy_max - gridy, dim[1]))});
     const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
                                 fabs(nearest(thisz_max - gridz, dim[2]))});
-    const double r2 = dx * dx + dy * dy + dz * dz;
+    const double r2 = dx * dx * no_overlap[1] + dy * dy * no_overlap[1] +
+                      dz * dz * no_overlap[2];
 
     return r2 > kernel_rad2;
   }
