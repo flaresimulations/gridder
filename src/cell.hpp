@@ -591,9 +591,9 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   // Compute the maximum separation between the two cells
   const double max_sep2 = cell->max_separation2(other);
 
-  // Early exit if the cells are too far apart.
-  if (max_sep2 > kernel_rad2 * 2)
-    return;
+  // // Early exit if the cells are too far apart.
+  // if (max_sep2 > kernel_rad2 * 2)
+  //   return;
 
   // Get an instance of the metadata
   Metadata &metadata = Metadata::getInstance();
