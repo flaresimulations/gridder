@@ -589,7 +589,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
 
     // If the maximum separation is less than the kernel radius then we can just
     // add the whole cell to each grid point.
-    if (cell->max_separation2(other) < kernel_rad2) {
+    if (cell->max_separation2(other) <= kernel_rad2) {
       grid_point.add_cell(other->part_count, other->mass, kernel_rad);
       return;
     }
@@ -607,7 +607,7 @@ void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
 
       // If the particle is within the kernel radius of the grid point then
       // assign it
-      if (r2 < kernel_rad2) {
+      if (r2 <= kernel_rad2) {
         grid_point.add_particle(part, kernel_rad);
       }
     }
@@ -659,7 +659,7 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
 
       // If the particle is within the kernel radius of the grid point then
       // assign it
-      if (r2 < kernel_rad2) {
+      if (r2 <= kernel_rad2) {
         grid_point.add_particle(part, kernel_rad);
       }
     }
