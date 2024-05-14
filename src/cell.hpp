@@ -128,6 +128,9 @@ public:
     double this_diag = this->width[0] * this->width[0] +
                        this->width[1] * this->width[1] +
                        this->width[2] * this->width[2];
+    this_diag += other->width[0] * other->width[0] +
+                 other->width[1] * other->width[1] +
+                 other->width[2] * other->width[2];
 
     // Get the minimum separation
     double min_separation = this->min_separation2(other);
