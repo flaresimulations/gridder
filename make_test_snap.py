@@ -46,12 +46,12 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
     cdim : int
         The number of cells in each dimension.
     grid_sep : float
-        The number of grid points in each dimension.
+        The number of grid particles in each dimension.
     boxsize : float
         The size of the box.
     """
     # Get the number of grid points from the boxsize and grid separation
-    grid_sep = boxsize / gdim
+    grid_sep = boxsize / (gdim + 1)
 
     print(
         f"Creating a {gdim}x{gdim}x{gdim} grid of "
