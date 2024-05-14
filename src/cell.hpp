@@ -213,13 +213,11 @@ public:
           error("Particle inside kernel radius but cell outside (dx=%f, dy=%f, "
                 "dz=%f, r2 = %f, kernel_rad2 = %f, part->pos = %f %f %f, "
                 "grid_point->loc = %f %f %f cell->loc = %f %f %f, cell->width "
-                "= %f %f %f, other->loc = %f %f %f, other->width = %f %f %f",
+                "= %f %f %f)",
                 dx, dy, dz, r2, kernel_rad2, part->pos[0], part->pos[1],
                 part->pos[2], grid_point->loc[0], grid_point->loc[1],
                 grid_point->loc[2], this->loc[0], this->loc[1], this->loc[2],
-                this->width[0], this->width[1], this->width[2], other->loc[0],
-                other->loc[1], other->loc[2], other->width[0], other->width[1],
-                other->width[2]);
+                this->width[0], this->width[1], this->width[2]);
         }
       }
     }
