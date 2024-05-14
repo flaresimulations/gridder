@@ -504,6 +504,9 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
   double grid_spacing[3] = {dim[0] / grid_cdim, dim[1] / grid_cdim,
                             dim[2] / grid_cdim};
 
+  message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
+          grid_spacing[2]);
+
   // Create the grid points
   for (int i = 0; i < grid_cdim; i++) {
     for (int j = 0; j < grid_cdim; j++) {
