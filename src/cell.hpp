@@ -213,6 +213,28 @@ public:
     if (this->depth > metadata.max_depth)
       metadata.max_depth = this->depth;
 
+    // Ensure all the particles within this cell are in the correct place
+    for (int p = 0; p < this->part_count; p++) {
+      if (this->particles[p]->pos[0] < this->loc[0] ||
+          this->particles[p]->pos[0] >= this->loc[0] + this->width[0] ||
+          this->particles[p]->pos[1] < this->loc[1] ||
+          this->particles[p]->pos[1] >= this->loc[1] + this->width[1] ||
+          this->particles[p]->pos[2] < this->loc[2] ||
+          this->particles[p]->pos[2] >= this->loc[2] + this->width[2])
+        error("Particle not in correct cell");
+    }
+
+    // Ensure all the grid points within this cell are in the correct place
+    for (int p = 0; p < this->grid_points.size(); p++) {
+      if (this->grid_points[p]->loc[0] < this->loc[0] ||
+          this->grid_points[p]->loc[0] >= this->loc[0] + this->width[0] ||
+          this->grid_points[p]->loc[1] < this->loc[1] ||
+          this->grid_points[p]->loc[1] >= this->loc[1] + this->width[1] ||
+          this->grid_points[p]->loc[2] < this->loc[2] ||
+          this->grid_points[p]->loc[2] >= this->loc[2] + this->width[2])
+        error("Grid point not in correct cell");
+    }
+
     // Calculate the new width of the children
     double new_width[3] = {this->width[0] / 2.0, this->width[1] / 2.0,
                            this->width[2] / 2.0};
