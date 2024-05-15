@@ -80,16 +80,14 @@ public:
     // Compute the volume of the kernel
     const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
 
-    return this->mass_map[kernel_radius];
+    // Compute the density
+    const double density = this->mass_map[kernel_radius] / kernel_volume;
 
-    // // Compute the density
-    // const double density = this->mass_map[kernel_radius] / kernel_volume;
+    // Compute the over density
+    const double over_density =
+        (density / Metadata::getInstance().mean_density) - 1;
 
-    // // Compute the over density
-    // const double over_density =
-    //     (density / Metadata::getInstance().mean_density) - 1;
-
-    // return over_density;
+    return over_density;
   }
 };
 
