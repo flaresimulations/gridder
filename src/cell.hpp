@@ -178,33 +178,24 @@ public:
     Metadata &metadata = Metadata::getInstance();
     double *dim = metadata.dim;
 
-    // Get the minimum and maximum positions for the cell.
-    const double thisx_min = this->loc[0];
-    const double thisy_min = this->loc[1];
-    const double thisz_min = this->loc[2];
-    const double thisx_max = this->loc[0] + this->width[0];
-    const double thisy_max = this->loc[1] + this->width[1];
-    const double thisz_max = this->loc[2] + this->width[2];
+    // Get cell centre and diagonal
+    double cell_centre[3] = {this->loc[0] + this->width[0] / 2.0,
+                             this->loc[1] + this->width[1] / 2.0,
+                             this->loc[2] + this->width[2] / 2.0};
+    double diag2 = this->width[0] * this->width[0] +
+                   this->width[1] * this->width[1] +
+                   this->width[2] * this->width[2];
 
-    // Get the position of the grid point
-    const double gridx = grid_point->loc[0];
-    const double gridy = grid_point->loc[1];
-    const double gridz = grid_point->loc[2];
-
-    // Get the minimum distance between the grid point and the cell centre
-    const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
-                                fabs(nearest(thisx_max - gridx, dim[0]))});
-    const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
-                                fabs(nearest(thisy_max - gridy, dim[1]))});
-    const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
-                                fabs(nearest(thisz_max - gridz, dim[2]))});
-    const double dx2 = dx * dx;
-    const double dy2 = dy * dy;
-    const double dz2 = dz * dz;
+    // Get the distance between the grid point and the cell centre
+    double dx = nearest(grid_point->loc[0] - cell_centre[0], dim[0]);
+    double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
+    double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
+    double r2 = dx * dx + dy * dy + dz * dz;
+    r2 -= 1.1 * diag2; // include some safety buffer
 
 #ifdef DEBUGGING_CHECKS
     // Ensure we aren't reporting we're outside when particles are inside
-    if (dx2 > kernel_rad2 && dy2 > kernel_rad2 && dz2 > kernel_rad2) {
+    if (r2 > kernel_rad2) {
       for (int p = 0; p < this->part_count; p++) {
         std::shared_ptr<Particle> part = this->particles[p];
         const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
@@ -212,66 +203,23 @@ public:
         const double p_dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
         const double p_r2 = p_dx * p_dx + p_dy * p_dy + p_dz * p_dz;
         if (p_r2 <= kernel_rad2) {
-          error(
-              "Particle inside kernel radius but cell outside (dx=%f, dy = % f,"
-              "dz=%f, part_r2=%f, kernel_rad2 = %f) "
-              "(cell->loc = %f %f %f, cell->width = %f %f %f, "
-              "grid_point->loc = "
-              "%f %f %f part->pos = %f %f %f)",
-              dx, dy, dz, p_r2, kernel_rad2, this->loc[0], this->loc[1],
-              this->loc[2], this->width[0], this->width[1], this->width[2],
-              grid_point->loc[0], grid_point->loc[1], grid_point->loc[2],
-              part->pos[0], part->pos[1], part->pos[2]);
+          error("Particle inside kernel radius but cell outside (dx=%f,
+                dy = % f,
+                "
+                "dz=%f, r2=%f, part_r2=%f, kernel_rad2 = %f) "
+                "(cell->loc = %f %f %f, cell->width = %f %f %f, "
+                "grid_point->loc = "
+                "%f %f %f part->pos = %f %f %f)",
+                dx, dy, dz, r2, p_r2, kernel_rad2, this->loc[0], this->loc[1],
+                this->loc[2], this->width[0], this->width[1], this->width[2],
+                grid_point->loc[0], grid_point->loc[1], grid_point->loc[2],
+                part->pos[0], part->pos[1], part->pos[2]);
         }
       }
     }
 #endif
 
-    return dx2 > kernel_rad2 && dy2 > kernel_rad2 && dz2 > kernel_rad2;
-
-    //     // Get cell centre and diagonal
-    //     double cell_centre[3] = {this->loc[0] + this->width[0] / 2.0,
-    //                              this->loc[1] + this->width[1] / 2.0,
-    //                              this->loc[2] + this->width[2] / 2.0};
-    //     double diag2 = this->width[0] * this->width[0] +
-    //                    this->width[1] * this->width[1] +
-    //                    this->width[2] * this->width[2];
-
-    //     // Get the distance between the grid point and the cell centre
-    //     double dx = nearest(grid_point->loc[0] - cell_centre[0], dim[0]);
-    //     double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
-    //     double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
-    //     double r2 = dx * dx + dy * dy + dz * dz;
-    //     r2 -= 1.1 * diag2;
-
-    // #ifdef DEBUGGING_CHECKS
-    //     // Ensure we aren't reporting we're outside when particles are inside
-    //     if (r2 > kernel_rad2) {
-    //       for (int p = 0; p < this->part_count; p++) {
-    //         std::shared_ptr<Particle> part = this->particles[p];
-    //         const double p_dx = nearest(part->pos[0] - grid_point->loc[0],
-    //         dim[0]); const double p_dy = nearest(part->pos[1] -
-    //         grid_point->loc[1], dim[1]); const double p_dz =
-    //         nearest(part->pos[2] - grid_point->loc[2], dim[2]); const double
-    //         p_r2 = p_dx * p_dx + p_dy * p_dy + p_dz * p_dz; if (p_r2 <=
-    //         kernel_rad2) {
-    //           error("Particle inside kernel radius but cell outside (dx=%f,
-    //           dy=%f, "
-    //                 "dz=%f, r2=%f, part_r2=%f, kernel_rad2 = %f) "
-    //                 "(cell->loc = %f %f %f, cell->width = %f %f %f, "
-    //                 "grid_point->loc = "
-    //                 "%f %f %f part->pos = %f %f %f)",
-    //                 dx, dy, dz, r2, p_r2, kernel_rad2, this->loc[0],
-    //                 this->loc[1], this->loc[2], this->width[0],
-    //                 this->width[1], this->width[2], grid_point->loc[0],
-    //                 grid_point->loc[1], grid_point->loc[2], part->pos[0],
-    //                 part->pos[1], part->pos[2]);
-    //         }
-    //       }
-    //     }
-    // #endif
-
-    //     return r2 > kernel_rad2;
+    return r2 > kernel_rad2;
   }
 
   // method to split this cell into 8 children (constructing an octree)
