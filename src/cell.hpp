@@ -457,7 +457,8 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
   message("Looking for neighbours within %d cells", nwalk);
 
   // Loop over the cells attaching the pointers the neighbouring cells (taking
-  // into account periodic boudnary conditions)
+  // into account periodic boundary conditions)
+#pragma omp parallel for
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get integer coordinates of the cell
@@ -539,6 +540,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
+#pragma omp parallel for
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the cell
@@ -684,6 +686,7 @@ void splitCells(const std::vector<std::shared_ptr<Cell>> &cells) {
   Metadata &metadata = Metadata::getInstance();
 
   // Loop over the cells and split them
+#pragma omp parallel for
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Skip cells that aren't on this rank
@@ -897,6 +900,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
     hdf5.createDataset<double, 3>("Grids/", kernel_name, grid_shape);
 
     // Write out the grid data cell by cell
+#pragma omp parallel for
     for (std::shared_ptr<Cell> cell : cells) {
       // Create the output array for this cell
       std::vector<double> grid_data;
