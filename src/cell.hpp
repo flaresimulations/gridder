@@ -248,7 +248,7 @@ public:
     double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
     double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
     double r2 = dx * dx + dy * dy + dz * dz;
-    r2 -= diag2;
+    r2 -= 2 * diag2;
 
 #ifdef DEBUGGING_CHECKS
     // Ensure we aren't reporting we're outside when particles are inside
