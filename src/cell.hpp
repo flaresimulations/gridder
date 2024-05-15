@@ -178,27 +178,12 @@ public:
     Metadata &metadata = Metadata::getInstance();
     double *dim = metadata.dim;
 
-    // Get the minimum and maximum positions for the cell.
-    const double thisx_min = this->loc[0];
-    const double thisy_min = this->loc[1];
-    const double thisz_min = this->loc[2];
-    const double thisx_max = this->loc[0] + this->width[0];
-    const double thisy_max = this->loc[1] + this->width[1];
-    const double thisz_max = this->loc[2] + this->width[2];
-
-    // Get the position of the grid point
-    const double gridx = grid_point->loc[0];
-    const double gridy = grid_point->loc[1];
-    const double gridz = grid_point->loc[2];
-
-    // Get the minimum distance between the particle and the grid point
-    const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
-                                fabs(nearest(thisx_max - gridx, dim[0]))});
-    const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
-                                fabs(nearest(thisy_max - gridy, dim[1]))});
-    const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
-                                fabs(nearest(thisz_max - gridz, dim[2]))});
-    double r2 = dx * dx + dy * dy + dz * dz;
+    // Get the minimum distance between the grid point and the cell centre
+    const double dx = nearest(grid_point->loc[0] - this->loc[0], dim[0]);
+    const double dy = nearest(grid_point->loc[1] - this->loc[1], dim[1]);
+    const double dz = nearest(grid_point->loc[2] - this->loc[2], dim[2]);
+    double r2 =
+        (dx * dx + dy * dy + dz * dz) - (3 * this->width[0] * this->width[0]);
 
 #ifdef DEBUGGING_CHECKS
     // Ensure we aren't reporting we're outside when particles are inside
