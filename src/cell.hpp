@@ -150,7 +150,7 @@ public:
     const double gridy = grid_point->loc[1];
     const double gridz = grid_point->loc[2];
 
-    // Get the maximum distance between the particle and the grid point
+    // Get the maximum distance between the grid point and the cell
     const double dx = std::max({fabs(nearest(thisx_min - gridx, dim[0])),
                                 fabs(nearest(thisx_max - gridx, dim[0]))});
     const double dy = std::max({fabs(nearest(thisy_min - gridy, dim[1])),
@@ -178,10 +178,15 @@ public:
     Metadata &metadata = Metadata::getInstance();
     double *dim = metadata.dim;
 
+    // Get the centre of the cell
+    const double thisx = this->loc[0] + (this->width[0] / 2.0);
+    const double thisy = this->loc[1] + (this->width[1] / 2.0);
+    const double thisz = this->loc[2] + (this->width[2] / 2.0);
+
     // Get the minimum distance between the grid point and the cell centre
-    const double dx = nearest(grid_point->loc[0] - this->loc[0], dim[0]);
-    const double dy = nearest(grid_point->loc[1] - this->loc[1], dim[1]);
-    const double dz = nearest(grid_point->loc[2] - this->loc[2], dim[2]);
+    const double dx = nearest(grid_point->loc[0] - thisx, dim[0]);
+    const double dy = nearest(grid_point->loc[1] - thisy, dim[1]);
+    const double dz = nearest(grid_point->loc[2] - thisz, dim[2]);
     double r2 =
         (dx * dx + dy * dy + dz * dz) - (3 * this->width[0] * this->width[0]);
 
