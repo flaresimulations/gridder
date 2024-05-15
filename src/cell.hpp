@@ -899,7 +899,6 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
     hdf5.createDataset<double, 3>("Grids/", kernel_name, grid_shape);
 
     // Write out the grid data cell by cell
-#pragma omp parallel for
     for (std::shared_ptr<Cell> cell : cells) {
       // Create the output array for this cell
       std::vector<double> grid_data;
