@@ -7,6 +7,7 @@ import argparse
 from tqdm import tqdm
 import h5py
 import numpy as np
+from unyt import g, cm, Msun, Mpc
 
 
 def get_cell_index(x, y, z, cell_size, cdim):
@@ -103,7 +104,6 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
         part_type_1 = hdf.create_group("PartType1")
         part_type_1.create_dataset("Coordinates", data=pos)
         part_type_1.create_dataset("ParticleIDs", data=np.arange(pos.shape[0]))
-        part_type_1.create_dataset("Masses", data=np.ones(pos.shape[0]))
 
         # Write the cell structure
         cell_struct = hdf.create_group("Cells")
@@ -146,6 +146,17 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
             hdf["Cosmology"].attrs[
                 "Critical density [internal units]"
             ] = mean_density
+
+        # Now we have the mean density we can calculate the mass of of the
+        # particles
+        mass = (
+            mean_density
+            * (unit_mass * g)
+            / (unit_length * cm) ** 3
+            * (boxsize * Mpc) ** 3
+            / pos.shape[0]
+        ).to(Msun).value / 10**10
+        part_type_1.create_dataset("Masses", data=np.ones(pos.shape[0]) * mass)
 
 
 if __name__ == "__main__":
