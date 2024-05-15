@@ -188,8 +188,14 @@ public:
 
     // Get the distance between the grid point and the cell centre
     double dx = nearest(grid_point->loc[0] - cell_centre[0], dim[0]);
+    if (fabs(dx) < this->width[0] / 2.0)
+      dx = 0.0;
     double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
+    if (fabs(dy) < this->width[1] / 2.0)
+      dy = 0.0;
     double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
+    if (fabs(dz) < this->width[2] / 2.0)
+      dz = 0.0;
     double r2 = dx * dx + dy * dy + dz * dz;
     r2 -= 1.1 * diag2; // Add a little bit of padding
 
