@@ -191,7 +191,7 @@ public:
     const double gridy = grid_point->loc[1];
     const double gridz = grid_point->loc[2];
 
-    // Get the minimum distance between the grid point and the cell
+    // Get the minimum distance between the grid point and the cell centre
     const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
                                 fabs(nearest(thisx_max - gridx, dim[0]))});
     const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
@@ -212,17 +212,16 @@ public:
         const double p_dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
         const double p_r2 = p_dx * p_dx + p_dy * p_dy + p_dz * p_dz;
         if (p_r2 <= kernel_rad2) {
-          error("Particle inside kernel radius but cell outside (dx=%f,
-                dy = % f,
-                "
-                "dz=%f, part_r2=%f, kernel_rad2 = %f) "
-                "(cell->loc = %f %f %f, cell->width = %f %f %f, "
-                "grid_point->loc = "
-                "%f %f %f part->pos = %f %f %f)",
-                dx, dy, dz, p_r2, kernel_rad2, this->loc[0], this->loc[1],
-                this->loc[2], this->width[0], this->width[1], this->width[2],
-                grid_point->loc[0], grid_point->loc[1], grid_point->loc[2],
-                part->pos[0], part->pos[1], part->pos[2]);
+          error(
+              "Particle inside kernel radius but cell outside (dx=%f, dy = % f,"
+              "dz=%f, part_r2=%f, kernel_rad2 = %f) "
+              "(cell->loc = %f %f %f, cell->width = %f %f %f, "
+              "grid_point->loc = "
+              "%f %f %f part->pos = %f %f %f)",
+              dx, dy, dz, p_r2, kernel_rad2, this->loc[0], this->loc[1],
+              this->loc[2], this->width[0], this->width[1], this->width[2],
+              grid_point->loc[0], grid_point->loc[1], grid_point->loc[2],
+              part->pos[0], part->pos[1], part->pos[2]);
         }
       }
     }
