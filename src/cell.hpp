@@ -150,7 +150,7 @@ public:
     const double gridy = grid_point->loc[1];
     const double gridz = grid_point->loc[2];
 
-    // Get the maximum distance between the grid point and the cell
+    // Get the maximum distance between the particle and the grid point
     const double dx = std::max({fabs(nearest(thisx_min - gridx, dim[0])),
                                 fabs(nearest(thisx_max - gridx, dim[0]))});
     const double dy = std::max({fabs(nearest(thisy_min - gridy, dim[1])),
@@ -178,21 +178,33 @@ public:
     Metadata &metadata = Metadata::getInstance();
     double *dim = metadata.dim;
 
-    // Get the centre of the cell
-    const double thisx = this->loc[0] + (this->width[0] / 2.0);
-    const double thisy = this->loc[1] + (this->width[1] / 2.0);
-    const double thisz = this->loc[2] + (this->width[2] / 2.0);
+    // Get the minimum and maximum positions for the cell.
+    const double thisx_min = this->loc[0];
+    const double thisy_min = this->loc[1];
+    const double thisz_min = this->loc[2];
+    const double thisx_max = this->loc[0] + this->width[0];
+    const double thisy_max = this->loc[1] + this->width[1];
+    const double thisz_max = this->loc[2] + this->width[2];
+
+    // Get the position of the grid point
+    const double gridx = grid_point->loc[0];
+    const double gridy = grid_point->loc[1];
+    const double gridz = grid_point->loc[2];
 
     // Get the minimum distance between the grid point and the cell centre
-    const double dx = nearest(grid_point->loc[0] - thisx, dim[0]);
-    const double dy = nearest(grid_point->loc[1] - thisy, dim[1]);
-    const double dz = nearest(grid_point->loc[2] - thisz, dim[2]);
-    double r2 =
-        (dx * dx + dy * dy + dz * dz) - (3 * this->width[0] * this->width[0]);
+    const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
+                                fabs(nearest(thisx_max - gridx, dim[0]))});
+    const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
+                                fabs(nearest(thisy_max - gridy, dim[1]))});
+    const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
+                                fabs(nearest(thisz_max - gridz, dim[2]))});
+    const double dx2 = dx * dx;
+    const double dy2 = dy * dy;
+    const double dz2 = dz * dz;
 
 #ifdef DEBUGGING_CHECKS
     // Ensure we aren't reporting we're outside when particles are inside
-    if (r2 > kernel_rad2) {
+    if (dx2 > kernel_rad2 && dy2 > kernel_rad2 && dz2 > kernel_rad2) {
       for (int p = 0; p < this->part_count; p++) {
         std::shared_ptr<Particle> part = this->particles[p];
         const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
@@ -214,7 +226,7 @@ public:
     }
 #endif
 
-    return r2 > kernel_rad2;
+    return dx2 > kernel_rad2 && dy2 > kernel_rad2 && dz2 > kernel_rad2;
   }
 
   // method to split this cell into 8 children (constructing an octree)
