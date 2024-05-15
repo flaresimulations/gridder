@@ -192,9 +192,8 @@ public:
     const double gridz = grid_point->loc[2];
 
     // Get the minimum distance between the grid point and the cell
-    centre const double dx =
-        std::min({fabs(nearest(thisx_min - gridx, dim[0])),
-                  fabs(nearest(thisx_max - gridx, dim[0]))});
+    const double dx = std::min({fabs(nearest(thisx_min - gridx, dim[0])),
+                                fabs(nearest(thisx_max - gridx, dim[0]))});
     const double dy = std::min({fabs(nearest(thisy_min - gridy, dim[1])),
                                 fabs(nearest(thisy_max - gridy, dim[1]))});
     const double dz = std::min({fabs(nearest(thisz_min - gridz, dim[2])),
