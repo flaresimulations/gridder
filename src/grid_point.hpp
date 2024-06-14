@@ -84,10 +84,7 @@ public:
     const double density = this->mass_map[kernel_radius] / kernel_volume;
 
     // Compute the over density
-    const double over_density =
-        (density / Metadata::getInstance().mean_density) - 1;
-
-    return over_density;
+    return (density / Metadata::getInstance().mean_density) - 1;
   }
 };
 
