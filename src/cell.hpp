@@ -538,6 +538,14 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
                                 offsets))
     error("Failed to read cell offsets");
 
+  // Read all the masses and coordinates to slice out what we need
+  std::vector<double> poss;
+  std::vector<double> masses;
+  if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), poss))
+    error("Failed to read particle coordinates");
+  if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses))
+    error("Failed to read particle masses");
+
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
@@ -552,20 +560,11 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
     // Get the particle slice start and length
     const int offset = offsets[cid];
     const int count = counts[cid];
+    const int end = offset + count;
     total_part_count += count;
 
-    // Get the particle data
-    std::vector<double> poss;
-    std::vector<double> masses;
-    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Coordinates"),
-                                      poss, offset, count))
-      error("Failed to read particle coordinates");
-    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
-                                      offset, count))
-      error("Failed to read particle masses");
-
     // Loop over the particle data making particles
-    for (int p = 0; p < count; p++) {
+    for (int p = offset; p < end; p++) {
 
       // Get the mass and position of the particle
       const double mass = masses[p];
