@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   Metadata::getInstance().rank = rank;
 
   // Start the timer for the whole shebang
-  Logging::getInstance()->start();
+  start();
 
   if (rank == 0) {
     message("Running on %d MPI ranks", size);
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
   toc("Writing output");
 
   // Stop the timer for the whole shebang
-  Logging::getInstance()->finish();
+  finish();
 
   // Exit properly in MPI land
   MPI_Finalize();

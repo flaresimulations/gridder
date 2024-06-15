@@ -226,7 +226,7 @@ public:
   /**
    * @brief Report the full runtime of the program.
    */
-  void finish() {
+  void finish(const char *file, const char *func) {
     // Get MPI information
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -241,76 +241,79 @@ public:
         std::chrono::high_resolution_clock::now() - _start);
 
     // And report it...
-    log(__FILE__, __func__, "Total runtime: %lld ms",
+    log(file, func, "Total runtime: %lld ms",
         static_cast<long long>(duration.count()));
+  }
 
-  private:
-    /**
-     * @brief Get the base filename from a given file path.
-     *
-     * @param filePath The full path to the file.
-     * @return The base filename without the path and extension.
-     */
-    static std::string getBaseFilename(const std::string &filePath) {
-      size_t lastSlash = filePath.find_last_of("/");
-      size_t lastDot = filePath.find_last_of(".");
+private:
+  /**
+   * @brief Get the base filename from a given file path.
+   *
+   * @param filePath The full path to the file.
+   * @return The base filename without the path and extension.
+   */
+  static std::string getBaseFilename(const std::string &filePath) {
+    size_t lastSlash = filePath.find_last_of("/");
+    size_t lastDot = filePath.find_last_of(".");
 
-      // Extract the filename between the last slash and the last dot
-      if (lastSlash != std::string::npos && lastDot != std::string::npos &&
-          lastDot > lastSlash) {
-        return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
-      }
-
-      // If no slash or dot found, or dot appears before slash, return the
-      // original path
-      return filePath;
+    // Extract the filename between the last slash and the last dot
+    if (lastSlash != std::string::npos && lastDot != std::string::npos &&
+        lastDot > lastSlash) {
+      return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
     }
 
-    /**
-     * @brief Log a formatted message.
-     *
-     * @tparam Args Variadic template for message formatting.
-     *
-     * @param format The format string for the log message.
-     * @param args The arguments for message formatting.
-     */
-    template <typename... Args>
-    void log(const char *file, const char *func, const char *format,
-             Args... args) {
+    // If no slash or dot found, or dot appears before slash, return the
+    // original path
+    return filePath;
+  }
 
-      // Only rank 0 should print
+  /**
+   * @brief Log a formatted message.
+   *
+   * @tparam Args Variadic template for message formatting.
+   *
+   * @param format The format string for the log message.
+   * @param args The arguments for message formatting.
+   */
+  template <typename... Args>
+  void log(const char *file, const char *func, const char *format,
+           Args... args) {
 
-      // Create the standard output string format
-      std::ostringstream oss;
-      oss << " [" << _rank << "][" << getBaseFilename(file) << "." << func
-          << "] ";
+    // Only rank 0 should print
 
-      // Format the message
-      char buffer[256];
-      snprintf(buffer, sizeof(buffer), format, args...);
+    // Create the standard output string format
+    std::ostringstream oss;
+    oss << " [" << _rank << "][" << getBaseFilename(file) << "." << func
+        << "] ";
 
-      // Include the message
-      oss << buffer << std::endl;
+    // Format the message
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), format, args...);
 
-      // Print the message
-      std::cout << oss.str();
-    }
+    // Include the message
+    oss << buffer << std::endl;
 
-    /**
-     * @brief Get the current step of the simulation.
-     *
-     * @return The current step of the simulation.
-     */
-    std::string getSnapshot() { return _snapshot; }
-  };
+    // Print the message
+    std::cout << oss.str();
+  }
+
+  /**
+   * @brief Get the current step of the simulation.
+   *
+   * @return The current step of the simulation.
+   */
+  std::string getSnapshot() { return _snapshot; }
+};
 
 // Define friendly macros for logging
 #define message(...)                                                           \
   Logging::getInstance()->message(__FILE__, __func__, __VA_ARGS__)
 #define v_message(...)                                                         \
   Logging::getInstance()->v_message(__FILE__, __func__, __VA_ARGS__)
+#define start() Logging::getInstance()->start()
 #define tic() Logging::getInstance()->tic()
 #define toc(message) Logging::getInstance()->toc(__FILE__, __func__, message)
+#define finish() Logging::getInstance()->finish(__FILE__, __func__)
 #define error(...)                                                             \
   Logging::getInstance()->throw_error(__FILE__, __func__, __LINE__, __VA_ARGS__)
 #define report_error() Logging::getInstance()->report_error()
