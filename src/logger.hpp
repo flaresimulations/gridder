@@ -49,6 +49,7 @@ private:
   // Time variables for measuring duration
   std::chrono::high_resolution_clock::time_point _tic;
   std::chrono::high_resolution_clock::time_point _toc;
+  std::chrono::high_resolution_clock::time_point _start;
 
   // Error variables (used for throwing exceptions and reporting their location
   // at the top of the call stack)
@@ -217,65 +218,91 @@ public:
         static_cast<long long>(duration.count()));
   }
 
-private:
   /**
-   * @brief Get the base filename from a given file path.
-   *
-   * @param filePath The full path to the file.
-   * @return The base filename without the path and extension.
+   * @brief Start measuring time.
    */
-  static std::string getBaseFilename(const std::string &filePath) {
-    size_t lastSlash = filePath.find_last_of("/");
-    size_t lastDot = filePath.find_last_of(".");
-
-    // Extract the filename between the last slash and the last dot
-    if (lastSlash != std::string::npos && lastDot != std::string::npos &&
-        lastDot > lastSlash) {
-      return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
-    }
-
-    // If no slash or dot found, or dot appears before slash, return the
-    // original path
-    return filePath;
-  }
+  void start() { _start = std::chrono::high_resolution_clock::now(); }
 
   /**
-   * @brief Log a formatted message.
-   *
-   * @tparam Args Variadic template for message formatting.
-   *
-   * @param format The format string for the log message.
-   * @param args The arguments for message formatting.
+   * @brief Report the full runtime of the program.
    */
-  template <typename... Args>
-  void log(const char *file, const char *func, const char *format,
-           Args... args) {
+  void finish() {
+    // Get MPI information
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Only rank 0 should print
+    if (rank != 0) {
+      return;
+    }
 
-    // Create the standard output string format
-    std::ostringstream oss;
-    oss << " [" << _rank << "][" << getBaseFilename(file) << "." << func
-        << "] ";
+    // Calculate the duration...
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - _start);
 
-    // Format the message
-    char buffer[256];
-    snprintf(buffer, sizeof(buffer), format, args...);
+    // And report it...
+    log(__FILE__, __func__, "Total runtime: %lld ms",
+        static_cast<long long>(duration.count()));
 
-    // Include the message
-    oss << buffer << std::endl;
+  private:
+    /**
+     * @brief Get the base filename from a given file path.
+     *
+     * @param filePath The full path to the file.
+     * @return The base filename without the path and extension.
+     */
+    static std::string getBaseFilename(const std::string &filePath) {
+      size_t lastSlash = filePath.find_last_of("/");
+      size_t lastDot = filePath.find_last_of(".");
 
-    // Print the message
-    std::cout << oss.str();
-  }
+      // Extract the filename between the last slash and the last dot
+      if (lastSlash != std::string::npos && lastDot != std::string::npos &&
+          lastDot > lastSlash) {
+        return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
+      }
 
-  /**
-   * @brief Get the current step of the simulation.
-   *
-   * @return The current step of the simulation.
-   */
-  std::string getSnapshot() { return _snapshot; }
-};
+      // If no slash or dot found, or dot appears before slash, return the
+      // original path
+      return filePath;
+    }
+
+    /**
+     * @brief Log a formatted message.
+     *
+     * @tparam Args Variadic template for message formatting.
+     *
+     * @param format The format string for the log message.
+     * @param args The arguments for message formatting.
+     */
+    template <typename... Args>
+    void log(const char *file, const char *func, const char *format,
+             Args... args) {
+
+      // Only rank 0 should print
+
+      // Create the standard output string format
+      std::ostringstream oss;
+      oss << " [" << _rank << "][" << getBaseFilename(file) << "." << func
+          << "] ";
+
+      // Format the message
+      char buffer[256];
+      snprintf(buffer, sizeof(buffer), format, args...);
+
+      // Include the message
+      oss << buffer << std::endl;
+
+      // Print the message
+      std::cout << oss.str();
+    }
+
+    /**
+     * @brief Get the current step of the simulation.
+     *
+     * @return The current step of the simulation.
+     */
+    std::string getSnapshot() { return _snapshot; }
+  };
 
 // Define friendly macros for logging
 #define message(...)                                                           \

@@ -872,6 +872,8 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
   // Get the output filepath
   const std::string filename = metadata.output_file;
 
+  message("Writing grid data to %s", filename.c_str());
+
   // Create a new HDF5 file
   HDF5Helper hdf5(filename, H5F_ACC_TRUNC);
 
