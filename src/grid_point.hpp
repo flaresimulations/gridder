@@ -84,9 +84,6 @@ public:
     const double density = this->mass_map[kernel_radius] / kernel_volume;
 
     // Compute the over density
-    message("Density: %f Mean Density: %f", density,
-            Metadata::getInstance().mean_density);
-
     return (density / Metadata::getInstance().mean_density) - 1;
   }
 };
