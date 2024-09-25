@@ -228,6 +228,10 @@ private:
 
     /* Return if its a string. */
     if (isString) {
+      // But before we return just strip off any quotes.
+      if (str.front() == '"' && str.back() == '"') {
+        return str.substr(1, str.length() - 2);
+      }
       return str;
     }
 
@@ -278,9 +282,6 @@ void getInputFilePath(Parameters &params) {
   std::ostringstream ss;
   ss << std::setw(padding_width) << std::setfill('0') << metadata.nsnap;
   std::string snap_num_str = ss.str();
-
-  message("Snapshot number: %s", snap_num_str.c_str());
-  message("Placeholder: %s", placeholder.c_str());
 
   // Replace all occurrences of the placeholder with the zero-padded snapshot
   // number
