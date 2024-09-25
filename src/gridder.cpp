@@ -25,13 +25,13 @@
 int main(int argc, char *argv[]) {
 
   // Get the parameter file from the command line arguments
-  if (argc != 3) {
-    std::cerr << "Usage: " << argv[0] << " <parameter_file> <nsnap>"
+  if (argc > 3 || argc == 1) {
+    std::cerr << "Usage: " << argv[0] << " <parameter_file> (optional <nsnap>)"
               << std::endl;
     return 1;
   }
   const std::string param_file = argv[1];
-  const int nsnap = std::stoi(argv[2]);
+  const int nsnap = (argc == 3) ? std::stoi(argv[2]) : 0;
 
   // Set up the MPI environment
   MPI_Init(&argc, &argv);
