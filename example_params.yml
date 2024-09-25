@@ -12,9 +12,6 @@ Grid:
 Tree:
   max_leaf_count: 200
 
-Metadata:
-  density_key: Critical density [internal units]
-
 Input:
   filepath: uniform_test.hdf5
 

@@ -31,9 +31,6 @@ public:
   std::string input_file;
   std::string output_file;
 
-  // Some parameter strings that tell us what keys to use
-  std::string density_key;
-
   // Cosmology parameters
   double redshift;
   double mean_density;

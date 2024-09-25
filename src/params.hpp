@@ -279,10 +279,6 @@ void parseParams(Parameters &params, const std::string &param_file) {
   std::sort(metadata.kernel_radii.begin(), metadata.kernel_radii.end());
   metadata.max_kernel_radius = metadata.kernel_radii[metadata.nkernels - 1];
 
-  // Get the key we should use to read the mean density
-  metadata.density_key =
-      params.getParameterNoDefault<std::string>("Metadata/density_key");
-
   // Get the input file path
   std::string input_file;
   metadata.input_file =
