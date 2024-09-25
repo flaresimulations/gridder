@@ -278,6 +278,9 @@ void getInputFilePath(Parameters &params) {
   ss << std::setw(padding_width) << std::setfill('0') << metadata.nsnap;
   std::string snap_num_str = ss.str();
 
+  message("Snapshot number: " + snap_num_str);
+  message("Placeholder: " + placeholder);
+
   // Replace all occurrences of the placeholder with the zero-padded snapshot
   // number
   size_t pos = 0;
@@ -288,6 +291,8 @@ void getInputFilePath(Parameters &params) {
 
   // Finally, set the input file path
   metadata.input_file = input_file;
+
+  message("Reading data from: " + metadata.input_file);
 }
 
 void getOutputFilePath(Parameters &params) {
