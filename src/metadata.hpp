@@ -107,14 +107,22 @@ void readMetadata(std::string input_file) {
                                std::string("size"), metadata->width);
   hdf.readAttribute<double[3]>(std::string("Header"), std::string("BoxSize"),
                                metadata->dim);
-  hdf.readAttribute<double>(std::string("Cosmology"), metadata->density_key,
-                            metadata->mean_density);
 
-  // Convert mean density from internal units to Mpc and Msun
-  double internal_to_Msun = 1.989e43 / grams_to_internal;
-  double internal_to_Mpc = 3.086e24 / length_to_internal;
+  // Read the masses of the particles
+  std::vector<double> masses;
+  if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses))
+    error("Failed to read particle masses");
+
+  // Sum the masses to get the total mass
+  double total_mass = 0.0;
+  for (size_t i = 0; i < metadata->nr_dark_matter; i++) {
+    total_mass += masses[i];
+  }
+
+  // Calculate the mean density in 10^10 Msun / Mpc^3 (physical units)
   metadata->mean_density =
-      metadata->mean_density / internal_to_Msun * pow(internal_to_Mpc, 3);
+      total_mass / (metadata->dim[0] * metadata->dim[1] * metadata->dim[2]) *
+      pow(1.0 + metadata->redshift, 3);
 
   // Set the input file path
   metadata->input_file = input_file;
