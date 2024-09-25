@@ -272,7 +272,7 @@ void getInputFilePath(Parameters &params) {
 
   // Calculate the padding width based on the placeholder length
   size_t padding_width =
-      placeholder.length() - std::to_string(metadata.nsnap).length();
+      placeholder.length() - std::to_string(metadata.nsnap).length() - 1;
 
   // Create a zero-padded string for the snapshot number
   std::ostringstream ss;
