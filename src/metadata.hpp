@@ -85,15 +85,6 @@ void readMetadata(std::string input_file) {
   // Set up the HDF5 object
   HDF5Helper hdf(input_file);
 
-  // Read the internal units to cgs conversion factors
-  double grams_to_internal, length_to_internal;
-  hdf.readAttribute<double>(std::string("Units"),
-                            std::string("Unit mass in cgs (U_M)"),
-                            grams_to_internal);
-  hdf.readAttribute<double>(std::string("Units"),
-                            std::string("Unit length in cgs (U_L)"),
-                            length_to_internal);
-
   // Read the metadata from the file
   hdf.readAttribute<double>(std::string("Header"), std::string("Redshift"),
                             metadata->redshift);
@@ -131,8 +122,9 @@ void readMetadata(std::string input_file) {
       metadata->cdim[0] * metadata->cdim[1] * metadata->cdim[2];
 
   // Report interesting things
+  message("Redshift: %f", metadata->redshift);
   message("Running with %d dark matter particles", metadata->nr_dark_matter);
-  message("Mean density at z=%.2f: %e 10**10 Msun / Mpc^3", metadata->redshift,
+  message("Mean comoving density: %e 10**10 Msun / cMpc^3", metadata->redshift,
           metadata->mean_density);
   std::stringstream ss;
   ss << "Kernel radii (nkernels=%d):";
