@@ -67,12 +67,14 @@ int main(int argc, char *argv[]) {
   Metadata &metadata = Metadata::getInstance();
 
   // Read the rest of the metadata from the input file
+  tic();
   try {
     readMetadata(metadata.input_file);
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
   }
+  toc("Reading metadata (including mean density calculation)");
 
   // Get the cell array itself
   tic();
