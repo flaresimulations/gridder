@@ -25,11 +25,13 @@
 int main(int argc, char *argv[]) {
 
   // Get the parameter file from the command line arguments
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " <parameter_file>" << std::endl;
+  if (argc != 3) {
+    std::cerr << "Usage: " << argv[0] << " <parameter_file> <nsnap>"
+              << std::endl;
     return 1;
   }
   const std::string param_file = argv[1];
+  const int nsnap = std::stoi(argv[2]);
 
   // Set up the MPI environment
   MPI_Init(&argc, &argv);
@@ -44,6 +46,9 @@ int main(int argc, char *argv[]) {
   // Set the MPI rank of the logger
   Logging::getInstance()->setRank(rank);
   Metadata::getInstance().rank = rank;
+
+  // Set the snapshot number
+  Metadata::getInstance().nsnap = nsnap;
 
   // Start the timer for the whole shebang
   start();

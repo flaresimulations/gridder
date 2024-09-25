@@ -31,6 +31,9 @@ public:
   std::string input_file;
   std::string output_file;
 
+  // The snapshot number we are working with
+  int nsnap;
+
   // Cosmology parameters
   double redshift;
   double mean_density;

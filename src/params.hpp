@@ -254,6 +254,90 @@ private:
   }
 };
 
+void getInputFilePath(Parameters &params) {
+
+  // Get the metadata instance
+  Metadata &metadata = Metadata::getInstance();
+
+  // Get the input file path and snapshot placeholder
+  std::string input_file =
+      params.getParameterNoDefault<std::string>("Input/filepath");
+  std::string placeholder =
+      params.getParameter<std::string>("Input/placeholder", "0000");
+
+  // Ensure the placeholder is not empty to prevent infinite loops
+  if (placeholder.empty()) {
+    throw std::runtime_error("Placeholder cannot be an empty string.");
+  }
+
+  // Calculate the padding width based on the placeholder length
+  size_t padding_width = placeholder.length();
+
+  // Create a zero-padded string for the snapshot number
+  std::ostringstream ss;
+  ss << std::setw(padding_width) << std::setfill('0') << metadata.nsnap;
+  std::string snap_num_str = ss.str();
+
+  // Replace all occurrences of the placeholder with the zero-padded snapshot
+  // number
+  size_t pos = 0;
+  while ((pos = input_file.find(placeholder, pos)) != std::string::npos) {
+    input_file.replace(pos, placeholder.length(), snap_num_str);
+    pos += snap_num_str.length(); // Move past the replaced segment
+  }
+
+  // Finally, set the input file path
+  metadata.input_file = input_file;
+}
+
+void getOutputFilePath(Parameters &params) {
+
+  // Get the metadata instance
+  Metadata &metadata = Metadata::getInstance();
+
+  // Get the output file path
+  metadata.output_file =
+      params.getParameterNoDefault<std::string>("Output/filepath");
+
+  // Ensure the output file path exists, if not create it
+  if (!std::filesystem::exists(metadata.output_file)) {
+    std::filesystem::create_directories(metadata.output_file);
+  }
+
+  // Combine the file path and the basename for the output
+  metadata.output_file +=
+      "/" + params.getParameterNoDefault<std::string>("Output/basename");
+
+  // Next we need to replace any placeholders in the output file path
+  // which represent the snapshot number
+
+  // Get the placeholder for the snapshot number
+  std::string placeholder =
+      params.getParameter<std::string>("Input/placeholder", "0000");
+
+  // Ensure the placeholder is not empty to prevent infinite loops
+  if (placeholder.empty()) {
+    throw std::runtime_error("Placeholder cannot be an empty string.");
+  }
+
+  // Calculate the padding width based on the placeholder length
+  size_t padding_width = placeholder.length();
+
+  // Create a zero-padded string for the snapshot number
+  std::ostringstream ss;
+  ss << std::setw(padding_width) << std::setfill('0') << metadata.nsnap;
+  std::string snap_num_str = ss.str();
+
+  // Replace all occurrences of the placeholder with the zero-padded snapshot
+  // number
+  size_t pos = 0;
+  while ((pos = metadata.output_file.find(placeholder, pos)) !=
+         std::string::npos) {
+    metadata.output_file.replace(pos, placeholder.length(), snap_num_str);
+    pos += snap_num_str.length(); // Move past the replaced segment
+  }
+}
+
 void parseParams(Parameters &params, const std::string &param_file) {
 
   // Read the parameter file
@@ -280,28 +364,17 @@ void parseParams(Parameters &params, const std::string &param_file) {
   metadata.max_kernel_radius = metadata.kernel_radii[metadata.nkernels - 1];
 
   // Get the input file path
-  std::string input_file;
-  metadata.input_file =
-      params.getParameterNoDefault<std::string>("Input/filepath");
+  getInputFilePath(params);
 
   // Get the output file path
-  metadata.output_file =
-      params.getParameterNoDefault<std::string>("Output/filepath");
-
-  // Ensure the output file path exists, if not create it
-  if (!std::filesystem::exists(metadata.output_file)) {
-    std::filesystem::create_directories(metadata.output_file);
-  }
-
-  metadata.output_file +=
-      "/" + params.getParameterNoDefault<std::string>("Output/basename");
+  getOutputFilePath(params);
 
   // Get the grid resolution
   metadata.grid_cdim = params.getParameterNoDefault<int>("Grid/cdim");
 
   // Get the maximum number of particles in a leaf of the tree
   metadata.max_leaf_count =
-      params.getParameter<int>("Tree/max_leaf_count", 1000);
+      params.getParameter<int>("Tree/max_leaf_count", 100);
 }
 
 #endif // PARAMS_H_

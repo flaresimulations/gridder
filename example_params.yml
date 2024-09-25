@@ -13,8 +13,9 @@ Tree:
   max_leaf_count: 200
 
 Input:
-  filepath: uniform_test.hdf5
+  filepath: uniform_test_0000.hdf5
+  placeholder: 0000
 
 Output:
   filepath: data/
-  basename: test_grid.hdf5
+  basename: test_grid_0000.hdf5
