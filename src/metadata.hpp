@@ -119,10 +119,9 @@ void readMetadata(std::string input_file) {
     total_mass += masses[i];
   }
 
-  // Calculate the mean density in 10^10 Msun / Mpc^3 (physical units)
+  // Calculate the mean density in 10^10 Msun / Mpc^3 (comoving units)
   metadata->mean_density =
-      total_mass / (metadata->dim[0] * metadata->dim[1] * metadata->dim[2]) *
-      pow(1.0 + metadata->redshift, 3);
+      total_mass / (metadata->dim[0] * metadata->dim[1] * metadata->dim[2]);
 
   // Set the input file path
   metadata->input_file = input_file;
