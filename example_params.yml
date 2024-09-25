@@ -14,7 +14,7 @@ Tree:
 
 Input:
   filepath: uniform_test_0000.hdf5
-  placeholder: 0000
+  placeholder: "0000"
 
 Output:
   filepath: data/
