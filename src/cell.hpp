@@ -968,11 +968,11 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Loop over the cells and write out the grid point locations in slices
   for (const std::shared_ptr<Cell> &cell : cells) {
-    // Initialize start and count arrays
-    std::array<hsize_t, 4> start = {metadata.grid_cdim, metadata.grid_cdim,
-                                    metadata.grid_cdim, 0};
-    std::array<hsize_t, 4> end = {0, 0, 0,
-                                  2}; // Last dimension is 0 to 2 (x, y, z)
+    std::array<hsize_t, 4> start = {static_cast<hsize_t>(metadata.grid_cdim),
+                                    static_cast<hsize_t>(metadata.grid_cdim),
+                                    static_cast<hsize_t>(metadata.grid_cdim),
+                                    0};
+    std::array<hsize_t, 4> end = {0, 0, 0, 2};
 
     // First, find the start and end indices for this cell's grid points
     for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
