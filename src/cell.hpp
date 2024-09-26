@@ -958,29 +958,70 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
     } // End of cell loop
   } // End of kernel loop
 
-  // Collect all grid point positions into a vector
-  std::vector<double> grid_point_positions;
-  for (std::shared_ptr<Cell> cell : cells) {
+  // Create a dataset to store the grid point locations
+  std::array<hsize_t, 4> grid_point_dims = {
+      static_cast<hsize_t>(metadata.grid_cdim),
+      static_cast<hsize_t>(metadata.grid_cdim),
+      static_cast<hsize_t>(metadata.grid_cdim), static_cast<hsize_t>(3)};
+  hdf5.createDataset<double, 4>("Grids/", "GridPointPositions",
+                                grid_point_dims);
+
+  // Loop over the cells and write out the grid point locations in slices
+  for (const std::shared_ptr<Cell> &cell : cells) {
+    // Initialize start and count arrays
+    std::array<hsize_t, 4> start = {metadata.grid_cdim, metadata.grid_cdim,
+                                    metadata.grid_cdim, 0};
+    std::array<hsize_t, 4> end = {0, 0, 0,
+                                  2}; // Last dimension is 0 to 2 (x, y, z)
+
+    // First, find the start and end indices for this cell's grid points
     for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
-      // Store the grid point's position components
-      grid_point_positions.push_back(gp->loc[0]);
-      grid_point_positions.push_back(gp->loc[1]);
-      grid_point_positions.push_back(gp->loc[2]);
+      // Update start indices
+      if (gp->index[0] < start[0])
+        start[0] = gp->index[0];
+      if (gp->index[1] < start[1])
+        start[1] = gp->index[1];
+      if (gp->index[2] < start[2])
+        start[2] = gp->index[2];
+
+      // Update end indices
+      if (gp->index[0] > end[0])
+        end[0] = gp->index[0];
+      if (gp->index[1] > end[1])
+        end[1] = gp->index[1];
+      if (gp->index[2] > end[2])
+        end[2] = gp->index[2];
     }
+
+    // Compute the counts along each dimension
+    std::array<hsize_t, 4> count = {
+        end[0] - start[0] + 1, end[1] - start[1] + 1, end[2] - start[2] + 1,
+        3 // The last dimension is always size 3 (x, y, z)
+    };
+
+    // Allocate a data buffer for this slice
+    size_t data_size = count[0] * count[1] * count[2] * count[3];
+    std::vector<double> grid_point_pos(data_size, 0.0);
+
+    // Map the grid point positions into the data buffer
+    for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
+      hsize_t i = gp->index[0] - start[0];
+      hsize_t j = gp->index[1] - start[1];
+      hsize_t k = gp->index[2] - start[2];
+
+      // Compute the offset in the data buffer
+      size_t idx = ((i * count[1] * count[2] + j * count[2] + k) * 3);
+
+      // Store the positions
+      grid_point_pos[idx + 0] = gp->loc[0];
+      grid_point_pos[idx + 1] = gp->loc[1];
+      grid_point_pos[idx + 2] = gp->loc[2];
+    }
+
+    // Write this cell's grid point positions to the HDF5 file
+    hdf5.writeDatasetSlice<double, 4>("Grids/GridPointPositions",
+                                      grid_point_pos, start, count);
   }
-
-  // Determine the number of grid points
-  hsize_t num_grid_points = grid_point_positions.size() / 3;
-
-  // Define the dimensions of the dataset (N x 3)
-  std::array<hsize_t, 2> dims = {num_grid_points, 3};
-
-  // Create the dataset to store the grid point positions
-  hdf5.createDataset<double, 2>("Grids/", "GridPointPositions", dims);
-
-  // Write the positions to the dataset
-  hdf5.writeDataset<double, 2>("Grids/GridPointPositions",
-                               grid_point_positions.data());
 
   // Close the HDF5 file
   hdf5.close();
