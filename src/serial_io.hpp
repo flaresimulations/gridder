@@ -292,11 +292,11 @@ template <> H5::PredType HDF5Helper::getHDF5Type<double>() {
 }
 
 template <> H5::PredType HDF5Helper::getHDF5Type<int>() {
-  return H5::PredType::NATIVE_INT64;
+  return H5::PredType::NATIVE_INT;
 }
 
 template <> H5::PredType HDF5Helper::getHDF5Type<int[3]>() {
-  return H5::PredType::NATIVE_INT64;
+  return H5::PredType::NATIVE_INT;
 }
 
 template <> H5::PredType HDF5Helper::getHDF5Type<double[3]>() {
