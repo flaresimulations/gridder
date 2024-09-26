@@ -84,15 +84,34 @@ public:
                       const std::string &attributeName, T &attributeValue) {
     try {
       H5::Group group(file.openGroup(objName));
-      H5::DataSpace dataspace(H5S_SCALAR);
+
+      H5::DataSpace dataspace;
+      void *data_ptr;
+
+      if constexpr (std::is_array<T>::value) {
+        // T is an array
+        constexpr std::size_t array_size = std::extent<T>::value;
+        hsize_t dims[1] = {array_size};
+        dataspace = H5::DataSpace(1, dims);
+        data_ptr =
+            attributeValue; // attributeValue decays to pointer to first element
+      } else {
+        // T is scalar
+        dataspace = H5::DataSpace(H5S_SCALAR);
+        data_ptr = &attributeValue;
+      }
+
       H5::Attribute attr =
           group.createAttribute(attributeName, getHDF5Type<T>(), dataspace);
-      attr.write(getHDF5Type<T>(), &attributeValue);
+      attr.write(getHDF5Type<T>(), data_ptr);
+
       group.close();
       dataspace.close();
       attr.close();
       return true;
     } catch (H5::Exception &e) {
+      // Optionally handle the exception, e.g., log the error message
+      // error(e.getCDetailMsg());
       return false;
     }
   }
