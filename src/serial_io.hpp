@@ -303,4 +303,8 @@ template <> H5::PredType HDF5Helper::getHDF5Type<double[3]>() {
   return H5::PredType::NATIVE_DOUBLE;
 }
 
+template <> H5::PredType HDF5Helper::getHDF5Type<double *>() {
+  return H5::PredType::NATIVE_DOUBLE;
+}
+
 #endif // SERIAL_IO_H_
