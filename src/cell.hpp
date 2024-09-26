@@ -980,7 +980,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
   // Write the positions to the dataset
   hdf5.writeDataset<double, 2>("Grids/GridPointPositions",
-                               grid_point_positions);
+                               grid_point_positions.data());
 
   // Close the HDF5 file
   hdf5.close();
