@@ -958,6 +958,61 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
     } // End of cell loop
   } // End of kernel loop
 
+  // Create a dataset to store the grid point locations
+  std::array<hsize_t, 4> grid_point_pos = {
+      static_cast<hsize_t>(metadata.grid_cdim),
+      static_cast<hsize_t>(metadata.grid_cdim),
+      static_cast<hsize_t>(metadata.grid_cdim), static_cast<hsize_t>(3)};
+  hdf5.createDataset<double, 2>("Grids/", "GridPointPositions", grid_point_pos);
+
+  // Loop over the cells and write out the grid point locations
+  for (std::shared_ptr<Cell> cell : cells) {
+    // Create the output array for this cell
+    std::vector<double> grid_point_pos;
+
+    // Populate the output array with the grid point's positions
+    // and find the offset into the main grid
+    std::array<hsize_t, 3> start = {static_cast<hsize_t>(metadata.grid_cdim),
+                                    static_cast<hsize_t>(metadata.grid_cdim),
+                                    static_cast<hsize_t>(metadata.grid_cdim),
+                                    0};
+    std::array<hsize_t, 3> end = {0, 0, 0, 3};
+    for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
+
+      // Store the grid point's position
+      grid_point_pos.push_back(gp->loc[0]);
+      grid_point_pos.push_back(gp->loc[1]);
+      grid_point_pos.push_back(gp->loc[2]);
+
+      // Compute the index of the grid point into the cdim x cdim x cdim x 3
+      // array
+      std::array<hsize_t, 4> index = {gp->index[0], gp->index[1], gp->index[2],
+                                      0};
+
+      if (index[0] < start[0])
+        start[0] = index[0];
+      if (index[1] < start[1])
+        start[1] = index[1];
+      if (index[2] < start[2])
+        start[2] = index[2];
+
+      if (index[0] > end[0])
+        end[0] = index[0];
+      if (index[1] > end[1])
+        end[1] = index[1];
+      if (index[2] > end[2])
+        end[2] = index[2];
+    }
+
+    // Get the number of grid points along each axis in this slice
+    std::array<hsize_t, 3> sub_grid_shape = {
+        end[0] - start[0] + 1, end[1] - start[1] + 1, end[2] - start[2] + 1};
+
+    // Write this cell's grid data to the HDF5 file
+    hdf5.writeDatasetSlice<double, 3>("Grids/GridPointPositions",
+                                      grid_point_pos, start, sub_grid_shape);
+  } // End of cell loop
+
   // Close the HDF5 file
   hdf5.close();
 }
