@@ -882,6 +882,11 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
   hdf5.writeAttribute<int>("Header", "Grid_CDim", metadata.grid_cdim);
   hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", metadata.cdim);
   hdf5.writeAttribute<double[3]>("Header", "BoxSize", metadata.dim);
+  hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
+                              metadata.max_kernel_radius);
+  hdf5.writeAttribute<double>("Header", "Redshift", metadata.redshift);
+  hdf5.writeAttribute<double[metadata.kernel_radii.size()]>(
+      "Header", "KernelRadii", metadata.kernel_radii.data());
 
   // Create the Grids group
   hdf5.createGroup("Grids");
