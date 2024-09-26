@@ -124,7 +124,7 @@ void readMetadata(std::string input_file) {
   // Report interesting things
   message("Redshift: %f", metadata->redshift);
   message("Running with %d dark matter particles", metadata->nr_dark_matter);
-  message("Mean comoving density: %e 10**10 Msun / cMpc^3", metadata->redshift,
+  message("Mean comoving density: %e 10**10 Msun / cMpc^3",
           metadata->mean_density);
   std::stringstream ss;
   ss << "Kernel radii (nkernels=%d):";
