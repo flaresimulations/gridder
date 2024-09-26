@@ -93,25 +93,23 @@ public:
         constexpr std::size_t array_size = std::extent<T>::value;
         hsize_t dims[1] = {array_size};
         dataspace = H5::DataSpace(1, dims);
-        data_ptr =
-            attributeValue; // attributeValue decays to pointer to first element
+        data_ptr = static_cast<void *>(&attributeValue[0]); // Corrected line
       } else {
         // T is scalar
         dataspace = H5::DataSpace(H5S_SCALAR);
         data_ptr = &attributeValue;
       }
 
-      H5::Attribute attr =
-          group.createAttribute(attributeName, getHDF5Type<T>(), dataspace);
-      attr.write(getHDF5Type<T>(), data_ptr);
+      H5::Attribute attr = group.createAttribute(
+          attributeName, getHDF5Type<std::remove_extent_t<T>>(), dataspace);
+      attr.write(getHDF5Type<std::remove_extent_t<T>>(), data_ptr);
 
       group.close();
       dataspace.close();
       attr.close();
       return true;
     } catch (H5::Exception &e) {
-      // Optionally handle the exception, e.g., log the error message
-      // error(e.getCDetailMsg());
+      // Handle exception if necessary
       return false;
     }
   }
