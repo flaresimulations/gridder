@@ -963,7 +963,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
       static_cast<hsize_t>(metadata.grid_cdim),
       static_cast<hsize_t>(metadata.grid_cdim),
       static_cast<hsize_t>(metadata.grid_cdim), static_cast<hsize_t>(3)};
-  hdf5.createDataset<double, 2>("Grids/", "GridPointPositions", grid_point_pos);
+  hdf5.createDataset<double, 4>("Grids/", "GridPointPositions", grid_point_pos);
 
   // Loop over the cells and write out the grid point locations
   for (std::shared_ptr<Cell> cell : cells) {
@@ -1011,7 +1011,7 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
         end[0] - start[0] + 1, end[1] - start[1] + 1, end[2] - start[2] + 1};
 
     // Write this cell's grid data to the HDF5 file
-    hdf5.writeDatasetSlice<double, 3>("Grids/GridPointPositions",
+    hdf5.writeDatasetSlice<double, 4>("Grids/GridPointPositions",
                                       grid_point_pos, start, sub_grid_shape);
   } // End of cell loop
 
