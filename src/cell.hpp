@@ -972,11 +972,11 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
     // Populate the output array with the grid point's positions
     // and find the offset into the main grid
-    std::array<hsize_t, 3> start = {static_cast<hsize_t>(metadata.grid_cdim),
+    std::array<hsize_t, 4> start = {static_cast<hsize_t>(metadata.grid_cdim),
                                     static_cast<hsize_t>(metadata.grid_cdim),
                                     static_cast<hsize_t>(metadata.grid_cdim),
                                     0};
-    std::array<hsize_t, 3> end = {0, 0, 0, 3};
+    std::array<hsize_t, 4> end = {0, 0, 0, 3};
     for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
 
       // Store the grid point's position
@@ -986,8 +986,10 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
 
       // Compute the index of the grid point into the cdim x cdim x cdim x 3
       // array
-      std::array<hsize_t, 4> index = {gp->index[0], gp->index[1], gp->index[2],
-                                      0};
+      std::array<hsize_t, 4> index = {static_cast<hsize_t>(gp->index[0]),
+                                      static_cast<hsize_t>(gp->index[1]),
+                                      static_cast<hsize_t>(gp->index[2]),
+                                      static_cast<hsize_t>(0)};
 
       if (index[0] < start[0])
         start[0] = index[0];
