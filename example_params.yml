@@ -1,0 +1,21 @@
+Kernels:
+  nkernels: 5
+  kernel_radius_1: 0.5
+  kernel_radius_2: 1.0
+  kernel_radius_3: 2.0
+  kernel_radius_4: 3.0
+  kernel_radius_5: 5.0
+
+Grid:
+  cdim: 100
+
+Tree:
+  max_leaf_count: 200
+
+Input:
+  filepath: uniform_test_0000.hdf5
+  placeholder: "0000"
+
+Output:
+  filepath: data/
+  basename: test_grid_0000.hdf5
