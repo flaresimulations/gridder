@@ -1,13 +1,15 @@
-"""A script for generating a uniform snapshots.
+"""A script for generating a uniform snapshot.
 
 This will generate a grid of particles in a box and write them to a
 SWIFT snapshot file including the cell structure.
 """
+
 import argparse
-from tqdm import tqdm
+
 import h5py
 import numpy as np
-from unyt import g, cm, Msun, Mpc
+from tqdm import tqdm
+from unyt import Mpc, Msun, cm, g
 
 
 def get_cell_index(x, y, z, cell_size, cdim):
@@ -112,9 +114,7 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
 
         # Write the header
         header = hdf.create_group("Header")
-        header.attrs["NumPart_ThisFile"] = np.array(
-            [0, pos.shape[0], 0, 0, 0, 0]
-        )
+        header.attrs["NumPart_ThisFile"] = np.array([0, pos.shape[0], 0, 0, 0, 0])
         header.attrs["NumPart_Total"] = np.array([0, pos.shape[0], 0, 0, 0, 0])
         header.attrs["NumPart_Total_HighWord"] = np.array([0, 0, 0, 0, 0, 0])
         header.attrs["MassTable"] = np.array([0, 1, 0, 0, 0, 0])
@@ -124,9 +124,7 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
 
         # Write the cells metadata
         cell_meta = cell_struct.create_group("Meta-data")
-        cell_meta.attrs["dimension"] = np.array(
-            [cdim, cdim, cdim], dtype=np.int32
-        )
+        cell_meta.attrs["dimension"] = np.array([cdim, cdim, cdim], dtype=np.int32)
         cell_meta.attrs["size"] = np.array([cell_size, cell_size, cell_size])
 
         # Get the units from the doner snapshot
@@ -143,9 +141,7 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
             cosmology = donor["Cosmology"]
             mean_density = cosmology.attrs["Critical density [internal units]"]
             hdf.create_group("Cosmology")
-            hdf["Cosmology"].attrs[
-                "Critical density [internal units]"
-            ] = mean_density
+            hdf["Cosmology"].attrs["Critical density [internal units]"] = mean_density
 
         # Now we have the mean density we can calculate the mass of of the
         # particles
