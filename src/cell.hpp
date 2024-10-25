@@ -841,7 +841,7 @@ void getKernelMasses(std::shared_ptr<Cell> *cells) {
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the cell
-    std::shared_ptr<Cell> *cell = &cells[cid];
+    std::shared_ptr<Cell> cell = cells[cid];
 
     // Skip cells that aren't on this rank
     if (cell->rank != metadata.rank)
