@@ -31,8 +31,8 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # Find HDF5 with parallel support if available
 find_package(HDF5 REQUIRED COMPONENTS C HL CXX)
 
-# MPI
-find_package(MPI REQUIRED)
+# # MPI
+# find_package(MPI REQUIRED)
 
 # Check for OpenMP support
 find_package(OpenMP REQUIRED)
