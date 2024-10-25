@@ -29,7 +29,7 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # ================= DEPENDANCIES =================
 
 # Find HDF5 with parallel support if available
-find_package(HDF5 REQUIRED COMPONENTS C CXX HL NO_MODULE)
+find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
 
 # # MPI
 # find_package(MPI REQUIRED)
