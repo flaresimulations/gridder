@@ -401,7 +401,7 @@ private:
   }
 };
 
-void getTopCells(std::array<std::shared_ptr<Cell>> &cells) {
+void getTopCells(std::shared_ptr<Cell> *cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
@@ -503,7 +503,7 @@ void getTopCells(std::array<std::shared_ptr<Cell>> &cells) {
 
 // Get the cell that contains a given point
 std::shared_ptr<Cell>
-getCellContainingPoint(const std::array<std::shared_ptr<Cell>> &cells,
+getCellContainingPoint(const std::shared_ptr<Cell> *&cells,
                        const double pos[3]) {
 
   // Get the metadata
@@ -522,7 +522,7 @@ getCellContainingPoint(const std::array<std::shared_ptr<Cell>> &cells,
   return cells[cid];
 }
 
-void assignPartsAndPointsToCells(std::array<std::shared_ptr<Cell>> &cells) {
+void assignPartsAndPointsToCells(std::shared_ptr<Cell> *&cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -680,7 +680,7 @@ void assignPartsAndPointsToCells(std::array<std::shared_ptr<Cell>> &cells) {
 #endif
 }
 
-void splitCells(const std::array<std::shared_ptr<Cell>> &cells) {
+void splitCells(const std::shared_ptr<Cell> *&cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
@@ -832,7 +832,7 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
   }
 }
 
-void getKernelMasses(std::array<std::shared_ptr<Cell>> cells) {
+void getKernelMasses(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -864,7 +864,7 @@ void getKernelMasses(std::array<std::shared_ptr<Cell>> cells) {
   }
 }
 
-void writeGridFile(std::array<std::shared_ptr<Cell>> cells) {
+void writeGridFile(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();

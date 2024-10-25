@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
   // Get the cell array itself
   tic();
-  std::array<std::shared_ptr<Cell>> cells;
+  std::shared_ptr<Cell> *cells = new std::shared_ptr<Cell>[metadata.nr_cells];
   try {
     getTopCells(cells);
   } catch (const std::exception &e) {
@@ -161,6 +161,9 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   toc("Writing output");
+
+  // Clean everything up, we're tidy people
+  delete[] cells;
 
   // Stop the timer for the whole shebang
   finish();
