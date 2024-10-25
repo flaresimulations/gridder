@@ -838,7 +838,10 @@ void getKernelMasses(std::shared_ptr<Cell> *cells) {
 
   // Loop over the cells
 #pragma omp parallel for
-  for (std::shared_ptr<Cell> cell : cells) {
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+
+    // Get the cell
+    std::shared_ptr<Cell> *cell = &cells[cid];
 
     // Skip cells that aren't on this rank
     if (cell->rank != metadata.rank)
@@ -902,7 +905,10 @@ void writeGridFile(std::shared_ptr<Cell> *cells) {
     hdf5.createDataset<double, 3>("Grids/", kernel_name, grid_shape);
 
     // Write out the grid data cell by cell
-    for (std::shared_ptr<Cell> cell : cells) {
+    for (int cid = 0; cid < metadata.nr_cells; cid++) {
+      // Get the cell
+      std::shared_ptr<Cell> *cell = &cells[cid];
+
       // Create the output array for this cell
       std::vector<double> grid_data;
 
