@@ -655,8 +655,13 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
     std::shared_ptr<GridPoint> grid_point =
         std::make_shared<GridPoint>(loc, index);
 
-    // And attach the grid point to the cell
-    cell->grid_points.push_back(grid_point);
+#pragma omp critical
+    {
+      // And attach the grid point to the cell
+      // TODO: We could use a tbb::concurrent_vector for grid points to
+      // avoid the need for a critical section here
+      cell->grid_points.push_back(grid_point);
+    }
   }
 
 #ifdef DEBUGGING_CHECKS
