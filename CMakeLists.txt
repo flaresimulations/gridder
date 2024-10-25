@@ -39,7 +39,7 @@ find_package(OpenMP REQUIRED)
 
 # ================= DEFINE OPTIONS =================
 option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
-option(EANBLE_DEBUG "Enable debugging symbols" OFF)
+option(ENABLE_DEBUG "Enable debugging symbols" OFF)
 
 # ================= COMPILER FLAGS =================
 
@@ -55,7 +55,7 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif()
 # -g: Generate debug information
-if(EANBLE_DEBUG)
+if(ENABLE_DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 # -march=native: Optimize for the current machine
