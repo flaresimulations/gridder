@@ -611,6 +611,7 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
   // Get the grid size and simulation box size
   int grid_cdim = metadata.grid_cdim;
   double *dim = metadata.dim;
+  int nr_grid_points = grid_cdim * grid_cdim * grid_cdim;
 
   // Warn the user the spacing will be uneven if the simulation isn't cubic
   if (dim[0] != dim[1] || dim[0] != dim[2]) {
@@ -626,33 +627,36 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
   message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
           grid_spacing[2]);
 
-  // Create the grid points
-  for (int i = 0; i < grid_cdim; i++) {
-    for (int j = 0; j < grid_cdim; j++) {
-      for (int k = 0; k < grid_cdim; k++) {
-        // NOTE: Important to see here we are adding 0.5 to the grid point so
-        // the grid points start at 0.5 * grid_spacing and end at
-        // (grid_cdim - 0.5) * grid_spacing
-        double loc[3] = {(i + 0.5) * grid_spacing[0],
-                         (j + 0.5) * grid_spacing[1],
-                         (k + 0.5) * grid_spacing[2]};
-        int index[3] = {i, j, k};
+  // Create the grid points (we'll loop over every individual grid point for
+  // better parallelism)
+#pragma omp parallel for
+  for (int gid = 0; gid < nr_grid_points; gid++) {
 
-        // Get the cell this grid point is in
-        std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
+    // Convert the flat index to the ijk coordinates of the grid point
+    int i = gid / (grid_cdim * grid_cdim);
+    int j = (gid / grid_cdim) % grid_cdim;
+    int k = gid % grid_cdim;
 
-        // Skip if this grid point isn't on this rank
-        if (cell->rank != metadata.rank)
-          continue;
+    // NOTE: Important to see here we are adding 0.5 to the grid point so
+    // the grid points start at 0.5 * grid_spacing and end at
+    // (grid_cdim - 0.5) * grid_spacing
+    double loc[3] = {(i + 0.5) * grid_spacing[0], (j + 0.5) * grid_spacing[1],
+                     (k + 0.5) * grid_spacing[2]};
+    int index[3] = {i, j, k};
 
-        // Create the grid point
-        std::shared_ptr<GridPoint> grid_point =
-            std::make_shared<GridPoint>(loc, index);
+    // Get the cell this grid point is in
+    std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
 
-        // And attach the grid point to the cell
-        cell->grid_points.push_back(grid_point);
-      }
-    }
+    // Skip if this grid point isn't on this rank
+    if (cell->rank != metadata.rank)
+      continue;
+
+    // Create the grid point
+    std::shared_ptr<GridPoint> grid_point =
+        std::make_shared<GridPoint>(loc, index);
+
+    // And attach the grid point to the cell
+    cell->grid_points.push_back(grid_point);
   }
 
 #ifdef DEBUGGING_CHECKS
