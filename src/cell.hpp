@@ -548,6 +548,8 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
+#pragma omp parallel for reduction(+ : total_part_count)                       \
+    shared(offsets, counts, poss, masses, cells)
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the cell
@@ -628,6 +630,9 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
   for (int i = 0; i < grid_cdim; i++) {
     for (int j = 0; j < grid_cdim; j++) {
       for (int k = 0; k < grid_cdim; k++) {
+        // NOTE: Important to see here we are adding 0.5 to the grid point so
+        // the grid points start at 0.5 * grid_spacing and end at
+        // (grid_cdim - 0.5) * grid_spacing
         double loc[3] = {(i + 0.5) * grid_spacing[0],
                          (j + 0.5) * grid_spacing[1],
                          (k + 0.5) * grid_spacing[2]};
