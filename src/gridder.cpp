@@ -25,13 +25,17 @@
 int main(int argc, char *argv[]) {
 
   // Get the parameter file from the command line arguments
-  if (argc > 3 || argc == 1) {
-    std::cerr << "Usage: " << argv[0] << " <parameter_file> (optional <nsnap>)"
-              << std::endl;
+  if (argc > 4 || argc == 1) {
+    std::cerr << "Usage: " << argv[0]
+              << " <parameter_file> <nthreads> (optional <nsnap>)" << std::endl;
     return 1;
   }
   const std::string param_file = argv[1];
-  const int nsnap = (argc == 3) ? std::stoi(argv[2]) : 0;
+  const int nthreads = std::stoi(argv[2]);
+  const int nsnap = (argc == 4) ? std::stoi(argv[3]) : 0;
+
+  // Set the number of threads (this is a global setting)
+  omp_set_num_threads(nthreads);
 
   // Set up the MPI environment
   MPI_Init(&argc, &argv);
