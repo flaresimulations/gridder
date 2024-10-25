@@ -24,7 +24,7 @@
 // a 1D array of cells that can be distributed across MPI ranks. While keeping
 // spatial locality, this will allow for a more even distribution of cells
 // across the MPI ranks.
-void sortPeanoHilbert(std::vector<std::shared_ptr<Cell>> cells) {
+void sortPeanoHilbert(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata instance
   Metadata &metadata = Metadata::getInstance();
