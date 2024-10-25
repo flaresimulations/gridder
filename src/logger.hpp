@@ -201,8 +201,11 @@ public:
   void toc(const char *file, const char *func, const char *message) {
     _toc = std::chrono::high_resolution_clock::now();
 
+    // Get the metadata
+    Metadata &metadata = Metadata::getInstance();
+
     // Only rank 0 should print
-    if (Metadata::getInstance().rank != 0) {
+    if (metadata.rank != 0) {
       return;
     }
 
