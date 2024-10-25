@@ -502,9 +502,8 @@ void getTopCells(std::shared_ptr<Cell> *cells) {
 }
 
 // Get the cell that contains a given point
-std::shared_ptr<Cell>
-getCellContainingPoint(const std::shared_ptr<Cell> *&cells,
-                       const double pos[3]) {
+std::shared_ptr<Cell> getCellContainingPoint(const std::shared_ptr<Cell> *cells,
+                                             const double pos[3]) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -522,7 +521,7 @@ getCellContainingPoint(const std::shared_ptr<Cell> *&cells,
   return cells[cid];
 }
 
-void assignPartsAndPointsToCells(std::shared_ptr<Cell> *&cells) {
+void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -680,7 +679,7 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *&cells) {
 #endif
 }
 
-void splitCells(const std::shared_ptr<Cell> *&cells) {
+void splitCells(const std::shared_ptr<Cell> *cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
