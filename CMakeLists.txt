@@ -131,12 +131,9 @@ endif()
 target_include_directories(${TARGET} PRIVATE ${HDF5_INCLUDE_DIRS})
 target_link_libraries(parent_gridder PRIVATE ${HDF5_LIBRARIES} ${HDF5_CXX_LIBRARIES})
 
-# pthreads
-target_link_libraries(${TARGET} PRIVATE Threads::Threads)
-
-# MPI
-target_link_libraries(${TARGET} PUBLIC MPI::MPI_CXX)
-target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
+# # MPI
+# target_link_libraries(${TARGET} PUBLIC MPI::MPI_CXX)
+# target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
 
 # OpenMP
 target_link_libraries(${TARGET} PRIVATE OpenMP::OpenMP_CXX)
