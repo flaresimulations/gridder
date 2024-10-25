@@ -62,8 +62,8 @@ void decomposeCells(std::shared_ptr<Cell> *cells) {
   Metadata &metadata = Metadata::getInstance();
 
   // Unpack the MPI information
-  int rank = metadata->rank;
-  int size = metadata->size;
+  int rank = metadata.rank;
+  int size = metadata.size;
 
   // Sort cells by peano-hilbert index
   sortPeanoHilbert(cells);
