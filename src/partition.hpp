@@ -56,7 +56,7 @@ void sortPeanoHilbert(std::vector<std::shared_ptr<Cell>> cells) {
 }
 
 // @brief Function to decompose the cells
-void decomposeCells(std::vector<std::shared_ptr<Cell>> cells) {
+void decomposeCells(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata instance
   Metadata &metadata = Metadata::getInstance();
