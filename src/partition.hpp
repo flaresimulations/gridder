@@ -49,7 +49,7 @@ void sortPeanoHilbert(std::shared_ptr<Cell> *cells) {
   });
 
   // Rearrange the cells according to the sorted indices
-  std::vector<std::shared_ptr<Cell>> temp = cells;
+  std::shared_ptr<Cell> *temp = cells;
   for (size_t i = 0; i < indices.size(); ++i) {
     cells[i] = temp[indices[i]];
   }
