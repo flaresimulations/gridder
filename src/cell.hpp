@@ -907,7 +907,7 @@ void writeGridFile(std::shared_ptr<Cell> *cells) {
     // Write out the grid data cell by cell
     for (int cid = 0; cid < metadata.nr_cells; cid++) {
       // Get the cell
-      std::shared_ptr<Cell> *cell = &cells[cid];
+      std::shared_ptr<Cell> cell = cells[cid];
 
       // Create the output array for this cell
       std::vector<double> grid_data;
@@ -972,7 +972,10 @@ void writeGridFile(std::shared_ptr<Cell> *cells) {
                                 grid_point_dims);
 
   // Loop over the cells and write out the grid point locations in slices
-  for (const std::shared_ptr<Cell> &cell : cells) {
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+    // Get the cell
+    std::shared_ptr<Cell> cell = cells[cid];
+
     std::array<hsize_t, 4> start = {static_cast<hsize_t>(metadata.grid_cdim),
                                     static_cast<hsize_t>(metadata.grid_cdim),
                                     static_cast<hsize_t>(metadata.grid_cdim),
