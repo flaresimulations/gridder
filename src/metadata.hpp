@@ -26,6 +26,7 @@ public:
 
   // MPI information
   int rank;
+  int size;
 
   // HDF5 file paths
   std::string input_file;

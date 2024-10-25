@@ -11,7 +11,7 @@
 #include <string>
 
 // MPI Includes
-#include <mpi.h>
+// #include <mpi.h>
 
 // Log levels
 enum LogLevel { ERROR, LOG, VERBOSE };
@@ -200,9 +200,9 @@ public:
   void toc(const char *file, const char *func, const char *message) {
     _toc = std::chrono::high_resolution_clock::now();
 
-    // Get MPI information
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    // // Get MPI information
+    // int rank;
+    // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Only rank 0 should print
     if (rank != 0) {
@@ -227,9 +227,9 @@ public:
    * @brief Report the full runtime of the program.
    */
   void finish(const char *file, const char *func) {
-    // Get MPI information
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    // // Get MPI information
+    // int rank;
+    // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Only rank 0 should print
     if (rank != 0) {

@@ -10,7 +10,7 @@
 #include <vector>
 
 // MPI includes
-#include <mpi.h>
+// #include <mpi.h>
 
 // Local includes
 #include "cell.hpp"
@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
   // Set the MPI rank of the logger
   Logging::getInstance()->setRank(rank);
   Metadata::getInstance().rank = rank;
+  Metadata::getInstance().size = size;
 
   // Set the snapshot number
   Metadata::getInstance().nsnap = nsnap;
@@ -173,6 +174,6 @@ int main(int argc, char *argv[]) {
   finish();
 
   // Exit properly in MPI land
-  MPI_Finalize();
+  // MPI_Finalize();
   return 0;
 }

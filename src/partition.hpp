@@ -11,7 +11,7 @@
 #include <vector>
 
 // MPI includes
-#include <mpi.h>
+// #include <mpi.h>
 
 // Local includes
 #include "cell.hpp"
@@ -62,9 +62,8 @@ void decomposeCells(std::shared_ptr<Cell> *cells) {
   Metadata &metadata = Metadata::getInstance();
 
   // Unpack the MPI information
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  int rank = metadata->rank;
+  int size = metadata->size;
 
   // Sort cells by peano-hilbert index
   sortPeanoHilbert(cells);
