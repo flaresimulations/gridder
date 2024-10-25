@@ -31,9 +31,6 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # Find HDF5 with parallel support if available
 find_package(HDF5 REQUIRED COMPONENTS C HL CXX)
 
-# pthreads
-find_package(Threads REQUIRED)
-
 # MPI
 find_package(MPI REQUIRED)
 
@@ -62,7 +59,9 @@ if(EANBLE_DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 # -march=native: Optimize for the current machine
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fopenmp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+# Include the correct openMP flags based on the compiler 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
 
 # ================= METADATA COLLECTION =================
