@@ -401,7 +401,7 @@ private:
   }
 };
 
-void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
+void getTopCells(std::array<std::shared_ptr<Cell>> &cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
@@ -413,8 +413,9 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
   if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"), counts))
     error("Failed to read cell counts");
 
-  // Loop over the cells and create them, storing the counts for domain
-  // decomposition
+// Loop over the cells and create them, storing the counts for domain
+// decomposition
+#pragma omp parallel for
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get integer coordinates of the cell
@@ -437,7 +438,7 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
     cell->top = cell;
 
     // Add the cell to the cells vector
-    cells.push_back(cell);
+    cells[cid] = cell;
   }
 
   // How many cells do we need to walk out? The number of cells we need to
@@ -502,7 +503,7 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
 
 // Get the cell that contains a given point
 std::shared_ptr<Cell>
-getCellContainingPoint(const std::vector<std::shared_ptr<Cell>> &cells,
+getCellContainingPoint(const std::array<std::shared_ptr<Cell>> &cells,
                        const double pos[3]) {
 
   // Get the metadata
@@ -521,7 +522,7 @@ getCellContainingPoint(const std::vector<std::shared_ptr<Cell>> &cells,
   return cells[cid];
 }
 
-void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
+void assignPartsAndPointsToCells(std::array<std::shared_ptr<Cell>> &cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -679,7 +680,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
 #endif
 }
 
-void splitCells(const std::vector<std::shared_ptr<Cell>> &cells) {
+void splitCells(const std::array<std::shared_ptr<Cell>> &cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
@@ -831,13 +832,12 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
   }
 }
 
-void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
+void getKernelMasses(std::array<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
   // Loop over the cells
-  int i = 0;
 #pragma omp parallel for
   for (std::shared_ptr<Cell> cell : cells) {
 
@@ -864,7 +864,7 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
   }
 }
 
-void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
+void writeGridFile(std::array<std::shared_ptr<Cell>> cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();

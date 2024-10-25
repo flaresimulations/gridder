@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
   // Get the cell array itself
   tic();
-  std::vector<std::shared_ptr<Cell>> cells;
+  std::array<std::shared_ptr<Cell>> cells;
   try {
     getTopCells(cells);
   } catch (const std::exception &e) {
