@@ -10,7 +10,7 @@
 #include <vector>
 
 // MPI includes
-#include <mpi.h>
+// #include <mpi.h>
 
 // Local includes
 #include "cell.hpp"
@@ -25,19 +25,27 @@
 int main(int argc, char *argv[]) {
 
   // Get the parameter file from the command line arguments
-  if (argc > 3 || argc == 1) {
-    std::cerr << "Usage: " << argv[0] << " <parameter_file> (optional <nsnap>)"
-              << std::endl;
+  if (argc > 4 || argc == 1) {
+    std::cerr << "Usage: " << argv[0]
+              << " <parameter_file> <nthreads> (optional <nsnap>)" << std::endl;
     return 1;
   }
   const std::string param_file = argv[1];
-  const int nsnap = (argc == 3) ? std::stoi(argv[2]) : 0;
+  const int nthreads = std::stoi(argv[2]);
+  const int nsnap = (argc == 4) ? std::stoi(argv[3]) : 0;
+
+  // Set the number of threads (this is a global setting)
+  omp_set_num_threads(nthreads);
 
   // Set up the MPI environment
-  MPI_Init(&argc, &argv);
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  // MPI_Init(&argc, &argv);
+  // int rank, size;
+  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  // MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  // TODO: Remove this when we have MPI
+  int rank = 0;
+  int size = 1;
 
   if (rank == 0) {
     say_hello();
@@ -46,6 +54,7 @@ int main(int argc, char *argv[]) {
   // Set the MPI rank of the logger
   Logging::getInstance()->setRank(rank);
   Metadata::getInstance().rank = rank;
+  Metadata::getInstance().size = size;
 
   // Set the snapshot number
   Metadata::getInstance().nsnap = nsnap;
@@ -83,7 +92,7 @@ int main(int argc, char *argv[]) {
 
   // Get the cell array itself
   tic();
-  std::vector<std::shared_ptr<Cell>> cells;
+  std::shared_ptr<Cell> *cells = new std::shared_ptr<Cell>[metadata.nr_cells];
   try {
     getTopCells(cells);
   } catch (const std::exception &e) {
@@ -158,10 +167,13 @@ int main(int argc, char *argv[]) {
   }
   toc("Writing output");
 
+  // Clean everything up, we're tidy people
+  delete[] cells;
+
   // Stop the timer for the whole shebang
   finish();
 
   // Exit properly in MPI land
-  MPI_Finalize();
+  // MPI_Finalize();
   return 0;
 }

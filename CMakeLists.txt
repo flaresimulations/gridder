@@ -29,20 +29,17 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 # ================= DEPENDANCIES =================
 
 # Find HDF5 with parallel support if available
-find_package(HDF5 REQUIRED COMPONENTS C HL CXX)
+find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
 
-# pthreads
-find_package(Threads REQUIRED)
-
-# MPI
-find_package(MPI REQUIRED)
+# # MPI
+# find_package(MPI REQUIRED)
 
 # Check for OpenMP support
 find_package(OpenMP REQUIRED)
 
 # ================= DEFINE OPTIONS =================
 option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
-option(EANBLE_DEBUG "Enable debugging symbols" OFF)
+option(ENABLE_DEBUG "Enable debugging symbols" OFF)
 
 # ================= COMPILER FLAGS =================
 
@@ -58,12 +55,11 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif()
 # -g: Generate debug information
-if(EANBLE_DEBUG)
+if(ENABLE_DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 # -march=native: Optimize for the current machine
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fopenmp")
-message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 
 # ================= METADATA COLLECTION =================
 
@@ -129,15 +125,11 @@ endif()
 # ================= LIBRARY INCLUSION =================
 
 # HDF5
-target_include_directories(${TARGET} PRIVATE ${HDF5_INCLUDE_DIRS})
-target_link_libraries(parent_gridder PRIVATE ${HDF5_LIBRARIES} ${HDF5_CXX_LIBRARIES})
+target_link_libraries(${TARGET} PRIVATE HDF5::HDF5)
 
-# pthreads
-target_link_libraries(${TARGET} PRIVATE Threads::Threads)
-
-# MPI
-target_link_libraries(${TARGET} PUBLIC MPI::MPI_CXX)
-target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
+# # MPI
+# target_link_libraries(${TARGET} PUBLIC MPI::MPI_CXX)
+# target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
 
 # OpenMP
 target_link_libraries(${TARGET} PRIVATE OpenMP::OpenMP_CXX)

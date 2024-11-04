@@ -401,7 +401,7 @@ private:
   }
 };
 
-void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
+void getTopCells(std::shared_ptr<Cell> *cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
@@ -413,8 +413,9 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
   if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"), counts))
     error("Failed to read cell counts");
 
-  // Loop over the cells and create them, storing the counts for domain
-  // decomposition
+// Loop over the cells and create them, storing the counts for domain
+// decomposition
+#pragma omp parallel for
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get integer coordinates of the cell
@@ -437,7 +438,7 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
     cell->top = cell;
 
     // Add the cell to the cells vector
-    cells.push_back(cell);
+    cells[cid] = cell;
   }
 
   // How many cells do we need to walk out? The number of cells we need to
@@ -501,9 +502,8 @@ void getTopCells(std::vector<std::shared_ptr<Cell>> &cells) {
 }
 
 // Get the cell that contains a given point
-std::shared_ptr<Cell>
-getCellContainingPoint(const std::vector<std::shared_ptr<Cell>> &cells,
-                       const double pos[3]) {
+std::shared_ptr<Cell> getCellContainingPoint(const std::shared_ptr<Cell> *cells,
+                                             const double pos[3]) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -521,7 +521,7 @@ getCellContainingPoint(const std::vector<std::shared_ptr<Cell>> &cells,
   return cells[cid];
 }
 
-void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
+void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -548,6 +548,8 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
+#pragma omp parallel for reduction(+ : total_part_count)                       \
+    shared(offsets, counts, poss, masses, cells)
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the cell
@@ -609,6 +611,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
   // Get the grid size and simulation box size
   int grid_cdim = metadata.grid_cdim;
   double *dim = metadata.dim;
+  int nr_grid_points = grid_cdim * grid_cdim * grid_cdim;
 
   // Warn the user the spacing will be uneven if the simulation isn't cubic
   if (dim[0] != dim[1] || dim[0] != dim[2]) {
@@ -624,29 +627,40 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
   message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
           grid_spacing[2]);
 
-  // Create the grid points
-  for (int i = 0; i < grid_cdim; i++) {
-    for (int j = 0; j < grid_cdim; j++) {
-      for (int k = 0; k < grid_cdim; k++) {
-        double loc[3] = {(i + 0.5) * grid_spacing[0],
-                         (j + 0.5) * grid_spacing[1],
-                         (k + 0.5) * grid_spacing[2]};
-        int index[3] = {i, j, k};
+  // Create the grid points (we'll loop over every individual grid point for
+  // better parallelism)
+#pragma omp parallel for
+  for (int gid = 0; gid < nr_grid_points; gid++) {
 
-        // Get the cell this grid point is in
-        std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
+    // Convert the flat index to the ijk coordinates of the grid point
+    int i = gid / (grid_cdim * grid_cdim);
+    int j = (gid / grid_cdim) % grid_cdim;
+    int k = gid % grid_cdim;
 
-        // Skip if this grid point isn't on this rank
-        if (cell->rank != metadata.rank)
-          continue;
+    // NOTE: Important to see here we are adding 0.5 to the grid point so
+    // the grid points start at 0.5 * grid_spacing and end at
+    // (grid_cdim - 0.5) * grid_spacing
+    double loc[3] = {(i + 0.5) * grid_spacing[0], (j + 0.5) * grid_spacing[1],
+                     (k + 0.5) * grid_spacing[2]};
+    int index[3] = {i, j, k};
 
-        // Create the grid point
-        std::shared_ptr<GridPoint> grid_point =
-            std::make_shared<GridPoint>(loc, index);
+    // Get the cell this grid point is in
+    std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
 
-        // And attach the grid point to the cell
-        cell->grid_points.push_back(grid_point);
-      }
+    // Skip if this grid point isn't on this rank
+    if (cell->rank != metadata.rank)
+      continue;
+
+    // Create the grid point
+    std::shared_ptr<GridPoint> grid_point =
+        std::make_shared<GridPoint>(loc, index);
+
+#pragma omp critical
+    {
+      // And attach the grid point to the cell
+      // TODO: We could use a tbb::concurrent_vector for grid points to
+      // avoid the need for a critical section here
+      cell->grid_points.push_back(grid_point);
     }
   }
 
@@ -679,7 +693,7 @@ void assignPartsAndPointsToCells(std::vector<std::shared_ptr<Cell>> &cells) {
 #endif
 }
 
-void splitCells(const std::vector<std::shared_ptr<Cell>> &cells) {
+void splitCells(const std::shared_ptr<Cell> *cells) {
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
@@ -831,15 +845,17 @@ void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
   }
 }
 
-void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
+void getKernelMasses(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
 
   // Loop over the cells
-  int i = 0;
 #pragma omp parallel for
-  for (std::shared_ptr<Cell> cell : cells) {
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+
+    // Get the cell
+    std::shared_ptr<Cell> cell = cells[cid];
 
     // Skip cells that aren't on this rank
     if (cell->rank != metadata.rank)
@@ -864,7 +880,7 @@ void getKernelMasses(std::vector<std::shared_ptr<Cell>> cells) {
   }
 }
 
-void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
+void writeGridFile(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -903,7 +919,10 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
     hdf5.createDataset<double, 3>("Grids/", kernel_name, grid_shape);
 
     // Write out the grid data cell by cell
-    for (std::shared_ptr<Cell> cell : cells) {
+    for (int cid = 0; cid < metadata.nr_cells; cid++) {
+      // Get the cell
+      std::shared_ptr<Cell> cell = cells[cid];
+
       // Create the output array for this cell
       std::vector<double> grid_data;
 
@@ -967,7 +986,10 @@ void writeGridFile(std::vector<std::shared_ptr<Cell>> cells) {
                                 grid_point_dims);
 
   // Loop over the cells and write out the grid point locations in slices
-  for (const std::shared_ptr<Cell> &cell : cells) {
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+    // Get the cell
+    std::shared_ptr<Cell> cell = cells[cid];
+
     std::array<hsize_t, 4> start = {static_cast<hsize_t>(metadata.grid_cdim),
                                     static_cast<hsize_t>(metadata.grid_cdim),
                                     static_cast<hsize_t>(metadata.grid_cdim),

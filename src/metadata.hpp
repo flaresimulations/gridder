@@ -26,6 +26,7 @@ public:
 
   // MPI information
   int rank;
+  int size;
 
   // HDF5 file paths
   std::string input_file;
@@ -106,6 +107,7 @@ void readMetadata(std::string input_file) {
 
   // Sum the masses to get the total mass
   double total_mass = 0.0;
+#pragma omp parallel for reduction(+ : total_mass) shared(masses)
   for (size_t i = 0; i < metadata->nr_dark_matter; i++) {
     total_mass += masses[i];
   }
