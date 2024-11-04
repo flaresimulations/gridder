@@ -62,6 +62,7 @@ public:
 
   // Grid properties
   int grid_cdim;
+  int n_grid_points;
 
   // Deleted copy constructor and copy assignment to prevent duplication
   Metadata(const Metadata &) = delete;            // Copy constructor
@@ -122,6 +123,10 @@ void readMetadata(std::string input_file) {
   // Count the cells
   metadata->nr_cells =
       metadata->cdim[0] * metadata->cdim[1] * metadata->cdim[2];
+
+  // Count the grid points
+  metadata->n_grid_points =
+      metadata->grid_cdim * metadata->grid_cdim * metadata->grid_cdim;
 
   // Report interesting things
   message("Redshift: %f", metadata->redshift);
