@@ -934,8 +934,8 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
 
   // Write out this cell lookup table
   hdf5.createGroup("Cells");
-  hdf5.writeDataset<int>("Cells/GridPointStart", grid_point_start);
-  hdf5.writeDataset<int>("Cells/GridPointCounts", grid_point_counts);
+  hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start);
+  hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts);
 
   // Create a dataset we'll write the grid positions into
   std::array<hsize_t, 2> grid_point_positions_dims = {
