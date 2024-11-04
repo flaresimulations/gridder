@@ -23,13 +23,6 @@
 #include "partition.hpp"
 #include "talking.hpp"
 
-// Load the appropriate I/O headers
-#ifdef WITH_MPI
-#include "parallel_io.hpp"
-#else
-#include "serial_io.hpp"
-#endif
-
 int main(int argc, char *argv[]) {
 
   // Get the parameter file from the command line arguments
@@ -168,15 +161,27 @@ int main(int argc, char *argv[]) {
   }
   toc("Computing kernel masses");
 
+#ifdef WITH_MPI
   // We're done write the output in parallel
   tic();
   try {
-    writeGridFile(cells);
+    writeGridFileParallel(cells);
   } catch (const std::exception &e) {
     report_error();
     return 1;
   }
-  toc("Writing output");
+  toc("Writing output (in parallel)");
+#else
+  // We're done write the output in serial
+  tic();
+  try {
+    writeGridFileSerial(cells);
+  } catch (const std::exception &e) {
+    report_error();
+    return 1;
+  }
+  toc("Writing output (in serial)");
+#endif
 
   // Clean everything up, we're tidy people
   delete[] cells;

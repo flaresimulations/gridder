@@ -16,11 +16,21 @@
 #include <utility>
 #include <vector>
 
+#ifdef WITH_MPI
+#include <mpi.h>
+#endif
+
 // Local includes
 #include "grid_point.hpp"
 #include "logger.hpp"
 #include "particle.hpp"
+
+// Load the appropriate I/O headers
+#ifdef WITH_MPI
+#include "parallel_io.hpp"
+#else
 #include "serial_io.hpp"
+#endif
 
 class Cell : public std::enable_shared_from_this<Cell> {
 public:
@@ -33,6 +43,7 @@ public:
 
   // MPI information
   int rank = 0;
+  bool is_proxy = false;
 
   // Peano-hilbert index
   int64_t ph_ind;
@@ -557,8 +568,8 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
     // Get the cell
     std::shared_ptr<Cell> cell = cells[cid];
 
-    // Skip if this cell isn't on this rank
-    if (cell->rank != metadata.rank)
+    // Skip if this cell isn't on this rank and isn't a proxy
+    if (cell->rank != metadata.rank && !cell->is_proxy)
       continue;
 
     // Get the particle slice start and length
@@ -882,7 +893,7 @@ void getKernelMasses(std::shared_ptr<Cell> *cells) {
   }
 }
 
-void writeGridFile(std::shared_ptr<Cell> *cells) {
+void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
 
   // Get the metadata
   Metadata &metadata = Metadata::getInstance();
@@ -897,7 +908,7 @@ void writeGridFile(std::shared_ptr<Cell> *cells) {
 
   // Create the Header group and write out the metadata
   hdf5.createGroup("Header");
-  hdf5.writeAttribute<int>("Header", "Grid_CDim", metadata.grid_cdim);
+  hdf5.writeAttribute<int>("Header", "NGridPoint", metadata.n_grid_points);
   hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", metadata.cdim);
   hdf5.writeAttribute<double[3]>("Header", "BoxSize", metadata.dim);
   hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
@@ -907,147 +918,254 @@ void writeGridFile(std::shared_ptr<Cell> *cells) {
   // Create the Grids group
   hdf5.createGroup("Grids");
 
+  // Loop over cells and collect how many grid points we have in each cell
+  std::vector<int> grid_point_counts(metadata.nr_cells, 0);
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+    grid_point_counts[cid] = cells[cid]->grid_points.size();
+  }
+
+  // Now we have the counts convert these to a start index for each cell so we
+  // can use a cell look up table to find the grid points
+  std::vector<int> grid_point_start(metadata.nr_cells, 0);
+  for (int cid = 1; cid < metadata.nr_cells; cid++) {
+    grid_point_start[cid] =
+        grid_point_start[cid - 1] + grid_point_counts[cid - 1];
+  }
+
+  // Write out this cell lookup table
+  hdf5.createGroup("Cells");
+  hdf5.writeDataset<int>("Cells", "GridPointStart", grid_point_start);
+  hdf5.writeDataset<int>("Cells", "GridPointCounts", grid_point_counts);
+
+  // Create a dataset we'll write the grid positions into
+  std::array<hsize_t, 2> grid_point_positions_dims = {
+      static_cast<hsize_t>(metadata.n_grid_points), static_cast<hsize_t>(3)};
+  hdf5.createDataset<double, 2>("Grids/", "GridPointPositions",
+                                grid_point_positions_dims);
+
+  // We only want to write the positions once so lets make a flag to ensure
+  // we only do this once
+  bool written_positions = false;
+
   // Loop over the kernels and write out the grids themselves
   for (double kernel_rad : metadata.kernel_radii) {
     std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
 
-    // Define the grid shape
-    std::array<hsize_t, 3> grid_shape = {
-        static_cast<hsize_t>(metadata.grid_cdim),
-        static_cast<hsize_t>(metadata.grid_cdim),
-        static_cast<hsize_t>(metadata.grid_cdim)};
+    // Create the kernel group
+    hdf5.createGroup("Grids/" + kernel_name);
 
-    // Create the dataset for this kernels grid data
-    hdf5.createDataset<double, 3>("Grids/", kernel_name, grid_shape);
+    // Create the grid point over densities dataset
+    hdf5.createDataset<double, 1>("Grids/" + kernel_name + "/",
+                                  "GridPointOverDensities",
+                                  {metadata.n_grid_points});
 
     // Write out the grid data cell by cell
     for (int cid = 0; cid < metadata.nr_cells; cid++) {
       // Get the cell
       std::shared_ptr<Cell> cell = cells[cid];
 
-      // Create the output array for this cell
-      std::vector<double> grid_data;
-
-      // If cell has no grid points then we have a problem
+      // Skip cells empty cells
       if (cell->grid_points.size() == 0)
-        error("Cell %d has no grid points", cell->ph_ind);
+        continue;
 
-      // Populate the output array with the grid point's overdensities and
-      // find the offset into the main grid
-      std::array<hsize_t, 3> start = {static_cast<hsize_t>(metadata.grid_cdim),
-                                      static_cast<hsize_t>(metadata.grid_cdim),
-                                      static_cast<hsize_t>(metadata.grid_cdim)};
-      std::array<hsize_t, 3> end = {0, 0, 0};
+      // Get the start and end indices for this cell's grid points in the
+      // global grid point array
+      int start = grid_point_start[cid];
+
+      // Create the output array for this cell
+      std::vector<double> cell_grid_ovdens(grid_point_counts[cid], 0.0);
+      if (!written_positions) {
+        std::vector<double> cell_grid_pos(grid_point_counts[cid] * 3, 0.0);
+      }
+
+      // Loop over grid points and populate this cell's slices
       for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
+        // Get the over density for this grid point
+        cell_grid_ovdens.push_back(gp->getOverDensity(kernel_rad));
 
-        grid_data.push_back(gp->getOverDensity(kernel_rad));
-
-        if (gp->index[0] < start[0])
-          start[0] = gp->index[0];
-        if (gp->index[1] < start[1])
-          start[1] = gp->index[1];
-        if (gp->index[2] < start[2])
-          start[2] = gp->index[2];
-
-        if (gp->index[0] > end[0])
-          end[0] = gp->index[0];
-        if (gp->index[1] > end[1])
-          end[1] = gp->index[1];
-        if (gp->index[2] > end[2])
-          end[2] = gp->index[2];
+        // If we need to get the positions then do so now
+        if (!written_positions) {
+          cell_grid_pos.push_back(gp->loc[0]);
+          cell_grid_pos.push_back(gp->loc[1]);
+          cell_grid_pos.push_back(gp->loc[2]);
+        }
       }
 
-      // Get the number of grid points along each axis in this slice
-      std::array<hsize_t, 3> sub_grid_shape = {
-          end[0] - start[0] + 1, end[1] - start[1] + 1, end[2] - start[2] + 1};
+      // Write out the grid point over densities for this cell
+      hdf5.writeDatasetSlice<double, 1>(
+          "Grids/" + kernel_name + "/", "GridPointOverDensities",
+          cell_grid_ovdens, {static_cast<hsize_t>(start)},
+          {static_cast<hsize_t>(grid_point_counts[cid])});
 
-#ifdef DEBUGGING_CHECKS
-      // Ensure we haven't somehow lost a grid point
-      if (sub_grid_shape[0] * sub_grid_shape[1] * sub_grid_shape[2] !=
-          cell->grid_points.size()) {
-        error("Number of grid points in cell inconsistent. (cell->grid_points."
-              "size = %d, sub_grid_shape = [%d, %d, %d], expected = %d",
-              cell->grid_points.size(), sub_grid_shape[0], sub_grid_shape[1],
-              sub_grid_shape[2],
-              sub_grid_shape[0] * sub_grid_shape[1] * sub_grid_shape[2]);
+      // If we haven't written the grid point positions yet then do so now
+      if (!written_positions) {
+        hdf5.writeDatasetSlice<double, 2>(
+            "Grids/GridPointPositions", cell_grid_pos,
+            {static_cast<hsize_t>(start), 0},
+            {static_cast<hsize_t>(grid_point_counts[cid]), 3});
       }
-#endif
 
-      // Write this cell's grid data to the HDF5 file
-      hdf5.writeDatasetSlice<double, 3>("Grids/" + kernel_name, grid_data,
-                                        start, sub_grid_shape);
-    } // End of cell loop
+    } // End of cell Loop
+
+    // Once we've got here we know we've written the grid point positions
+    written_positions = true;
+
   } // End of kernel loop
-
-  // Create a dataset to store the grid point locations
-  std::array<hsize_t, 4> grid_point_dims = {
-      static_cast<hsize_t>(metadata.grid_cdim),
-      static_cast<hsize_t>(metadata.grid_cdim),
-      static_cast<hsize_t>(metadata.grid_cdim), static_cast<hsize_t>(3)};
-  hdf5.createDataset<double, 4>("Grids/", "GridPointPositions",
-                                grid_point_dims);
-
-  // Loop over the cells and write out the grid point locations in slices
-  for (int cid = 0; cid < metadata.nr_cells; cid++) {
-    // Get the cell
-    std::shared_ptr<Cell> cell = cells[cid];
-
-    std::array<hsize_t, 4> start = {static_cast<hsize_t>(metadata.grid_cdim),
-                                    static_cast<hsize_t>(metadata.grid_cdim),
-                                    static_cast<hsize_t>(metadata.grid_cdim),
-                                    0};
-    std::array<hsize_t, 4> end = {0, 0, 0, 2};
-
-    // First, find the start and end indices for this cell's grid points
-    for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
-      // Update start indices
-      if (gp->index[0] < start[0])
-        start[0] = gp->index[0];
-      if (gp->index[1] < start[1])
-        start[1] = gp->index[1];
-      if (gp->index[2] < start[2])
-        start[2] = gp->index[2];
-
-      // Update end indices
-      if (gp->index[0] > end[0])
-        end[0] = gp->index[0];
-      if (gp->index[1] > end[1])
-        end[1] = gp->index[1];
-      if (gp->index[2] > end[2])
-        end[2] = gp->index[2];
-    }
-
-    // Compute the counts along each dimension
-    std::array<hsize_t, 4> count = {
-        end[0] - start[0] + 1, end[1] - start[1] + 1, end[2] - start[2] + 1,
-        3 // The last dimension is always size 3 (x, y, z)
-    };
-
-    // Allocate a data buffer for this slice
-    size_t data_size = count[0] * count[1] * count[2] * count[3];
-    std::vector<double> grid_point_pos(data_size, 0.0);
-
-    // Map the grid point positions into the data buffer
-    for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
-      hsize_t i = gp->index[0] - start[0];
-      hsize_t j = gp->index[1] - start[1];
-      hsize_t k = gp->index[2] - start[2];
-
-      // Compute the offset in the data buffer
-      size_t idx = ((i * count[1] * count[2] + j * count[2] + k) * 3);
-
-      // Store the positions
-      grid_point_pos[idx + 0] = gp->loc[0];
-      grid_point_pos[idx + 1] = gp->loc[1];
-      grid_point_pos[idx + 2] = gp->loc[2];
-    }
-
-    // Write this cell's grid point positions to the HDF5 file
-    hdf5.writeDatasetSlice<double, 4>("Grids/GridPointPositions",
-                                      grid_point_pos, start, count);
-  }
 
   // Close the HDF5 file
   hdf5.close();
 }
+
+void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
+
+  // Get the metadata
+  Metadata &metadata = Metadata::getInstance();
+
+  // Get the output filepath
+  const std::string filename = metadata.output_file;
+
+  message("Writing grid data to %s", filename.c_str());
+
+  // Create a new HDF5 file
+  HDF5Helper hdf5(filename, H5F_ACC_TRUNC, comm);
+
+  // Only write attributes on rank 0
+  if (metadata.rank == 0) {
+
+    // Create the Header group and write out the metadata
+    hdf5.createGroup("Header");
+    hdf5.writeAttribute<int>("Header", "NGridPoint", metadata.n_grid_points);
+    hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", metadata.cdim);
+    hdf5.writeAttribute<double[3]>("Header", "BoxSize", metadata.dim);
+    hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
+                                metadata.max_kernel_radius);
+    hdf5.writeAttribute<double>("Header", "Redshift", metadata.redshift);
+
+    // Create the Grids group
+    hdf5.createGroup("Grids");
+  }
+
+  // Loop over cells and collect how many grid points we have in each cell
+  std::vector<int> rank_grid_point_counts(metadata.nr_cells, 0);
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+
+    // Skip foreign cells
+    if (cells[cid]->rank != metadata.rank)
+      continue;
+
+    rank_grid_point_counts[cid] = cells[cid]->grid_points.size();
+  }
+
+  // Reduce the grid point counts so that all ranks know how many grid points
+  // are in each cell
+  std::vector<int> grid_point_counts(metadata.nr_cells, 0);
+  MPI_Allreduce(rank_grid_point_counts.data(), grid_point_counts.data(),
+                metadata.nr_cells, MPI_INT, MPI_SUM, comm);
+
+  // Now we have the counts convert these to a start index for each cell so we
+  // can use a cell look up table to find the grid points
+  std::vector<int> grid_point_start(metadata.nr_cells, 0);
+  for (int cid = 1; cid < metadata.nr_cells; cid++) {
+    grid_point_start[cid] =
+        grid_point_start[cid - 1] + grid_point_counts[cid - 1];
+  }
+
+  // Write out this cell lookup table (but only on rank 0)
+  if (metadata.rank == 0) {
+    hdf5.createGroup("Cells");
+    hdf5.writeDataset<int>("Cells", "GridPointStart", grid_point_start);
+    hdf5.writeDataset<int>("Cells", "GridPointCounts", grid_point_counts);
+
+    // Create a dataset we'll write the grid positions into
+    std::array<hsize_t, 2> grid_point_positions_dims = {
+        static_cast<hsize_t>(metadata.n_grid_points), static_cast<hsize_t>(3)};
+    hdf5.createDataset<double, 2>("Grids/", "GridPointPositions",
+                                  grid_point_positions_dims);
+  }
+
+  // We only want to write the positions once so lets make a flag to ensure
+  // we only do this once
+  bool written_positions = false;
+
+  // Loop over the kernels and write out the grids themselves
+  for (double kernel_rad : metadata.kernel_radii) {
+    std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+
+    // Create the kernel group
+    if (metadata.rank == 0) {
+      hdf5.createGroup("Grids/" + kernel_name);
+    }
+
+    // Create the grid point over densities dataset
+    if (metadata.rank == 0) {
+      hdf5.createDataset<double, 1>("Grids/" + kernel_name + "/",
+                                    "GridPointOverDensities",
+                                    {metadata.n_grid_points});
+    }
+
+    // Ensure we can all agree on where we are
+    MPI_Barrier(comm);
+
+#pragma omp parallel for
+    // Write out the grid data cell by cell
+    for (int cid = 0; cid < metadata.nr_cells; cid++) {
+      // Get the cell
+      std::shared_ptr<Cell> cell = cells[cid];
+
+      // Skip foreign cells
+      if (cell->rank != metadata.rank)
+        continue;
+
+      // Skip empty cells
+      if (cell->grid_points.size() == 0)
+        continue;
+
+      // Get the start and end indices for this cell's grid points in the
+      // global grid point array
+      int start = grid_point_start[cid];
+
+      // Create the output array for this cell
+      std::vector<double> cell_grid_ovdens(grid_point_counts[cid], 0.0);
+      if (!written_positions) {
+        std::vector<double> cell_grid_pos(grid_point_counts[cid] * 3, 0.0);
+      }
+
+      // Loop over grid points and populate this cell's slices
+      for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
+        // Get the over density for this grid point
+        cell_grid_ovdens.push_back(gp->getOverDensity(kernel_rad));
+
+        // If we need to get the positions then do so now
+        if (!written_positions) {
+          cell_grid_pos.push_back(gp->loc[0]);
+          cell_grid_pos.push_back(gp->loc[1]);
+          cell_grid_pos.push_back(gp->loc[2]);
+        }
+      }
+
+      // Write out the grid point over densities for this cell
+      hdf5.writeDatasetSlice<double, 1>(
+          "Grids/" + kernel_name + "/", "GridPointOverDensities",
+          cell_grid_ovdens, {static_cast<hsize_t>(start)},
+          {static_cast<hsize_t>(grid_point_counts[cid])});
+
+      // If we haven't written the grid point positions yet then do so now
+      if (!written_positions) {
+        hdf5.writeDatasetSlice<double, 2>(
+            "Grids/GridPointPositions", cell_grid_pos,
+            {static_cast<hsize_t>(start), 0},
+            {static_cast<hsize_t>(grid_point_counts[cid]), 3});
+      }
+
+    } // End of cell Loop
+
+    // Once we've got here we know we've written the grid point positions
+    written_positions = true;
+
+  } // End of kernel loop
+
+  // Close the HDF5 file
+  hdf5.close();
+}
+
 #endif // CELL_HPP
