@@ -1124,11 +1124,9 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
       // global grid point array
       int start = grid_point_start[cid];
 
-      // Create the output array for this cell
+      // Create the output arrays for this cell
       std::vector<double> cell_grid_ovdens(grid_point_counts[cid], 0.0);
-      if (!written_positions) {
-        std::vector<double> cell_grid_pos(grid_point_counts[cid] * 3, 0.0);
-      }
+      std::vector<double> cell_grid_pos(grid_point_counts[cid] * 3, 0.0);
 
       // Loop over grid points and populate this cell's slices
       for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
