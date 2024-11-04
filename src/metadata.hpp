@@ -101,22 +101,6 @@ void readMetadata(std::string input_file) {
   hdf.readAttribute<double[3]>(std::string("Header"), std::string("BoxSize"),
                                metadata->dim);
 
-  // Read the masses of the particles
-  std::vector<double> masses;
-  if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses))
-    error("Failed to read particle masses");
-
-  // Sum the masses to get the total mass
-  double total_mass = 0.0;
-#pragma omp parallel for reduction(+ : total_mass) shared(masses)
-  for (size_t i = 0; i < metadata->nr_dark_matter; i++) {
-    total_mass += masses[i];
-  }
-
-  // Calculate the mean density in 10^10 Msun / Mpc^3 (comoving units)
-  metadata->mean_density =
-      total_mass / (metadata->dim[0] * metadata->dim[1] * metadata->dim[2]);
-
   // Set the input file path
   metadata->input_file = input_file;
 
@@ -131,8 +115,6 @@ void readMetadata(std::string input_file) {
   // Report interesting things
   message("Redshift: %f", metadata->redshift);
   message("Running with %d dark matter particles", metadata->nr_dark_matter);
-  message("Mean comoving density: %e 10**10 Msun / cMpc^3",
-          metadata->mean_density);
   std::stringstream ss;
   ss << "Kernel radii (nkernels=%d):";
   for (int i = 0; i < metadata->nkernels; i++) {

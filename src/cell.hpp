@@ -618,6 +618,28 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
   }
 #endif
 
+  // Compute the total mass in the simulation from the cells
+  double total_mass = 0.0;
+#pragma omp parallel for reduction(+ : total_mass)
+  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+    total_mass += cells[cid]->mass;
+  }
+
+#ifdef WITH_MPI
+  // Reduce the total mass
+  double global_total_mass = 0.0;
+  MPI_Allreduce(&total_mass, &global_total_mass, 1, MPI_DOUBLE, MPI_SUM,
+                MPI_COMM_WORLD);
+  total_mass = global_total_mass;
+#endif
+
+  // Compute the mean comoving density
+  metadata.mean_density =
+      total_mass / (metadata.dim[0] * metadata.dim[1] * metadata.dim[2]);
+
+  message("Mean comoving density: %e 10**10 Msun / cMpc^3",
+          metadata.mean_density);
+
   // With the particles done we can now move on to creating and assigning grid
   // points
 
