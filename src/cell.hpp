@@ -934,8 +934,8 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
 
   // Write out this cell lookup table
   hdf5.createGroup("Cells");
-  hdf5.writeDataset<int>("Cells", "GridPointStart", grid_point_start);
-  hdf5.writeDataset<int>("Cells", "GridPointCounts", grid_point_counts);
+  hdf5.writeDataset<int>("Cells/GridPointStart", grid_point_start);
+  hdf5.writeDataset<int>("Cells/GridPointCounts", grid_point_counts);
 
   // Create a dataset we'll write the grid positions into
   std::array<hsize_t, 2> grid_point_positions_dims = {
@@ -993,8 +993,8 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
 
       // Write out the grid point over densities for this cell
       hdf5.writeDatasetSlice<double, 1>(
-          "Grids/" + kernel_name + "/", "GridPointOverDensities",
-          cell_grid_ovdens, {static_cast<hsize_t>(start)},
+          "Grids/" + kernel_name + "/GridPointOverDensities", cell_grid_ovdens,
+          {static_cast<hsize_t>(start)},
           {static_cast<hsize_t>(grid_point_counts[cid])});
 
       // If we haven't written the grid point positions yet then do so now
@@ -1073,8 +1073,8 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
   // Write out this cell lookup table (but only on rank 0)
   if (metadata.rank == 0) {
     hdf5.createGroup("Cells");
-    hdf5.writeDataset<int>("Cells", "GridPointStart", grid_point_start);
-    hdf5.writeDataset<int>("Cells", "GridPointCounts", grid_point_counts);
+    hdf5.writeDataset<int>("Cells/GridPointStart", grid_point_start);
+    hdf5.writeDataset<int>("Cells/GridPointCounts", grid_point_counts);
 
     // Create a dataset we'll write the grid positions into
     std::array<hsize_t, 2> grid_point_positions_dims = {
@@ -1143,8 +1143,8 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
 
       // Write out the grid point over densities for this cell
       hdf5.writeDatasetSlice<double, 1>(
-          "Grids/" + kernel_name + "/", "GridPointOverDensities",
-          cell_grid_ovdens, {static_cast<hsize_t>(start)},
+          "Grids/" + kernel_name + "/GridPointOverDensities", cell_grid_ovdens,
+          {static_cast<hsize_t>(start)},
           {static_cast<hsize_t>(grid_point_counts[cid])});
 
       // If we haven't written the grid point positions yet then do so now
