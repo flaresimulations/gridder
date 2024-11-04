@@ -100,12 +100,6 @@ void say_hello() {
   // #endif
   // #ifdef WITH_MPI
   //     printf(" MPI library version      : %s\n", mpi_version());
-  // #ifdef HAVE_METIS
-  //     printf(" METIS library version    : %s\n", metis_version());
-  // #endif
-  // #ifdef HAVE_PARMETIS
-  //     printf(" ParMETIS library version : %s\n", parmetis_version());
-  // #endif
   // #endif
   printf("\n");
 }
