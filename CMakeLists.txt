@@ -26,20 +26,23 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeR
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+# ================= DEFINE OPTIONS =================
+option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
+option(ENABLE_DEBUG "Enable debugging symbols" OFF)
+option(ENABLE_MPI "Enable MPI support" OFF)
+
 # ================= DEPENDANCIES =================
 
 # Find HDF5 with parallel support if available
 find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
 
-# # MPI
-# find_package(MPI REQUIRED)
-
 # Check for OpenMP support
 find_package(OpenMP REQUIRED)
 
-# ================= DEFINE OPTIONS =================
-option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
-option(ENABLE_DEBUG "Enable debugging symbols" OFF)
+# MPI
+if(ENABLE_MPI)
+  find_package(MPI REQUIRED)
+endif()
 
 # ================= COMPILER FLAGS =================
 
@@ -58,7 +61,6 @@ endif()
 if(ENABLE_DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
-# -march=native: Optimize for the current machine
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 
 # ================= METADATA COLLECTION =================
@@ -121,15 +123,22 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
   target_compile_definitions(${TARGET} PRIVATE DEBUGGING_CHECKS)
 endif()
 
+# Are we using MPI? 
+if(ENABLE_MPI)
+target_compile_definitions(${TARGET} PRIVATE WITH_MPI)
+endif()
+
 
 # ================= LIBRARY INCLUSION =================
 
 # HDF5
 target_link_libraries(${TARGET} PRIVATE HDF5::HDF5)
 
-# # MPI
-# target_link_libraries(${TARGET} PUBLIC MPI::MPI_CXX)
-# target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
+# MPI
+if(ENABLE_MPI)
+  target_link_libraries(${TARGET} PRIVATE MPI::MPI_CXX)
+  target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
+endif()
 
 # OpenMP
 target_link_libraries(${TARGET} PRIVATE OpenMP::OpenMP_CXX)
