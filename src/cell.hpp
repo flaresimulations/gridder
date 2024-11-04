@@ -933,14 +933,18 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
   }
 
   // Write out this cell lookup table
+  std::array<hsize_t, 1> sim_cell_dims = {
+      static_cast<hsize_t>(metadata.nr_cells)};
   hdf5.createGroup("Cells");
-  hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start);
-  hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts);
+  hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
+                            sim_cell_dims);
+  hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
+                            sim_cell_dims);
 
   // Create a dataset we'll write the grid positions into
   std::array<hsize_t, 2> grid_point_positions_dims = {
       static_cast<hsize_t>(metadata.n_grid_points), static_cast<hsize_t>(3)};
-  hdf5.createDataset<double, 2>("Grids/", "GridPointPositions",
+  hdf5.createDataset<double, 2>("Grids/GridPointPositions",
                                 grid_point_positions_dims);
 
   // We only want to write the positions once so lets make a flag to ensure
@@ -957,8 +961,8 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
     // Create the grid point over densities dataset
     std::array<hsize_t, 1> grid_point_overdens_dims = {
         static_cast<hsize_t>(metadata.n_grid_points)};
-    hdf5.createDataset<double, 1>("Grids/" + kernel_name + "/",
-                                  "GridPointOverDensities",
+    hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                      "/GridPointOverDensities",
                                   grid_point_overdens_dims);
 
     // Write out the grid data cell by cell
@@ -1073,14 +1077,18 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
 
   // Write out this cell lookup table (but only on rank 0)
   if (metadata.rank == 0) {
+    std::array<hsize_t, 1> sim_cell_dims = {
+        static_cast<hsize_t>(metadata.nr_cells)};
     hdf5.createGroup("Cells");
-    hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start);
-    hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts);
+    hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
+                              sim_cell_dims);
+    hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
+                              sim_cell_dims);
 
     // Create a dataset we'll write the grid positions into
     std::array<hsize_t, 2> grid_point_positions_dims = {
         static_cast<hsize_t>(metadata.n_grid_points), static_cast<hsize_t>(3)};
-    hdf5.createDataset<double, 2>("Grids/", "GridPointPositions",
+    hdf5.createDataset<double, 2>("Grids/GridPointPositions",
                                   grid_point_positions_dims);
   }
 
@@ -1101,8 +1109,8 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
     if (metadata.rank == 0) {
       std::array<hsize_t, 1> grid_point_overdens_dims = {
           static_cast<hsize_t>(metadata.n_grid_points)};
-      hdf5.createDataset<double, 1>("Grids/" + kernel_name + "/",
-                                    "GridPointOverDensities",
+      hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                        "/GridPointOverDensities",
                                     grid_point_overdens_dims);
     }
 
@@ -1168,6 +1176,6 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
   // Close the HDF5 file
   hdf5.close();
 }
-#endif // WITH_MPI
+#endif
 
 #endif // CELL_HPP

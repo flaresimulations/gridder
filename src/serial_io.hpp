@@ -95,7 +95,7 @@ public:
   }
 
   template <typename T, std::size_t Rank>
-  bool createDataset(const std::string group, const std::string &datasetName,
+  bool createDataset(const std::string &datasetName,
                      const std::array<hsize_t, Rank> &dims) {
     try {
       // Create the data space for the dataset with given dimensions.
@@ -103,7 +103,7 @@ public:
 
       // Create the dataset within the file using the defined data space.
       H5::DataSet dataset =
-          file.createDataSet(group + datasetName, getHDF5Type<T>(), dataspace);
+          file.createDataSet(datasetName, getHDF5Type<T>(), dataspace);
 
       // Optionally set dataset properties or attributes here.
 
@@ -111,22 +111,6 @@ public:
     } catch (const H5::Exception &e) {
       // Error handling: print the error message or log it.
       error(e.getCDetailMsg());
-      return false;
-    }
-  }
-
-  template <typename T, std::size_t Rank>
-  bool writeDataset(const std::string &datasetName,
-                    const std::vector<T> &data) {
-    try {
-      H5::DataSpace dataspace(Rank, &data.size());
-      H5::DataSet dataset =
-          file.createDataSet(datasetName, getHDF5Type<T>(), dataspace);
-      dataset.write(data.data(), getHDF5Type<T>());
-      dataspace.close();
-      dataset.close();
-      return true;
-    } catch (H5::Exception &e) {
       return false;
     }
   }
@@ -151,6 +135,23 @@ public:
 
       // Write the data to the selected hyperslab in the dataset.
       dataset.write(data.data(), getHDF5Type<T>(), memspace, filespace);
+
+      return true;
+    } catch (const H5::Exception &e) {
+      error(e.getCDetailMsg());
+      return false;
+    }
+  }
+
+  template <typename T, std::size_t Rank>
+  bool writeDataset(const std::string &datasetName, const std::vector<T> &data,
+                    const std::array<hsize_t, Rank> &dims) {
+    try {
+      // Create the dataset with the given dimensions.
+      createDataset<T, Rank>(datasetName, dims);
+
+      // Write the data as a "slice" over the whole dataset.
+      writeDatasetSlice<T, Rank>(datasetName, data, {0}, dims);
 
       return true;
     } catch (const H5::Exception &e) {
