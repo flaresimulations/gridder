@@ -105,6 +105,17 @@ void decomposeCells(std::shared_ptr<Cell> *cells) {
     }
   }
 
+  // We also need to assign all cells neighbouring this rank to this rank.
+  // This means we'll just be able to load their content and not worry about
+  // communicating particles where kernels overlap partition boundaries.
+  for (int i = 0; i < metadata.nr_cells; i++) {
+    if (cells[i]->rank == rank) {
+      for (auto &neighbour : cells[i]->neighbours) {
+        neighbour->rank = rank;
+      }
+    }
+  }
+
   message("Will work with %d dark matter particles", this_rank_particles);
 }
 
