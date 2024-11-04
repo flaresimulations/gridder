@@ -56,12 +56,13 @@ if(DISABLE_OPTIMIZATIONS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 endif()
 # -g: Generate debug information
 if(ENABLE_DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 # ================= METADATA COLLECTION =================
 
@@ -125,7 +126,7 @@ endif()
 
 # Are we using MPI? 
 if(ENABLE_MPI)
-target_compile_definitions(${TARGET} PRIVATE WITH_MPI)
+  target_compile_definitions(${TARGET} PRIVATE WITH_MPI)
 endif()
 
 

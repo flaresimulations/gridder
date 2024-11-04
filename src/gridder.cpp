@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
     error(e.what());
     return 1;
   }
-  toc("Reading metadata (including mean density calculation)");
+  toc("Reading metadata");
 
   // Get the cells array itself
   tic();
