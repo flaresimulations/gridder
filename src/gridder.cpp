@@ -10,7 +10,9 @@
 #include <vector>
 
 // MPI includes
-// #include <mpi.h>
+#ifdef WITH_MPI
+#include <mpi.h>
+#endif
 
 // Local includes
 #include "cell.hpp"
@@ -19,8 +21,14 @@
 #include "metadata.hpp"
 #include "params.hpp"
 #include "partition.hpp"
-#include "serial_io.hpp"
 #include "talking.hpp"
+
+// Load the appropriate I/O headers
+#ifdef WITH_MPI
+#include "parallel_io.hpp"
+#else
+#include "serial_io.hpp"
+#endif
 
 int main(int argc, char *argv[]) {
 
@@ -38,33 +46,44 @@ int main(int argc, char *argv[]) {
   omp_set_num_threads(nthreads);
 
   // Set up the MPI environment
-  // MPI_Init(&argc, &argv);
-  // int rank, size;
-  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  // MPI_Comm_size(MPI_COMM_WORLD, &size);
+#ifdef WITH_MPI
+  MPI_Init(&argc, &argv);
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  // TODO: Remove this when we have MPI
-  int rank = 0;
-  int size = 1;
-
-  if (rank == 0) {
-    say_hello();
-  }
-
-  // Set the MPI rank of the logger
+  // Set the MPI rank on the logger and metadata (the former only for
+  // formatting the printed messages)
   Logging::getInstance()->setRank(rank);
   Metadata::getInstance().rank = rank;
   Metadata::getInstance().size = size;
 
+  // Howdy
+  if (rank == 0) {
+    say_hello();
+  }
+#else
+  // Set the rank to 0 (there is only one rank)
+  Logging::getInstance()->setRank(0);
+
+  // Howdy
+  say_hello();
+#endif
+
+  // Get a local pointer to the metadata
+  Metadata *metadata = &Metadata::getInstance();
+
   // Set the snapshot number
-  Metadata::getInstance().nsnap = nsnap;
+  metadata->nsnap = nsnap;
 
   // Start the timer for the whole shebang
   start();
 
-  if (rank == 0) {
-    message("Running on %d MPI ranks", size);
+#ifdef WITH_MPI
+  if (metadata->rank == 0) {
+    message("Running on %d MPI ranks", metadata->size);
   }
+#endif
 
   // Read the parameters from the parameter file
   Parameters params;
@@ -77,22 +96,23 @@ int main(int argc, char *argv[]) {
   }
   toc("Reading parameters");
 
-  // Get the metadata instance
-  Metadata &metadata = Metadata::getInstance();
-
   // Read the rest of the metadata from the input file
   tic();
   try {
-    readMetadata(metadata.input_file);
+    readMetadata(metadata->input_file);
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
   }
   toc("Reading metadata (including mean density calculation)");
 
-  // Get the cell array itself
+  // Get the cells array itself
   tic();
-  std::shared_ptr<Cell> *cells = new std::shared_ptr<Cell>[metadata.nr_cells];
+
+  // First allocate it onto the heap
+  std::shared_ptr<Cell> *cells = new std::shared_ptr<Cell>[metadata->nr_cells];
+
+  // Then read the top level cells from the input file
   try {
     getTopCells(cells);
   } catch (const std::exception &e) {
@@ -101,28 +121,19 @@ int main(int argc, char *argv[]) {
   }
   toc("Creating top level cells");
 
-  message("Number of top level cells: %d", metadata.nr_cells);
+  message("Number of top level cells: %d", metadata->nr_cells);
 
-  // Decomose the cells over the MPI ranks (if we need to)
-  if (size > 1) {
-    tic();
-    try {
-      decomposeCells(cells);
-    } catch (const std::exception &e) {
-      report_error();
-      return 1;
-    }
-    toc("Decomposing cells");
-  } else {
-    tic();
-    // Set all cells to rank 0
-    for (int cid = 0; cid < metadata.nr_cells; cid++) {
-      cells[cid]->rank = 0;
-    }
-    toc("Setting all cells to rank 0");
+#ifdef WITH_MPI
+  // Decomose the cells over the MPI ranks
+  tic();
+  try {
+    decomposeCells(cells);
+  } catch (const std::exception &e) {
+    report_error();
+    return 1;
   }
-
-  // TODO: Need to create and communicate proxies
+  toc("Decomposing cells");
+#endif
 
   // Now we know which cells are where we can make the grid points, and assign
   // them and the particles to the cells
@@ -144,7 +155,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   toc("Splitting cells");
-  message("Maximum depth in the tree: %d", metadata.max_depth);
+  message("Maximum depth in the tree: %d", metadata->max_depth);
 
   // Now we can start the actual work... Associate particles with the grid
   // points within the maximum kernel radius
@@ -157,7 +168,7 @@ int main(int argc, char *argv[]) {
   }
   toc("Computing kernel masses");
 
-  // We're done write the output
+  // We're done write the output in parallel
   tic();
   try {
     writeGridFile(cells);
@@ -173,7 +184,10 @@ int main(int argc, char *argv[]) {
   // Stop the timer for the whole shebang
   finish();
 
+#ifdef WITH_MPI
   // Exit properly in MPI land
-  // MPI_Finalize();
+  MPI_Finalize();
+#endif
+
   return 0;
 }
