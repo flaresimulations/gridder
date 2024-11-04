@@ -32,7 +32,7 @@ public:
   bool is_split;
 
   // MPI information
-  int rank;
+  int rank = 0;
 
   // Peano-hilbert index
   int64_t ph_ind;
@@ -412,6 +412,7 @@ void getTopCells(std::shared_ptr<Cell> *cells) {
   std::vector<int64_t> counts;
   if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"), counts))
     error("Failed to read cell counts");
+  hdf.close();
 
 // Loop over the cells and create them, storing the counts for domain
 // decomposition
@@ -441,8 +442,11 @@ void getTopCells(std::shared_ptr<Cell> *cells) {
     cells[cid] = cell;
   }
 
-  // How many cells do we need to walk out? The number of cells we need to
-  // walk out is the maximum kernel radius divided by the cell width
+  // Now the top level cells are made we can attached the pointers to
+  // neighbouring cells (this simplifies boilerplate elsewhere)
+
+  // How many cells do we need to walk out for the biggest kernel? This is
+  // the maximum distance at which we will need to consider another cell
   const int nwalk =
       std::ceil(metadata.max_kernel_radius / metadata.width[0]) + 1;
   int nwalk_upper = nwalk;
@@ -497,8 +501,6 @@ void getTopCells(std::shared_ptr<Cell> *cells) {
       }
     }
   }
-
-  hdf.close();
 }
 
 // Get the cell that contains a given point
