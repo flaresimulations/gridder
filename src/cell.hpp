@@ -1016,6 +1016,7 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
   hdf5.close();
 }
 
+#ifdef WITH_MPI
 void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
 
   // Get the metadata
@@ -1167,5 +1168,6 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
   // Close the HDF5 file
   hdf5.close();
 }
+#endif // WITH_MPI
 
 #endif // CELL_HPP
