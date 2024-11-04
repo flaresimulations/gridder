@@ -119,7 +119,7 @@ public:
   bool writeDataset(const std::string &datasetName,
                     const std::vector<T> &data) {
     try {
-      H5::DataSpace dataspace(Rank, data.size());
+      H5::DataSpace dataspace(Rank, static_cast<hsize_t>(data.size()));
       H5::DataSet dataset =
           file.createDataSet(datasetName, getHDF5Type<T>(), dataspace);
       dataset.write(data.data(), getHDF5Type<T>());
