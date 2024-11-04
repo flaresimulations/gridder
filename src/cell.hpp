@@ -955,9 +955,11 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
     hdf5.createGroup("Grids/" + kernel_name);
 
     // Create the grid point over densities dataset
+    std::array<hsize_t, 1> grid_point_overdens_dims = {
+        static_cast<hsize_t>(metadata.n_grid_points)};
     hdf5.createDataset<double, 1>("Grids/" + kernel_name + "/",
                                   "GridPointOverDensities",
-                                  {metadata.n_grid_points});
+                                  grid_point_overdens_dims);
 
     // Write out the grid data cell by cell
     for (int cid = 0; cid < metadata.nr_cells; cid++) {
@@ -974,9 +976,7 @@ void writeGridFileSerial(std::shared_ptr<Cell> *cells) {
 
       // Create the output array for this cell
       std::vector<double> cell_grid_ovdens(grid_point_counts[cid], 0.0);
-      if (!written_positions) {
-        std::vector<double> cell_grid_pos(grid_point_counts[cid] * 3, 0.0);
-      }
+      std::vector<double> cell_grid_pos(grid_point_counts[cid] * 3, 0.0);
 
       // Loop over grid points and populate this cell's slices
       for (const std::shared_ptr<GridPoint> &gp : cell->grid_points) {
@@ -1073,8 +1073,8 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
   // Write out this cell lookup table (but only on rank 0)
   if (metadata.rank == 0) {
     hdf5.createGroup("Cells");
-    hdf5.writeDataset<int>("Cells/GridPointStart", grid_point_start);
-    hdf5.writeDataset<int>("Cells/GridPointCounts", grid_point_counts);
+    hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start);
+    hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts);
 
     // Create a dataset we'll write the grid positions into
     std::array<hsize_t, 2> grid_point_positions_dims = {
@@ -1098,9 +1098,11 @@ void writeGridFileParallel(std::shared_ptr<Cell> *cells, MPI_Comm comm) {
 
     // Create the grid point over densities dataset
     if (metadata.rank == 0) {
+      std::array<hsize_t, 1> grid_point_overdens_dims = {
+          static_cast<hsize_t>(metadata.n_grid_points)};
       hdf5.createDataset<double, 1>("Grids/" + kernel_name + "/",
                                     "GridPointOverDensities",
-                                    {metadata.n_grid_points});
+                                    grid_point_overdens_dims);
     }
 
     // Ensure we can all agree on where we are
