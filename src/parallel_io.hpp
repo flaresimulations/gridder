@@ -403,8 +403,8 @@ public:
     H5Pget_virtual_count(dapl_id, &src_count);
 
     for (size_t i = 0; i < src_count; i++) {
-      char src_file[H5F_NAME_MAX];
-      char src_dset[H5D_NAME_MAX];
+      char src_file[128];
+      char src_dset[128];
 
       // Get the source file and dataset names
       H5Pget_virtual_filename(dapl_id, i, src_file, sizeof(src_file));
