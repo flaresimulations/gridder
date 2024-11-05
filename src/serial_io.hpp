@@ -200,7 +200,7 @@ public:
       start_array[0] = start; // Read starting from 'start'
       count_array[0] = count; // Read 'count' elements along the first dimension
 
-      message("Reading dataset slice: %d elements starting from %d", count,
+      message("Reading dataset slice: %ld elements starting from %ld", count,
               start);
 
       // For higher-dimensional datasets, set counts to the full extent of each
