@@ -31,9 +31,9 @@ option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
 option(ENABLE_DEBUG "Enable debugging symbols" OFF)
 option(ENABLE_MPI "Enable MPI support" OFF)
 
-# Display options in ccmake, but avoid finding packages until after initial configuration
-if(NOT CMAKE_CACHE_DEFINED) 
-  message(STATUS "Options set. Re-run configure to detect dependencies.")
+# Exit if this is the first pass, we don't want to find any dependencies 
+# before the options are set. 
+if(CMAKE_CFG_INTDIR STREQUAL ".")
   return()
 endif()
 
