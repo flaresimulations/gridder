@@ -42,6 +42,11 @@ find_package(OpenMP REQUIRED)
 # MPI
 if(ENABLE_MPI)
   find_package(MPI REQUIRED)
+
+  # Ensure we have parallel HDF5 
+  if(NOT HDF5_IS_PARALLEL)
+    message(FATAL_ERROR "MPI support requested but HDF5 was not built with parallel support.") 
+  endif() 
 endif()
 
 # ================= COMPILER FLAGS =================
@@ -91,8 +96,13 @@ endif()
 
 # ================= LIBRARY INCLUSION =================
 
-# HDF5
-target_link_libraries(${TARGET} PRIVATE HDF5::HDF5)
+# HDF5 (parallel or not)
+if (HDF5_IS_PARALLEL)
+  target_compile_definitions(${TARGET} PRIVATE HDF5_IS_PARALLEL)
+  target_link_libraries(${TARGET} PRIVATE MPI::MPI_CXX HDF5::HDF5)
+else()
+  target_link_libraries(${TARGET} PRIVATE HDF5::HDF5)
+endif()
 
 # MPI
 if(ENABLE_MPI)
