@@ -544,11 +544,16 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
   // Get the dark matter offsets and counts for each simulation cell
   std::vector<int64_t> offsets;
   std::vector<int64_t> counts;
-  if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"), counts))
+  if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"),
+                                counts)) {
     error("Failed to read cell counts");
+    return;
+  }
   if (!hdf.readDataset<int64_t>(std::string("Cells/OffsetsInFile/PartType1"),
                                 offsets))
     error("Failed to read cell offsets");
+
+  message("Read in the particle counts and offsets");
 
   // Read all the masses and coordinates to slice out what we need
   std::vector<double> poss;
@@ -567,9 +572,11 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
     // Get the cell
     std::shared_ptr<Cell> cell = cells[cid];
 
+#ifdef WITH_MPI
     // Skip if this cell isn't on this rank and isn't a proxy
     if (cell->rank != metadata.rank && !cell->is_proxy)
       continue;
+#endif
 
     // Get the particle slice start and length
     const int offset = offsets[cid];
