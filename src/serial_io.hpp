@@ -3,6 +3,7 @@
 
 // Standard includes
 #include <H5Cpp.h>
+#include <numeric>
 #include <string>
 #include <vector>
 
