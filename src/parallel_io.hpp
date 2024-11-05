@@ -305,13 +305,12 @@ public:
    *
    * @tparam T Data type of the dataset elements
    * @tparam Rank Rank (number of dimensions) of the dataset
-   * @param group Name of the group within which to create the dataset
    * @param datasetName Name of the dataset to create
    * @param dims Array specifying the size of each dimension
    * @return true if the dataset was created successfully, false otherwise
    */
   template <typename T, std::size_t Rank>
-  bool createDataset(const std::string &group, const std::string &datasetName,
+  bool createDataset(const std::string &datasetName,
                      const std::array<hsize_t, Rank> &dims) {
     // Create the dataspace for the dataset with the specified dimensions
     hid_t dataspace_id = H5Screate_simple(Rank, dims.data(), nullptr);
@@ -322,9 +321,9 @@ public:
     hid_t plist_id = H5Pcreate(H5P_DATASET_CREATE);
     H5Pset_chunk(plist_id, Rank, dims.data());
 
-    hid_t dataset_id = H5Dcreate(file_id, (group + "/" + datasetName).c_str(),
-                                 getHDF5Type<T>(), dataspace_id, H5P_DEFAULT,
-                                 plist_id, H5P_DEFAULT);
+    hid_t dataset_id =
+        H5Dcreate(file_id, (datasetName).c_str(), getHDF5Type<T>(),
+                  dataspace_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);
     H5Pclose(plist_id);
     H5Sclose(dataspace_id);
 
