@@ -151,7 +151,6 @@ public:
   template <typename... Args>
   void throw_error(const char *file, const char *func, int line,
                    const char *format, Args &&...args) {
-    printf("throwing... %d", 1);
     // Conditional compilation based on the number of arguments
     if constexpr (sizeof...(args) > 0) {
       // If there are arguments, process them with the format
@@ -318,6 +317,8 @@ private:
 #define toc(message) Logging::getInstance()->toc(__FILE__, __func__, message)
 #define finish() Logging::getInstance()->finish(__FILE__, __func__)
 #define error(...)                                                             \
+  std::cerr << "[ERROR][" << Logging::getInstance()->getBaseFilename(__FILE__) \
+            << "." << __func__ << "]: " << __VA_ARGS__ << std::endl;           \
   Logging::getInstance()->throw_error(__FILE__, __func__, __LINE__, __VA_ARGS__)
 #define report_error() Logging::getInstance()->report_error()
 
