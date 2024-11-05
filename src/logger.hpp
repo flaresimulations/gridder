@@ -148,45 +148,6 @@ public:
     }
   }
 
-  template <typename... Args>
-  void throw_error(const char *file, const char *func, int line,
-                   const char *format, Args &&...args) {
-    // Conditional compilation based on the number of arguments
-    if constexpr (sizeof...(args) > 0) {
-      // If there are arguments, process them with the format
-      char buffer[512];
-      std::snprintf(buffer, sizeof(buffer), format,
-                    std::forward<Args>(args)...);
-      this->error_message_ = buffer;
-    } else {
-      // If there are no arguments, use the format directly as the message
-      this->error_message_ = format;
-    }
-    // Common handling for file, func, and line
-    this->error_file_ = const_cast<char *>(file);
-    this->error_func_ = const_cast<char *>(func);
-    this->error_line_ = line;
-
-    // Throw the error
-    throw std::runtime_error(this->error_message_);
-  }
-
-  /**
-   * @brief Log an error message and throw a runtime error.
-   *
-   * @param msg The error message format string.
-   * @param args The arguments for message formatting.
-   *
-   * @throw std::runtime_error Thrown with the formatted error message.
-   */
-  void report_error() {
-    std::ostringstream oss;
-    oss << "[ERROR][" << getBaseFilename(this->error_file_) << "."
-        << this->error_func_ << "." << this->error_line_
-        << "]: " << this->error_message_;
-    std::cerr << oss.str() << std::endl;
-  }
-
   /**
    * @brief Start measuring time.
    */
@@ -247,7 +208,6 @@ public:
         static_cast<long long>(duration.count()));
   }
 
-private:
   /**
    * @brief Get the base filename from a given file path.
    *
@@ -269,6 +229,7 @@ private:
     return filePath;
   }
 
+private:
   /**
    * @brief Log a formatted message.
    *
@@ -317,9 +278,12 @@ private:
 #define toc(message) Logging::getInstance()->toc(__FILE__, __func__, message)
 #define finish() Logging::getInstance()->finish(__FILE__, __func__)
 #define error(...)                                                             \
-  std::cerr << "[ERROR][" << __FILE__ << "." << __func__                       \
-            << "]: " << __VA_ARGS__ << std::endl;                              \
-  Logging::getInstance()->throw_error(__FILE__, __func__, __LINE__, __VA_ARGS__)
-#define report_error() Logging::getInstance()->report_error()
+  {                                                                            \
+    std::ostringstream oss;                                                    \
+    oss << "[ERROR][" << getBaseFilename(__FILE__) << "." << __func__ << "."   \
+        << __LINE__ << "]: ";                                                  \
+    oss << std::format(__VA_ARGS__);                                           \
+    throw std::runtime_error(oss.str());                                       \
+  }
 
 #endif // LOGGING_H

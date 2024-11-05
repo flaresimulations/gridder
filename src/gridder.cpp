@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
   try {
     getTopCells(cells);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Creating top level cells");
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
   try {
     decomposeCells(cells);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Decomposing cells");
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
   try {
     assignPartsAndPointsToCells(cells);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Assigning particles and grid points to cells");
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
   try {
     splitCells(cells);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Splitting cells");
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
   try {
     getKernelMasses(cells);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Computing kernel masses");
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
   try {
     writeGridFileParallel(cells, MPI_COMM_WORLD);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Writing output (in parallel)");
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
   try {
     writeGridFileSerial(cells);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Writing output (in serial)");
