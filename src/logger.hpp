@@ -268,6 +268,51 @@ private:
   std::string getSnapshot() { return _snapshot; }
 };
 
+/**
+ * @brief Append multiple arguments to an output stream.
+ *
+ * This helper function recursively appends each argument in a parameter pack
+ * to the provided output stream. Used to format complex error messages.
+ *
+ * @tparam T The type of the first argument in the pack.
+ * @tparam Args The types of the remaining arguments in the pack.
+ *
+ * @param oss The output string stream where arguments are appended.
+ * @param first The first argument to append to the stream.
+ * @param args Additional arguments to append to the stream.
+ */
+template <typename T, typename... Args>
+void append_to_stream(std::ostringstream &oss, T &&first, Args &&...args) {
+  oss << first;
+  append_to_stream(oss, std::forward<Args>(args)...);
+}
+
+/**
+ * @brief Log an error message and throw a runtime exception.
+ *
+ * This function logs a formatted error message with contextual information
+ * (file, function, and line) and throws a `std::runtime_error` containing
+ * the formatted message. It is used throughout the codebase to report critical
+ * errors that should terminate the current function.
+ *
+ * @tparam Args Variadic template for message formatting.
+ *
+ * @param file The filename where the error occurred.
+ * @param func The function name where the error occurred.
+ * @param line The line number where the error occurred.
+ * @param args The arguments to be included in the error message.
+ *
+ * @throws std::runtime_error containing the formatted error message.
+ */
+template <typename... Args>
+void error(const char *file, const char *func, int line, Args &&...args) {
+  std::ostringstream oss;
+  oss << "[ERROR][" << getBaseFilename(file) << "." << func << "." << line
+      << "]: ";
+  append_to_stream(oss, std::forward<Args>(args)...);
+  throw std::runtime_error(oss.str());
+}
+
 // Define friendly macros for logging
 #define message(...)                                                           \
   Logging::getInstance()->message(__FILE__, __func__, __VA_ARGS__)
@@ -277,13 +322,6 @@ private:
 #define tic() Logging::getInstance()->tic()
 #define toc(message) Logging::getInstance()->toc(__FILE__, __func__, message)
 #define finish() Logging::getInstance()->finish(__FILE__, __func__)
-#define error(...)                                                             \
-  {                                                                            \
-    std::ostringstream oss;                                                    \
-    oss << "[ERROR][" << getBaseFilename(__FILE__) << "." << __func__ << "."   \
-        << __LINE__ << "]: ";                                                  \
-    oss << std::format(__VA_ARGS__);                                           \
-    throw std::runtime_error(oss.str());                                       \
-  }
+#define error(...) error(__FILE__, __func__, __LINE__, __VA_ARGS__)
 
 #endif // LOGGING_H
