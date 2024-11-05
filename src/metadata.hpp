@@ -12,7 +12,11 @@
 
 // Local includes
 #include "particle.hpp"
+#ifdef WITH_MPI
+#include "parallel_io.hpp"
+#else
 #include "serial_io.hpp"
+#endif
 
 // This is a Singleton class to store the necessary metadata used in the
 // zoom_region_selection library.
