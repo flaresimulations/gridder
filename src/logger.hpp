@@ -307,6 +307,9 @@ void error(const char *file, const char *func, int line, Args &&...args) {
   // Fold expression to append each argument in args to the output stream oss
   (oss << ... << std::forward<Args>(args));
 
+  // Add a newline to the end of the message
+  oss << std::endl;
+
   throw std::runtime_error(oss.str());
 }
 
