@@ -553,7 +553,8 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
                                 offsets))
     error("Failed to read cell offsets");
 
-  message("Read in the particle counts and offsets");
+  message("Read in the particle counts and offsets %d %d", counts.size(),
+          offsets.size());
 
   // Read all the masses and coordinates to slice out what we need
   std::vector<double> poss;
