@@ -393,15 +393,19 @@ public:
                                const std::array<hsize_t, Rank> &start_array,
                                const std::array<hsize_t, Rank> &count_array) {
 
+    // Open the virtual dataset and get its creation property list
     hid_t dataset_id = H5Dopen(file_id, datasetName.c_str(), H5P_DEFAULT);
     hid_t dapl_id = H5Dget_create_plist(dataset_id);
 
+    // Get the count of source datasets in the virtual dataset
     size_t src_count;
     H5Pget_virtual_count(dapl_id, &src_count);
 
     for (size_t i = 0; i < src_count; i++) {
       char src_file[H5F_NAME_MAX];
       char src_dset[H5D_NAME_MAX];
+
+      // Get the source file and dataset names
       H5Pget_virtual_filename(dapl_id, i, src_file, sizeof(src_file));
       H5Pget_virtual_dsetname(dapl_id, i, src_dset, sizeof(src_dset));
 
@@ -413,6 +417,7 @@ public:
       hid_t src_space = H5Dget_space(src_dset_id);
       hsize_t src_offset[Rank];
       hsize_t src_count[Rank];
+
       // Here, map `start_array` and `count_array` to the source dataset layout
       // You may need to adjust based on the virtual dataset mapping
 
@@ -442,6 +447,18 @@ public:
     return true;
   }
 
+  /**
+   * @brief Reads a dataset slice, determining if the dataset is virtual and, if
+   * so, using the source datasets.
+   *
+   * @tparam T Data type of the dataset
+   * @tparam Rank Rank (number of dimensions) of the dataset
+   * @param datasetName Name of the dataset to read from
+   * @param data Vector to store the slice data
+   * @param start_array Start indices for the slice
+   * @param count_array Size of the slice in each dimension
+   * @return true if the slice was read successfully, false otherwise
+   */
   template <typename T, std::size_t Rank>
   bool readDatasetSlice(const std::string &datasetName, std::vector<T> &data,
                         const std::array<hsize_t, Rank> &start_array,
@@ -453,55 +470,59 @@ public:
                                      count_array);
     }
 
-    try {
-      // Open the dataset and retrieve its dataspace
-      H5::DataSet dataset = this->file.openDataSet(datasetName);
-      H5::DataSpace dataspace = dataset.getSpace();
+    // Open the dataset and retrieve its dataspace
+    hid_t dataset_id = H5Dopen(file_id, datasetName.c_str(), H5P_DEFAULT);
+    if (dataset_id < 0)
+      return false;
 
-      // Get the rank and dimensions of the dataset
-      int dataset_rank = dataspace.getSimpleExtentNdims();
-      if (dataset_rank != Rank) {
-        error("Dataset rank (%d) does not match the template rank (%zu).",
-              dataset_rank, Rank);
-        return false;
-      }
+    hid_t dataspace = H5Dget_space(dataset_id);
 
-      std::array<hsize_t, Rank> dims;
-      dataspace.getSimpleExtentDims(dims.data(), nullptr);
-
-      // Validate that the requested slice is within bounds for each dimension
-      for (std::size_t i = 0; i < Rank; ++i) {
-        if (start_array[i] + count_array[i] > dims[i]) {
-          error("Requested slice out of bounds in dimension %zu (start=%llu, "
-                "count=%llu, dim=%llu).",
-                i, static_cast<unsigned long long>(start_array[i]),
-                static_cast<unsigned long long>(count_array[i]),
-                static_cast<unsigned long long>(dims[i]));
-          return false;
-        }
-      }
-
-      // Select the hyperslab in the file dataspace
-      dataspace.selectHyperslab(H5S_SELECT_SET, count_array.data(),
-                                start_array.data());
-
-      // Define the memory dataspace for contiguous reading
-      hsize_t total_elements =
-          std::accumulate(count_array.begin(), count_array.end(), 1,
-                          std::multiplies<hsize_t>());
-      H5::DataSpace memspace(1,
-                             &total_elements); // Define as a 1D space in memory
-
-      // Resize data to hold the read elements
-      data.resize(total_elements);
-      dataset.read(data.data(), this->getHDF5Type<T>(), memspace, dataspace);
-
-      return true;
-    } catch (const H5::Exception &err) {
-      error("Failed to read dataset slice '%s': %s", datasetName.c_str(),
-            err.getCDetailMsg());
+    // Get the rank and dimensions of the dataset
+    int dataset_rank = H5Sget_simple_extent_ndims(dataspace);
+    if (dataset_rank != Rank) {
+      error("Dataset rank (%d) does not match the template rank (%zu).",
+            dataset_rank, Rank);
+      H5Sclose(dataspace);
+      H5Dclose(dataset_id);
       return false;
     }
+
+    std::array<hsize_t, Rank> dims;
+    H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr);
+
+    // Validate that the requested slice is within bounds for each dimension
+    for (std::size_t i = 0; i < Rank; ++i) {
+      if (start_array[i] + count_array[i] > dims[i]) {
+        error("Requested slice out of bounds in dimension %zu (start=%llu, "
+              "count=%llu, dim=%llu).",
+              i, static_cast<unsigned long long>(start_array[i]),
+              static_cast<unsigned long long>(count_array[i]),
+              static_cast<unsigned long long>(dims[i]));
+        H5Sclose(dataspace);
+        H5Dclose(dataset_id);
+        return false;
+      }
+    }
+
+    // Select the hyperslab in the file dataspace
+    H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, start_array.data(), nullptr,
+                        count_array.data(), nullptr);
+
+    // Define the memory dataspace for contiguous reading
+    hsize_t total_elements = std::accumulate(
+        count_array.begin(), count_array.end(), 1, std::multiplies<hsize_t>());
+    hid_t memspace = H5Screate_simple(1, &total_elements, nullptr);
+
+    // Resize data to hold the read elements
+    data.resize(total_elements);
+    herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), memspace, dataspace,
+                            H5P_DEFAULT, data.data());
+
+    H5Sclose(dataspace);
+    H5Sclose(memspace);
+    H5Dclose(dataset_id);
+
+    return status >= 0;
   }
 
 private:
