@@ -118,6 +118,36 @@ public:
   }
 
   /**
+   * @brief Reads an attribute from a specified HDF5 object
+   *
+   * Reads the attribute data and stores it in the provided variable.
+   *
+   * @tparam T The data type of the attribute (supports scalar and fixed-size
+   * arrays)
+   * @param objName Name of the HDF5 object from which to read the attribute
+   * @param attributeName Name of the attribute to read
+   * @param attributeValue Reference to store the read attribute data
+   * @return true if the attribute was read successfully, false otherwise
+   */
+  template <typename T>
+  bool readAttribute(const std::string &objName,
+                     const std::string &attributeName, T &attributeValue) {
+    hid_t obj_id = H5Oopen(file_id, objName.c_str(), H5P_DEFAULT);
+    if (obj_id < 0)
+      return false;
+
+    hid_t attr_id = H5Aopen(obj_id, attributeName.c_str(), H5P_DEFAULT);
+    hid_t attr_type = H5Aget_type(attr_id);
+
+    herr_t status = H5Aread(attr_id, attr_type, &attributeValue);
+
+    H5Aclose(attr_id);
+    H5Oclose(obj_id);
+
+    return status >= 0;
+  }
+
+  /**
    * @brief Writes an attribute to a specified HDF5 object
    *
    * Creates an attribute on an HDF5 object (e.g., group or dataset) and writes
