@@ -21,6 +21,7 @@
 #include <array>
 #include <hdf5.h> // HDF5 C API
 #include <mpi.h>
+#include <numeric>
 #include <string>
 #include <type_traits>
 #include <vector>
