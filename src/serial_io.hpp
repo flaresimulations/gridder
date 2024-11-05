@@ -180,64 +180,58 @@ public:
   bool readDatasetSlice(const std::string &datasetName, std::vector<T> &data,
                         const hsize_t start, const hsize_t count) {
     try {
-      // Open the dataset
+      // Open the dataset and retrieve the dataspace
       H5::DataSet dataset = this->file.openDataSet(datasetName);
-
-      // Get the dataspace of the dataset
       H5::DataSpace dataspace = dataset.getSpace();
 
-      // Get the rank (number of dimensions) of the dataspace
+      // Get the rank and dimensions of the dataspace
       int rank = dataspace.getSimpleExtentNdims();
       std::vector<hsize_t> dims(rank);
       dataspace.getSimpleExtentDims(dims.data(), NULL);
 
-      // Prepare arrays for hyperslab parameters
-      std::vector<hsize_t> start_array(rank, 0); // Initialize start positions
-      std::vector<hsize_t> count_array(rank, 1); // Initialize counts
+      // Initialize start and count arrays with appropriate sizes
+      std::vector<hsize_t> start_array(rank,
+                                       0); // Default start at 0 for all dims
+      std::vector<hsize_t> count_array(rank,
+                                       1); // Default count of 1 for all dims
 
-      if (rank == 1) {
-        // For a 1D array
-        start_array[0] = start;
-        count_array[0] = count;
-      } else if (rank == 2 && dims[1] == 3) {
-        // For a 2D array with shape (N, 3)
-        start_array[0] = start; // Start from the 'start'th row
-        start_array[1] = 0;     // Start from the first column
-        count_array[0] = count; // Read 'count' rows
-        count_array[1] = 3;     // Read all 3 columns
-      } else {
-        error("Unsupported dataset rank or dimensions (rank=%d).", rank);
-        return false;
+      // Adjust the start and count for the first dimension
+      start_array[0] = start; // Read starting from 'start'
+      count_array[0] = count; // Read 'count' elements along the first dimension
+
+      // For higher-dimensional datasets, set counts to the full extent of each
+      // dimension
+      for (int i = 1; i < rank; ++i) {
+        count_array[i] = dims[i];
       }
 
-      // Select the hyperslab
+      // Select the hyperslab in the file dataspace
       dataspace.selectHyperslab(H5S_SELECT_SET, count_array.data(),
-                                start_array.data(), NULL, NULL);
+                                start_array.data());
 
-      // Define the memory dataspace
-      if (rank == 2 && dims[1] == 3) {
-        // Adjust buffer size for 2D arrays to hold all elements
-        std::vector<hsize_t> mem_dims = {count, 3};
-        H5::DataSpace memspace(2, mem_dims.data());
-        std::vector<T> buffer(count * 3); // Adjust the buffer size
-        dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace,
-                     dataspace);
-        data = std::move(buffer);
-      } else {
-        // Proceed as before for 1D arrays
-        H5::DataSpace memspace(rank, count_array.data());
-        std::vector<T> buffer(count); // Adjust the buffer size
-        dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace,
-                     dataspace);
-        data = std::move(buffer);
-      }
+      // Define the memory dataspace to match the count_array for data storage
+      H5::DataSpace memspace(rank, count_array.data());
+
+      // Calculate the total number of elements to read and resize the buffer
+      hsize_t total_elements =
+          std::accumulate(count_array.begin(), count_array.end(), 1,
+                          std::multiplies<hsize_t>());
+      std::vector<T> buffer(total_elements);
+
+      // Perform the dataset read
+      dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace, dataspace);
+
+      // Move the buffer to the output data
+      data = std::move(buffer);
 
       return true;
     } catch (const H5::Exception &err) {
-      error(err.getCDetailMsg());
+      error("Failed to read dataset slice '%s': %s", datasetName.c_str(),
+            err.getCDetailMsg());
       return false;
     }
   }
+
   template <typename T>
   bool readAttribute(const std::string &objName,
                      const std::string &attributeName, T &attributeValue) {

@@ -553,20 +553,6 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
                                 offsets))
     error("Failed to read cell offsets");
 
-  message("Read in the particle counts and offsets %d %d", counts.size(),
-          offsets.size());
-
-  // Read all the masses and coordinates to slice out what we need
-  std::vector<double> poss;
-  std::vector<double> masses;
-  if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), poss))
-    error("Failed to read particle coordinates");
-  if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses))
-    error("Failed to read particle masses");
-
-  message("Read in the particle masses and coordinates %d %d", poss.size(),
-          masses.size());
-
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
 #pragma omp parallel for reduction(+ : total_part_count)                       \
@@ -585,11 +571,20 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
     // Get the particle slice start and length
     const int offset = offsets[cid];
     const int count = counts[cid];
-    const int end = offset + count;
     total_part_count += count;
 
+    // Read the masses and positions for this cell
+    std::vector<double> masses(count);
+    std::vector<double> poss(count * 3);
+    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
+                                      offset, count))
+      error("Failed to read particle masses");
+    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Coordinates"),
+                                      poss, offset * 3, count * 3))
+      error("Failed to read particle positions");
+
     // Loop over the particle data making particles
-    for (int p = offset; p < end; p++) {
+    for (int p = 0; p < count; p++) {
 
       // Get the mass and position of the particle
       const double mass = masses[p];
