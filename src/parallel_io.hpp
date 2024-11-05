@@ -195,7 +195,8 @@ public:
   }
 
   /**
-   * @brief Reads a complete dataset from the file
+   * @brief Reads a complete dataset from the file in serial mode (avoiding
+   * collective I/O)
    *
    * This function opens an existing dataset and reads its contents into a
    * provided vector. It supports reading multi-dimensional datasets and
@@ -225,16 +226,11 @@ public:
     // Resize the buffer to hold the entire dataset
     data.resize(num_elements);
 
-    // Set up parallel I/O
-    hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-
-    // Read the data
+    // Read the data (non-collective, serial mode)
     herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), H5S_ALL, H5S_ALL,
-                            plist_id, data.data());
+                            H5P_DEFAULT, data.data());
 
     // Close HDF5 identifiers
-    H5Pclose(plist_id);
     H5Sclose(dataspace_id);
     H5Dclose(dataset_id);
 
@@ -242,11 +238,12 @@ public:
   }
 
   /**
-   * @brief Reads a slice of data from an existing dataset
+   * @brief Reads a slice of data from an existing dataset in serial mode
+   * (avoiding collective I/O)
    *
-   * This function reads a specified hyperslab (slice) from an existing dataset
-   * in parallel. The slice is defined by the start and count parameters, which
-   * specify the starting indices and the size of each dimension.
+   * This function reads a specified hyperslab (slice) from an existing dataset.
+   * The slice is defined by the start and count parameters, which specify the
+   * starting indices and the size of each dimension.
    *
    * @tparam T Data type of the dataset elements
    * @tparam Rank Rank (number of dimensions) of the dataset
@@ -265,7 +262,7 @@ public:
     if (dataset_id < 0)
       return false;
 
-    // Get the dataspace of the dataset
+    // Get the dataspace of the dataset and select a hyperslab
     hid_t filespace_id = H5Dget_space(dataset_id);
     H5Sselect_hyperslab(filespace_id, H5S_SELECT_SET, start.data(), nullptr,
                         count.data(), nullptr);
@@ -279,23 +276,17 @@ public:
       num_elements *= dim;
     data.resize(num_elements);
 
-    // Set up parallel I/O with collective transfer mode
-    hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-
-    // Read the hyperslab
+    // Read the hyperslab (non-collective, serial mode)
     herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), memspace_id,
-                            filespace_id, plist_id, data.data());
+                            filespace_id, H5P_DEFAULT, data.data());
 
     // Close HDF5 identifiers
-    H5Pclose(plist_id);
     H5Sclose(memspace_id);
     H5Sclose(filespace_id);
     H5Dclose(dataset_id);
 
     return status >= 0;
   }
-
   /**
    * @brief Creates a new dataset in the HDF5 file
    *
