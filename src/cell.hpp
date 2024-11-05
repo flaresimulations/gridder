@@ -596,7 +596,12 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
       const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
 
       // Create the particle
-      std::shared_ptr<Particle> part = std::make_shared<Particle>(pos, mass);
+      std::shared_ptr<Particle> part;
+      try {
+        part = std::make_shared<Particle>(pos, mass);
+      } catch (const std::exception &e) {
+        error("Failed to create particle: %s", e.what());
+      }
 
       // Add the mass to the cell
       cell->mass += mass;
