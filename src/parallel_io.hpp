@@ -195,6 +195,108 @@ public:
   }
 
   /**
+   * @brief Reads a complete dataset from the file
+   *
+   * This function opens an existing dataset and reads its contents into a
+   * provided vector. It supports reading multi-dimensional datasets and
+   * automatically adjusts the buffer size based on the dataset dimensions.
+   *
+   * @tparam T Data type of the dataset elements
+   * @param datasetName Name of the dataset to read
+   * @param data Reference to a vector where the data will be stored
+   * @return true if the dataset was read successfully, false otherwise
+   */
+  template <typename T>
+  bool readDataset(const std::string &datasetName, std::vector<T> &data) {
+    // Open the dataset
+    hid_t dataset_id = H5Dopen(file_id, datasetName.c_str(), H5P_DEFAULT);
+    if (dataset_id < 0)
+      return false;
+
+    // Get the dataspace and determine the number of elements
+    hid_t dataspace_id = H5Dget_space(dataset_id);
+    int rank = H5Sget_simple_extent_ndims(dataspace_id);
+    std::vector<hsize_t> dims(rank);
+    H5Sget_simple_extent_dims(dataspace_id, dims.data(), nullptr);
+    hsize_t num_elements = 1;
+    for (const auto &dim : dims)
+      num_elements *= dim;
+
+    // Resize the buffer to hold the entire dataset
+    data.resize(num_elements);
+
+    // Set up parallel I/O
+    hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+    // Read the data
+    herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), H5S_ALL, H5S_ALL,
+                            plist_id, data.data());
+
+    // Close HDF5 identifiers
+    H5Pclose(plist_id);
+    H5Sclose(dataspace_id);
+    H5Dclose(dataset_id);
+
+    return status >= 0;
+  }
+
+  /**
+   * @brief Reads a slice of data from an existing dataset
+   *
+   * This function reads a specified hyperslab (slice) from an existing dataset
+   * in parallel. The slice is defined by the start and count parameters, which
+   * specify the starting indices and the size of each dimension.
+   *
+   * @tparam T Data type of the dataset elements
+   * @tparam Rank Rank (number of dimensions) of the dataset
+   * @param datasetName Name of the dataset to read from
+   * @param data Reference to a vector where the read data will be stored
+   * @param start Array specifying the starting indices of the hyperslab
+   * @param count Array specifying the size of the hyperslab
+   * @return true if the data slice was read successfully, false otherwise
+   */
+  template <typename T, std::size_t Rank>
+  bool readDatasetSlice(const std::string &datasetName, std::vector<T> &data,
+                        const std::array<hsize_t, Rank> &start,
+                        const std::array<hsize_t, Rank> &count) {
+    // Open the dataset
+    hid_t dataset_id = H5Dopen(file_id, datasetName.c_str(), H5P_DEFAULT);
+    if (dataset_id < 0)
+      return false;
+
+    // Get the dataspace of the dataset
+    hid_t filespace_id = H5Dget_space(dataset_id);
+    H5Sselect_hyperslab(filespace_id, H5S_SELECT_SET, start.data(), nullptr,
+                        count.data(), nullptr);
+
+    // Define the memory dataspace based on count
+    hid_t memspace_id = H5Screate_simple(Rank, count.data(), nullptr);
+
+    // Resize the buffer to hold the hyperslab
+    hsize_t num_elements = 1;
+    for (const auto &dim : count)
+      num_elements *= dim;
+    data.resize(num_elements);
+
+    // Set up parallel I/O with collective transfer mode
+    hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+    // Read the hyperslab
+    herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), memspace_id,
+                            filespace_id, plist_id, data.data());
+
+    // Close HDF5 identifiers
+    H5Pclose(plist_id);
+    H5Sclose(memspace_id);
+    H5Sclose(filespace_id);
+    H5Dclose(dataset_id);
+
+    return status >= 0;
+  }
+
+  /**
    * @brief Writes a complete dataset to the file
    *
    * This function creates a dataset with the specified name and dimensions,
