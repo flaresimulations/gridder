@@ -237,55 +237,59 @@ public:
     return status >= 0;
   }
 
-  /**
-   * @brief Reads a slice of data from an existing dataset in serial mode
-   * (avoiding collective I/O)
-   *
-   * This function reads a specified hyperslab (slice) from an existing dataset.
-   * The slice is defined by the start and count parameters, which specify the
-   * starting indices and the size of each dimension.
-   *
-   * @tparam T Data type of the dataset elements
-   * @tparam Rank Rank (number of dimensions) of the dataset
-   * @param datasetName Name of the dataset to read from
-   * @param data Reference to a vector where the read data will be stored
-   * @param start Array specifying the starting indices of the hyperslab
-   * @param count Array specifying the size of the hyperslab
-   * @return true if the data slice was read successfully, false otherwise
-   */
   template <typename T, std::size_t Rank>
   bool readDatasetSlice(const std::string &datasetName, std::vector<T> &data,
-                        const std::array<hsize_t, Rank> &start,
-                        const std::array<hsize_t, Rank> &count) {
-    // Open the dataset
-    hid_t dataset_id = H5Dopen(file_id, datasetName.c_str(), H5P_DEFAULT);
-    if (dataset_id < 0)
+                        const std::array<hsize_t, Rank> &start_array,
+                        const std::array<hsize_t, Rank> &count_array) {
+    try {
+      // Open the dataset and retrieve its dataspace
+      H5::DataSet dataset = this->file.openDataSet(datasetName);
+      H5::DataSpace dataspace = dataset.getSpace();
+
+      // Get the rank and dimensions of the dataset
+      int dataset_rank = dataspace.getSimpleExtentNdims();
+      if (dataset_rank != Rank) {
+        error("Dataset rank (%d) does not match the template rank (%zu).",
+              dataset_rank, Rank);
+        return false;
+      }
+
+      std::array<hsize_t, Rank> dims;
+      dataspace.getSimpleExtentDims(dims.data(), nullptr);
+
+      // Validate that the requested slice is within bounds for each dimension
+      for (std::size_t i = 0; i < Rank; ++i) {
+        if (start_array[i] + count_array[i] > dims[i]) {
+          error("Requested slice out of bounds in dimension %zu (start=%llu, "
+                "count=%llu, dim=%llu).",
+                i, static_cast<unsigned long long>(start_array[i]),
+                static_cast<unsigned long long>(count_array[i]),
+                static_cast<unsigned long long>(dims[i]));
+          return false;
+        }
+      }
+
+      // Select the hyperslab in the file dataspace
+      dataspace.selectHyperslab(H5S_SELECT_SET, count_array.data(),
+                                start_array.data());
+
+      // Define the memory dataspace for contiguous reading
+      hsize_t total_elements =
+          std::accumulate(count_array.begin(), count_array.end(), 1,
+                          std::multiplies<hsize_t>());
+      H5::DataSpace memspace(1,
+                             &total_elements); // Define as a 1D space in memory
+
+      // Resize data to hold the read elements
+      data.resize(total_elements);
+      dataset.read(data.data(), this->getHDF5Type<T>(), memspace, dataspace);
+
+      return true;
+    } catch (const H5::Exception &err) {
+      error("Failed to read dataset slice '%s': %s", datasetName.c_str(),
+            err.getCDetailMsg());
       return false;
-
-    // Get the dataspace of the dataset and select a hyperslab
-    hid_t filespace_id = H5Dget_space(dataset_id);
-    H5Sselect_hyperslab(filespace_id, H5S_SELECT_SET, start.data(), nullptr,
-                        count.data(), nullptr);
-
-    // Define the memory dataspace based on count
-    hid_t memspace_id = H5Screate_simple(Rank, count.data(), nullptr);
-
-    // Resize the buffer to hold the hyperslab
-    hsize_t num_elements = 1;
-    for (const auto &dim : count)
-      num_elements *= dim;
-    data.resize(num_elements);
-
-    // Read the hyperslab (non-collective, serial mode)
-    herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), memspace_id,
-                            filespace_id, H5P_DEFAULT, data.data());
-
-    // Close HDF5 identifiers
-    H5Sclose(memspace_id);
-    H5Sclose(filespace_id);
-    H5Dclose(dataset_id);
-
-    return status >= 0;
+    }
   }
 
   /**

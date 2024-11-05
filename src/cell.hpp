@@ -555,6 +555,7 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
+#pragma omp parallel for reduction(+ : total_part_count)
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the cell
@@ -574,13 +575,13 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
     // Read the masses and positions for this cell
     std::array<hsize_t, 1> mass_start = {static_cast<hsize_t>(offset)};
     std::array<hsize_t, 1> mass_count = {static_cast<hsize_t>(count)};
-    std::array<hsize_t, 2> pos_start = {static_cast<hsize_t>(offset), 0};
-    std::array<hsize_t, 2> pos_count = {static_cast<hsize_t>(count), 3};
     std::vector<double> masses(count);
-    std::vector<double> poss(count * 3);
     if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
                                       mass_start, mass_count))
       error("Failed to read particle masses");
+    std::array<hsize_t, 2> pos_start = {static_cast<hsize_t>(offset), 0};
+    std::array<hsize_t, 2> pos_count = {static_cast<hsize_t>(count), 3};
+    std::vector<double> poss(count * 3);
     if (!hdf.readDatasetSlice<double>(std::string("PartType1/Coordinates"),
                                       poss, pos_start, pos_count))
       error("Failed to read particle positions");
