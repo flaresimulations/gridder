@@ -317,8 +317,8 @@ private:
 #define toc(message) Logging::getInstance()->toc(__FILE__, __func__, message)
 #define finish() Logging::getInstance()->finish(__FILE__, __func__)
 #define error(...)                                                             \
-  std::cerr << "[ERROR][" << Logging::getInstance()->getBaseFilename(__FILE__) \
-            << "." << __func__ << "]: " << __VA_ARGS__ << std::endl;           \
+  std::cerr << "[ERROR][" << __FILE__ << "." << __func__                       \
+            << "]: " << __VA_ARGS__ << std::endl;                              \
   Logging::getInstance()->throw_error(__FILE__, __func__, __LINE__, __VA_ARGS__)
 #define report_error() Logging::getInstance()->report_error()
 
