@@ -287,6 +287,7 @@ public:
 
     return status >= 0;
   }
+
   /**
    * @brief Creates a new dataset in the HDF5 file
    *
