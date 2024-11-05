@@ -564,6 +564,9 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
   if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses))
     error("Failed to read particle masses");
 
+  message("Read in the particle masses and coordinates %d %d", poss.size(),
+          masses.size());
+
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
 #pragma omp parallel for reduction(+ : total_part_count)                       \
