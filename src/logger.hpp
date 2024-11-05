@@ -17,6 +17,27 @@
 enum LogLevel { ERROR, LOG, VERBOSE };
 
 /**
+ * @brief Get the base filename from a given file path.
+ *
+ * @param filePath The full path to the file.
+ * @return The base filename without the path and extension.
+ */
+static std::string getBaseFilename(const std::string &filePath) {
+  size_t lastSlash = filePath.find_last_of("/");
+  size_t lastDot = filePath.find_last_of(".");
+
+  // Extract the filename between the last slash and the last dot
+  if (lastSlash != std::string::npos && lastDot != std::string::npos &&
+      lastDot > lastSlash) {
+    return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
+  }
+
+  // If no slash or dot found, or dot appears before slash, return the
+  // original path
+  return filePath;
+}
+
+/**
  * @brief The Logging class provides a simple mechanism for logging messages
  * to the standard output.
  *
@@ -206,27 +227,6 @@ public:
     // And report it...
     log(file, func, "Total runtime: %lld ms",
         static_cast<long long>(duration.count()));
-  }
-
-  /**
-   * @brief Get the base filename from a given file path.
-   *
-   * @param filePath The full path to the file.
-   * @return The base filename without the path and extension.
-   */
-  static std::string getBaseFilename(const std::string &filePath) {
-    size_t lastSlash = filePath.find_last_of("/");
-    size_t lastDot = filePath.find_last_of(".");
-
-    // Extract the filename between the last slash and the last dot
-    if (lastSlash != std::string::npos && lastDot != std::string::npos &&
-        lastDot > lastSlash) {
-      return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
-    }
-
-    // If no slash or dot found, or dot appears before slash, return the
-    // original path
-    return filePath;
   }
 
 private:
