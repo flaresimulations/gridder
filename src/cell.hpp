@@ -575,10 +575,12 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
     std::vector<double> masses(count);
     std::vector<double> poss(count * 3);
     if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
-                                      offset, count))
+                                      static_cast<hsize_t>(offset),
+                                      static_cast<hsize_t>(count)))
       error("Failed to read particle masses");
     if (!hdf.readDatasetSlice<double>(std::string("PartType1/Coordinates"),
-                                      poss, offset * 3, count * 3))
+                                      poss, static_cast<hsize_t>(offset * 3),
+                                      static_cast<hsize_t>(count * 3)))
       error("Failed to read particle positions");
 
     // Loop over the particle data making particles

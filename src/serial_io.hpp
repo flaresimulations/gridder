@@ -185,52 +185,23 @@ public:
       H5::DataSet dataset = this->file.openDataSet(datasetName);
       H5::DataSpace dataspace = dataset.getSpace();
 
-      // Get the rank and dimensions of the dataspace
-      int rank = dataspace.getSimpleExtentNdims();
-      std::vector<hsize_t> dims(rank);
-      dataspace.getSimpleExtentDims(dims.data(), NULL);
-
-      // Initialize start and count arrays with appropriate sizes
-      std::vector<hsize_t> start_array(rank,
-                                       0); // Default start at 0 for all dims
-      std::vector<hsize_t> count_array(rank,
-                                       1); // Default count of 1 for all dims
-
-      // Adjust the start and count for the first dimension
-      start_array[0] = start; // Read starting from 'start'
-      count_array[0] = count; // Read 'count' elements along the first dimension
-
-      message("Reading dataset slice: %ld elements starting from %ld", count,
-              start);
-
-      // For higher-dimensional datasets, set counts to the full extent of each
-      // dimension
-      for (int i = 1; i < rank; ++i) {
-        count_array[i] = dims[i];
-      }
+      // Prepare hyperslab parameters for contiguous reading
+      hsize_t start_array[1] = {start}; // Starting position in the dataset
+      hsize_t count_array[1] = {count}; // Number of elements to read
 
       // Select the hyperslab in the file dataspace
-      dataspace.selectHyperslab(H5S_SELECT_SET, count_array.data(),
-                                start_array.data());
+      dataspace.selectHyperslab(H5S_SELECT_SET, count_array, start_array);
 
-      // Define the memory dataspace to match the count_array for data storage
-      H5::DataSpace memspace(rank, count_array.data());
+      // Define the memory dataspace for the contiguous block
+      H5::DataSpace memspace(1, count_array);
 
-      // Calculate the total number of elements to read and resize the buffer
-      hsize_t total_elements =
-          std::accumulate(count_array.begin(), count_array.end(), 1,
-                          std::multiplies<hsize_t>());
-      std::vector<T> buffer(total_elements);
-
-      // Perform the dataset read
-      dataset.read(buffer.data(), this->getHDF5Type<T>(), memspace, dataspace);
-
-      // Move the buffer to the output data
-      data = std::move(buffer);
+      // Prepare the buffer and read data
+      data.resize(count); // Resize to hold 'count' elements
+      dataset.read(data.data(), this->getHDF5Type<T>(), memspace, dataspace);
 
       return true;
     } catch (const H5::Exception &err) {
-      error("Failed to read dataset slice: ", datasetName.c_str(), " ",
+      error("Failed to read dataset slice '%s': %s", datasetName.c_str(),
             err.getCDetailMsg());
       return false;
     }
