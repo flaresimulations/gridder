@@ -181,22 +181,62 @@ public:
   bool readDatasetSlice(const std::string &datasetName, std::vector<T> &data,
                         const hsize_t start, const hsize_t count) {
     try {
-      // Open the dataset and retrieve the dataspace
+      // Open the dataset and retrieve its dataspace
       H5::DataSet dataset = this->file.openDataSet(datasetName);
       H5::DataSpace dataspace = dataset.getSpace();
 
-      // Prepare hyperslab parameters for contiguous reading
-      hsize_t start_array[1] = {start}; // Starting position in the dataset
-      hsize_t count_array[1] = {count}; // Number of elements to read
+      // Get the rank and dimensions of the dataset
+      int rank = dataspace.getSimpleExtentNdims();
+      std::vector<hsize_t> dims(rank);
+      dataspace.getSimpleExtentDims(dims.data(), NULL);
+
+      // Calculate total number of elements in the dataset
+      hsize_t total_elements = std::accumulate(dims.begin(), dims.end(), 1,
+                                               std::multiplies<hsize_t>());
+
+      // Ensure the requested range is within bounds
+      if (start + count > total_elements) {
+        error("Requested slice (start=%llu, count=%llu) is out of dataset "
+              "bounds (total_elements=%llu).",
+              static_cast<unsigned long long>(start),
+              static_cast<unsigned long long>(count),
+              static_cast<unsigned long long>(total_elements));
+        return false;
+      }
+
+      // Calculate the hyperslab start and count for each dimension
+      std::vector<hsize_t> start_array(rank, 0); // Initialize with 0s
+      std::vector<hsize_t> count_array = dims;   // Initialize to read full dims
+
+      hsize_t flat_start = start;
+      hsize_t flat_count = count;
+
+      // Map 1D offset and count to multi-dimensional coordinates
+      for (int i = rank - 1; i >= 0; --i) {
+        hsize_t dim_size = dims[i];
+        start_array[i] =
+            flat_start % dim_size; // Compute offset within this dimension
+        flat_start /= dim_size;
+
+        count_array[i] = (i == rank - 1)
+                             ? flat_count
+                             : 1; // Set count for last dimension, 1 otherwise
+        flat_count =
+            (i == 0)
+                ? flat_count
+                : flat_count / dim_size; // Adjust for multidimensional shape
+      }
 
       // Select the hyperslab in the file dataspace
-      dataspace.selectHyperslab(H5S_SELECT_SET, count_array, start_array);
+      dataspace.selectHyperslab(H5S_SELECT_SET, count_array.data(),
+                                start_array.data());
 
-      // Define the memory dataspace for the contiguous block
-      H5::DataSpace memspace(1, count_array);
+      // Define the memory dataspace for contiguous reading
+      H5::DataSpace memspace(
+          1, &count); // 1D space with `count` elements in memory
 
-      // Prepare the buffer and read data
-      data.resize(count); // Resize to hold 'count' elements
+      // Resize data to hold the read elements
+      data.resize(count);
       dataset.read(data.data(), this->getHDF5Type<T>(), memspace, dataspace);
 
       return true;
