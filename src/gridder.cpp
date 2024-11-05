@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
   // We're done write the output in parallel
   tic();
   try {
-    writeGridFileParallel(cells);
+    writeGridFileParallel(cells, MPI_COMM_WORLD);
   } catch (const std::exception &e) {
     report_error();
     return 1;
