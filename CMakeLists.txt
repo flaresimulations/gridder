@@ -31,9 +31,15 @@ option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
 option(ENABLE_DEBUG "Enable debugging symbols" OFF)
 option(ENABLE_MPI "Enable MPI support" OFF)
 
-# Exit if this is the first pass, we don't want to find any dependencies 
-# before the options are set. 
-if(CMAKE_CFG_INTDIR STREQUAL ".")
+# Flag to indicate the initial setup stage
+set(INITIAL_SETUP ON CACHE BOOL "Initial setup flag to delay configuration")
+
+# If this is the first configuration run, show the options and halt further processing
+if(INITIAL_SETUP)
+  message(STATUS "Initial setup: options are now configured.")
+  message(STATUS "Please press 'c' to configure with chosen options, then 'g' to generate.")
+  # Set the flag to OFF to allow configuration on the next run
+  set(INITIAL_SETUP OFF CACHE BOOL "Initial setup flag to delay configuration" FORCE)
   return()
 endif()
 
