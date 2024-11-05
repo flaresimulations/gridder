@@ -151,6 +151,7 @@ public:
   template <typename... Args>
   void throw_error(const char *file, const char *func, int line,
                    const char *format, Args &&...args) {
+    message("throwing... %s", format);
     // Conditional compilation based on the number of arguments
     if constexpr (sizeof...(args) > 0) {
       // If there are arguments, process them with the format
