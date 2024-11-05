@@ -547,16 +547,14 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
   if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"),
                                 counts)) {
     error("Failed to read cell counts");
-    return;
   }
   if (!hdf.readDataset<int64_t>(std::string("Cells/OffsetsInFile/PartType1"),
-                                offsets))
+                                offsets)) {
     error("Failed to read cell offsets");
+  }
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
-#pragma omp parallel for reduction(+ : total_part_count)                       \
-    shared(offsets, counts, cells)
   for (int cid = 0; cid < metadata.nr_cells; cid++) {
 
     // Get the cell
