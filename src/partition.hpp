@@ -89,8 +89,6 @@ void decomposeCells(std::shared_ptr<Cell> *cells) {
 
     // Add the number of particles in the cell to assigned count
     particles_assigned += cells[i]->part_count;
-    message("Currently assigned %d particles to rank %d", particles_assigned,
-            assign_rank);
 
     // Add the number of particles in the cell to the count for this rank
     if (assign_rank == rank) {
