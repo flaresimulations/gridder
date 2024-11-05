@@ -268,48 +268,45 @@ private:
   std::string getSnapshot() { return _snapshot; }
 };
 
-/**
- * @brief Append multiple arguments to an output stream.
- *
- * This helper function recursively appends each argument in a parameter pack
- * to the provided output stream. Used to format complex error messages.
- *
- * @tparam T The type of the first argument in the pack.
- * @tparam Args The types of the remaining arguments in the pack.
- *
- * @param oss The output string stream where arguments are appended.
- * @param first The first argument to append to the stream.
- * @param args Additional arguments to append to the stream.
- */
-template <typename T, typename... Args>
-void append_to_stream(std::ostringstream &oss, T &&first, Args &&...args) {
-  oss << first;
-  append_to_stream(oss, std::forward<Args>(args)...);
-}
+void append_to_stream(std::ostringstream &) {}
 
 /**
- * @brief Log an error message and throw a runtime exception.
+ * @brief Log an error message with file, function, and line details, then throw
+ * a runtime exception.
  *
- * This function logs a formatted error message with contextual information
- * (file, function, and line) and throws a `std::runtime_error` containing
- * the formatted message. It is used throughout the codebase to report critical
- * errors that should terminate the current function.
+ * This function generates a formatted error message that includes the file,
+ * function, and line where the error occurred, followed by any additional
+ * message or details provided through variadic arguments. The message is
+ * constructed with a fold expression that appends each argument to the output
+ * stream sequentially.
  *
- * @tparam Args Variadic template for message formatting.
+ * @tparam Args Variadic template allowing any number of arguments for message
+ * content.
  *
- * @param file The filename where the error occurred.
- * @param func The function name where the error occurred.
- * @param line The line number where the error occurred.
- * @param args The arguments to be included in the error message.
+ * @param file The name of the file where the error occurred, provided by
+ * __FILE__.
+ * @param func The name of the function where the error occurred, provided by
+ * __func__.
+ * @param line The line number where the error occurred, provided by __LINE__.
+ * @param args Additional arguments that form the error message. Each argument
+ * is appended to the error message sequentially.
  *
  * @throws std::runtime_error containing the formatted error message.
+ *
+ * Usage:
+ * - `error("An error occurred")` logs a simple message.
+ * - `error("Failed to read file ", filename, " at position ", position)` logs a
+ * message with multiple parts.
  */
 template <typename... Args>
 void error(const char *file, const char *func, int line, Args &&...args) {
   std::ostringstream oss;
   oss << "[ERROR][" << getBaseFilename(file) << "." << func << "." << line
       << "]: ";
-  append_to_stream(oss, std::forward<Args>(args)...);
+
+  // Fold expression to append each argument in args to the output stream oss
+  (oss << ... << std::forward<Args>(args));
+
   throw std::runtime_error(oss.str());
 }
 
