@@ -200,6 +200,9 @@ public:
       start_array[0] = start; // Read starting from 'start'
       count_array[0] = count; // Read 'count' elements along the first dimension
 
+      message("Reading dataset slice: %d elements starting from %d", count,
+              start);
+
       // For higher-dimensional datasets, set counts to the full extent of each
       // dimension
       for (int i = 1; i < rank; ++i) {
@@ -227,7 +230,7 @@ public:
 
       return true;
     } catch (const H5::Exception &err) {
-      error("Failed to read dataset slice:", datasetName.c_str(),
+      error("Failed to read dataset slice: ", datasetName.c_str(), " ",
             err.getCDetailMsg());
       return false;
     }

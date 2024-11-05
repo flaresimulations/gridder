@@ -308,7 +308,7 @@ void error(const char *file, const char *func, int line, Args &&...args) {
   (oss << ... << std::forward<Args>(args));
 
   // Add a newline to the end of the message
-  oss << std::endl;
+  oss << " " << std::endl;
 
   throw std::runtime_error(oss.str());
 }
