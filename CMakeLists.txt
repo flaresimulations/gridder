@@ -95,6 +95,7 @@ set(SOURCE_FILES
     src/partition.cpp 
     src/output.cpp
     src/params.cpp
+    src/metadata.cpp
 )
 
 # ================= COMPILATION =================

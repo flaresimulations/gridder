@@ -5,15 +5,10 @@
 #define METADATA_HPP
 
 // Standard includes
-#include <cmath>
-#include <sstream>
 #include <string>
-#include <vector>
 
 // Local includes
-#include "logger.hpp"
 #include "params.hpp"
-#include "particle.hpp"
 
 // Forward declaration
 class Simulation;
@@ -80,22 +75,7 @@ private:
   Metadata &operator=(Metadata &&) = delete; // Move assignment operator
 };
 
-void readMetadata(Parameters *params) {
-
-  // Get the metadata instance
-  Metadata *metadata = &Metadata::getInstance();
-
-  // Get the maximum leaf count
-  metadata->max_leaf_count =
-      params->getParameter<int>("Tree/max_leaf_count", 200);
-
-  // Get the input file path
-  metadata->input_file = getInputFilePath(params, metadata->nsnap);
-
-  // Get the output file path
-  metadata->output_file = getOutputFilePath(params, metadata->nsnap);
-
-  message("Reading data from: %s", metadata->input_file.c_str());
-}
+// Prototype for reading metadata (defined in metadata.cpp)
+void readMetadata(Parameters *params);
 
 #endif // METADATA_HPP
