@@ -17,6 +17,7 @@
 // Local includes
 #include "cell.hpp"
 #include "grid_point.hpp"
+#include "hdf_io.hpp"
 #include "logger.hpp"
 #include "metadata.hpp"
 #include "params.hpp"
@@ -172,7 +173,7 @@ int main(int argc, char *argv[]) {
   // location, geometry and particle counts)
   tic();
   try {
-    getTopCells(sim->cells);
+    getTopCells(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
