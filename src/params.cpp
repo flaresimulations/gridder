@@ -285,3 +285,23 @@ Parameters *parseParams(const std::string &filename) {
 
   return params;
 }
+
+// Explicit template instantiation
+template void Parameters::setParameter<int>(const std::string &key,
+                                            const int &value);
+template void Parameters::setParameter<double>(const std::string &key,
+                                               const double &value);
+template void Parameters::setParameter<std::string>(const std::string &key,
+                                                    const std::string &value);
+template int Parameters::getParameter<int>(const std::string &key,
+                                           int defaultValue);
+template double Parameters::getParameter<double>(const std::string &key,
+                                                 double defaultValue);
+template std::string
+Parameters::getParameter<std::string>(const std::string &key,
+                                      std::string defaultValue);
+template int Parameters::getParameterNoDefault<int>(const std::string &key);
+template double
+Parameters::getParameterNoDefault<double>(const std::string &key);
+template std::string
+Parameters::getParameterNoDefault<std::string>(const std::string &key);
