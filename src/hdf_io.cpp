@@ -541,3 +541,17 @@ template <> hid_t HDF5Helper::getHDF5Type<double[3]>() {
 template <> hid_t HDF5Helper::getHDF5Type<double *>() {
   return H5T_NATIVE_DOUBLE;
 }
+
+// Explicit template instantiations for supported data types
+template bool HDF5Helper::readAttribute<int>(const std::string &objName,
+                                             const std::string &attributeName,
+                                             int &attributeValue);
+template bool
+HDF5Helper::readAttribute<double>(const std::string &objName,
+                                  const std::string &attributeName,
+                                  double &attributeValue);
+template bool HDF5Helper::writeAttribute<int>(const std::string &objName,
+                                              const std::string &attributeName,
+                                              const int &attributeValue);
+template bool HDF5Helper::readDataset<double>(const std::string &datasetName,
+                                              std::vector<double> &data);
