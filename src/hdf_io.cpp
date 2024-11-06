@@ -1,16 +1,14 @@
 // Standard includes
-#include <array>
 #include <hdf5.h> // HDF5 C API
-#include <numeric>
 #include <string>
 #include <type_traits>
-#include <vector>
 
 #ifdef WITH_MPI
 #include <mpi.h>
 #endif
 
 // Local includes
+#include "hdf_io.hpp"
 #include "logger.hpp"
 
 #ifdef WITH_MPI
