@@ -553,5 +553,16 @@ HDF5Helper::readAttribute<double>(const std::string &objName,
 template bool HDF5Helper::writeAttribute<int>(const std::string &objName,
                                               const std::string &attributeName,
                                               const int &attributeValue);
+template bool
+HDF5Helper::writeAttribute<int[3]>(const std::string &objName,
+                                   const std::string &attributeName,
+                                   const int &attributeValue);
+template bool
+HDF5Helper::writeAttribute<double>(const std::string &objName,
+                                   const std::string &attributeName,
+                                   const double &attributeValue);
+template bool HDF5Helper::readDataset<int>(const std::string &datasetName,
+                                           std::vector<int> &data);
+
 template bool HDF5Helper::readDataset<double>(const std::string &datasetName,
                                               std::vector<double> &data);
