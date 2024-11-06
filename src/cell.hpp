@@ -30,40 +30,51 @@ class Simulation;
 
 class Cell : public std::enable_shared_from_this<Cell> {
 public:
-  // Cell metadata members
+  //! Cell location
   double loc[3];
+
+  //! Cell width
   double width[3];
+
+  //! The number of particles in the cell
   size_t part_count;
+
+  //! The mass of the cell (i.e. the sum of particle masses). This is useful
+  // for adding mass to grid points entirely inside a kernel without looping
+  // over particles.
   double mass;
+
+  //! Flag for whether the cell has been split (i.e. has children)
   bool is_split;
 
-  // MPI information
+#ifdef WITH_MPI
+  //! What rank is this cell on?
   int rank = 0;
+
+  //! Do we border another rank? If this is true we will need to send our
+  // particles to the neighbouring rank.
   bool is_proxy = false;
+#endif
 
-  // Peano-hilbert index
-  int64_t ph_ind;
-
-  // Cell particle members
-  // NOTE: particles are stored such that they are in child cell order
+  //! Particles within the cell
   std::vector<std::shared_ptr<Particle>> particles;
 
-  // Grid points in cell
+  //! Grid points within the cell
   std::vector<std::shared_ptr<GridPoint>> grid_points;
 
-  // Child cells
+  //! Child cells
   std::array<std::shared_ptr<Cell>, 8> children;
 
-  // Parent cell
+  //! Parent cell
   std::shared_ptr<Cell> parent;
 
-  // Pointer to the top level cell
+  //! Pointer to the top level cell
   std::shared_ptr<Cell> top;
 
-  // Store the neighbouring cells
+  //! Store the neighbouring cells
   std::vector<std::shared_ptr<Cell>> neighbours;
 
-  // Depth in the tree
+  //! Depth in the tree
   int depth;
 
   // Constructor
