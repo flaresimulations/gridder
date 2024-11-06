@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
   // We're done write the output in serial
   tic();
   try {
-    writeGridFileSerial(sim->cells);
+    writeGridFileSerial(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
