@@ -43,18 +43,17 @@ Grid *createGrid(Parameters *params) {
 /**
  * @brief Create grid points spanning the whole simulation volume
  *
- * @param cells The cells in the simulation
- * @return std::vector<std::shared_ptr<GridPoint>> The grid points
+ * @param sim The simulation object
+ * @param grid The grid object
  */
-static std::vector<std::shared_ptr<GridPoint>>
-createGridPointsEverywhere(std::shared_ptr<Cell> *cells, Simulation *sim) {
+static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
   // Get the grid size and simulation box size
-  int grid_cdim = metadata->grid_cdim;
+  int grid_cdim = grid->grid_cdim;
   double *dim = sim->dim;
-  int n_grid_points = metadata->n_grid_points;
+  int n_grid_points = grid->n_grid_points;
 
   // Warn the user the spacing will be uneven if the simulation isn't cubic
   if (dim[0] != dim[1] || dim[0] != dim[2]) {
@@ -69,10 +68,6 @@ createGridPointsEverywhere(std::shared_ptr<Cell> *cells, Simulation *sim) {
 
   message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
           grid_spacing[2]);
-
-  // Create a vector to store the grid points
-  std::vector<std::shared_ptr<GridPoint>> grid_points;
-  grid_points.reserve(n_grid_points);
 
   // Create the grid points (we'll loop over every individual grid point for
   // better parallelism)
@@ -91,11 +86,11 @@ createGridPointsEverywhere(std::shared_ptr<Cell> *cells, Simulation *sim) {
                      (k + 0.5) * grid_spacing[2]};
 
 #ifdef WITH_MPI
-    // In MPI land we need to make sure we own the cell this grid point
-    // belongs in
-    std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
-    if (cell->rank != metadata->rank)
+    // Skip grid points that are in cells we don't own
+    std::shared_ptr<Cell> cell = getCellContainingPoint(loc);
+    if (cell->rank != metadata->rank) {
       continue;
+    }
 #endif
 
 #pragma omp critical
@@ -103,9 +98,41 @@ createGridPointsEverywhere(std::shared_ptr<Cell> *cells, Simulation *sim) {
       // Create the grid point and add it to the vector
       // TODO: We could use a tbb::concurrent_vector for grid points to
       // avoid the need for a critical section here
-      grid_points.push_back(std::make_shared<GridPoint>(loc, index));
+      grid->grid_points.push_back(std::make_shared<GridPoint>(loc, index));
     }
   }
 
-  return grid_points;
+  message("Created %d grid points", n_grid_points);
+}
+
+/**
+ * @brief Create grid points from a file
+ *
+ * @param sim The simulation object
+ * @param grid The grid object
+ */
+static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
+  error("%s is not implemented", __func__);
+}
+
+/**
+ * @brief Create the grid points
+ *
+ * This function will create the grid points for the simulation. This can be
+ * done in two ways:
+ *
+ * 1. Create grid points spanning the whole simulation volume.
+ * 2. Create grid points from a file of positions.
+ *
+ * @param sim The simulation object
+ * @param grid The grid object
+ */
+void createGridPoints(Simulation *sim, Grid *grid) {
+
+  // Call the appropriate function to create the grid points
+  if (grid->grid_from_file) {
+    createGridPointsFromFile(sim, grid);
+  } else {
+    createGridPointsEverywhere(sim, grid);
+  }
 }

@@ -208,6 +208,10 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
     // Get the cell
     std::shared_ptr<Cell> cell = cells[cid];
 
+    // Skip unuseful cells
+    if (!cell->is_useful)
+      continue;
+
 #ifdef WITH_MPI
     // Skip cells that aren't on this rank
     if (cell->rank != metadata.rank)

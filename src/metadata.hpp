@@ -29,9 +29,11 @@ public:
     return instance;
   }
 
+#ifdef WITH_MPI
   // MPI information (set in main.parseCmdArgs)
   int rank;
   int size;
+#endif
 
   // Parameter file path (set in main.parseCmdArgs)
   std::string param_file;
@@ -51,6 +53,17 @@ public:
 
   //! Pointer to the grid object (set after Grid instantiation)
   Grid *grid;
+
+#ifdef WITH_MPI
+  //! How many cells do we have locally?
+  int nr_local_cells;
+
+  //! How many particles do we have locally?
+  int nr_local_particles;
+
+  //! Index of first particle on this rank
+  int first_local_part_ind = -1;
+#endif
 
   // Deleted copy constructor and copy assignment to prevent duplication
   Metadata(const Metadata &) = delete;            // Copy constructor

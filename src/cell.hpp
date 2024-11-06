@@ -6,13 +6,9 @@
 
 // Standard includes
 #include <array>
-#include <atomic>
-#include <cmath>
-#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <omp.h>
-#include <utility>
 #include <vector>
 
 #ifdef WITH_MPI
@@ -20,7 +16,6 @@
 #endif
 
 // Local includes
-#include "logger.hpp"
 #include "metadata.hpp"
 #include "particle.hpp"
 
@@ -56,6 +51,10 @@ public:
   // particles to the neighbouring rank.
   bool is_proxy;
 #endif
+
+  //! Flag for whether the cell is "useful" (i.e. contains grid points or
+  // is a neighbour of a useful cell)
+  bool is_useful = false;
 
   //! Particles within the cell
   std::vector<std::shared_ptr<Particle>> particles;
@@ -140,5 +139,6 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid);
 
 // Prototypes for functions defined in cell_search.cpp
 void getKernelMasses(Simulation *sim, Grid *grid);
+void limitToUsefulCells(Simulation *sim);
 
 #endif // CELL_HPP

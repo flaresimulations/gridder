@@ -3,11 +3,7 @@
 // overdensity.
 
 // Standard includes
-#include <cmath>
 #include <iostream>
-#include <regex>
-#include <sstream>
-#include <vector>
 
 // MPI includes
 #ifdef WITH_MPI
@@ -188,7 +184,7 @@ int main(int argc, char *argv[]) {
   // Decomose the cells over the MPI ranks
   tic();
   try {
-    decomposeCells(sim->cells);
+    partitionCells(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
@@ -196,21 +192,55 @@ int main(int argc, char *argv[]) {
   toc("Decomposing cells");
 #endif
 
+  // Create the grid points (either from a file or tesselating the volume)
+  tic();
+  try {
+    createGridPoints(sim, grid);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+  toc("Creating grid points");
+
+  // Assign the grid points to the cells
+  tic();
+  try {
+    assignGridPointsToCells(sim, grid);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+  toc("Assigning grid points to cells");
+
+  // Now that we know what grid points go where flag which cells we care about
+  // (i.e. those that contain grid points or are neighbours of cells that
+  // contain grid points)
+  tic();
+  try {
+    limitToUsefulCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+  toc("Flagging useful cells");
+
   // Now we know which cells are where we can make the grid points, and assign
   // them and the particles to the cells
   tic();
   try {
-    assignPartsAndPointsToCells(sim->cells);
+    assignPartsToCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Assigning particles and grid points to cells");
 
+  // TODO: Communicate proxies!
+
   // And before we can actually get going we need to split the cells
   tic();
   try {
-    splitCells(sim->cells);
+    splitCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
@@ -222,7 +252,7 @@ int main(int argc, char *argv[]) {
   // points within the maximum kernel radius
   tic();
   try {
-    getKernelMasses(sim->cells);
+    getKernelMasses(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;

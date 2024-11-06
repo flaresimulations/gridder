@@ -1,6 +1,10 @@
 // Standard includes
+#include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdlib>
 #include <memory>
+#include <string>
 #include <vector>
 
 // Local includes
@@ -318,6 +322,34 @@ void assignPartsToCells(Simulation *sim) {
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
 
+#ifdef WITH_MPI
+  // Read the particle data slice for this rank
+  std::vector<double> masses;
+  std::array<int, 1> mass_dims = {metadata->nr_local_particles};
+  if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses,
+                               metadata->first_local_part_ind,
+                               mass_dims.data())) {
+    error("Failed to read particle masses");
+  }
+  std::vector<double> poss;
+  std::array<int, 2> pos_dims = {metadata->nr_local_particles, 3};
+  if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), poss,
+                               metadata->first_local_part_ind,
+                               pos_dims.data())) {
+    error("Failed to read particle positions");
+  }
+#else
+  // Read the particle data all at once
+  std::vector<double> masses;
+  if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses)) {
+    error("Failed to read particle masses");
+  }
+  std::vector<double> poss;
+  if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), poss)) {
+    error("Failed to read particle positions");
+  }
+#endif
+
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
   for (int cid = 0; cid < sim->nr_cells; cid++) {
@@ -325,33 +357,32 @@ void assignPartsToCells(Simulation *sim) {
     // Get the cell
     std::shared_ptr<Cell> cell = cells[cid];
 
+    // Skip unuseful cells
+    if (!cell->is_useful)
+      continue;
+
 #ifdef WITH_MPI
     // Skip if this cell isn't on this rank and isn't a proxy
-    if (cell->rank != metadata.rank && !cell->is_proxy)
+    if (cell->rank != metadata->rank && !cell->is_proxy)
       continue;
 #endif
 
     // Get the particle slice start and length
-    const int offset = offsets[cid];
-    const int count = counts[cid];
+    int offset = offsets[cid];
+    int count = counts[cid];
     total_part_count += count;
 
-    // Read the masses and positions for this cell
-    std::array<hsize_t, 1> mass_start = {static_cast<hsize_t>(offset)};
-    std::array<hsize_t, 1> mass_count = {static_cast<hsize_t>(count)};
-    std::vector<double> masses(count);
-    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
-                                      mass_start, mass_count))
-      error("Failed to read particle masses");
-    std::array<hsize_t, 2> pos_start = {static_cast<hsize_t>(offset), 0};
-    std::array<hsize_t, 2> pos_count = {static_cast<hsize_t>(count), 3};
-    std::vector<double> poss(count * 3);
-    if (!hdf.readDatasetSlice<double>(std::string("PartType1/Coordinates"),
-                                      poss, pos_start, pos_count))
-      error("Failed to read particle positions");
+#ifdef WITH_MPI
+    // Remove the offset to this rank
+    offset -= metadata->first_local_part_ind;
+#endif
+
+    // Skip empty cells
+    if (count == 0)
+      continue;
 
     // Loop over the particle data making particles
-    for (int p = 0; p < count; p++) {
+    for (int p = offset; p < offset + count; p++) {
 
       // Get the mass and position of the particle
       const double mass = masses[p];
@@ -371,21 +402,13 @@ void assignPartsToCells(Simulation *sim) {
       // Attach the particle to the cell
       cell->particles.push_back(part);
     }
-
-#ifdef DEBUGGING_CHECKS
-    // Double check something hasn't gone wrong with the particle count
-    if (cell->particles.size() != cell->part_count)
-      error("Particle count mismatch in cell %d (particles.size = %d, "
-            "cell->part_count = %d)",
-            cid, cell->particles.size(), cell->part_count);
-#endif
   }
 
-  // Compute the total mass in the simulation from the cells
+  // Compute the total mass in the simulation from the masses vector
   double total_mass = 0.0;
 #pragma omp parallel for reduction(+ : total_mass)
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
-    total_mass += cells[cid]->mass;
+  for (double mass : masses) {
+    total_mass += mass;
   }
 
 #ifdef WITH_MPI
@@ -476,4 +499,52 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
     }
   }
 #endif
+}
+
+/**
+ * @brief Loop over the cells and label the useful ones.
+ *
+ * A useful cell is one that either contains a grid point or is a neighbour
+ * of a cell that contains a grid point.
+ *
+ * @param sim The simulation object.
+ */
+void limitToUsefulCells(Simulation *sim) {
+
+  // Get the metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Get the cells
+  std::shared_ptr<Cell> *cells = sim->cells;
+
+  // Loop over the cells and label the useful ones
+  for (int cid = 0; cid < sim->nr_cells; cid++) {
+
+    // Get the cell
+    std::shared_ptr<Cell> cell = cells[cid];
+
+    // Check if the cell is useful
+    if (cell->grid_points.size() > 0) {
+      cell->is_useful = true;
+    } else {
+      continue;
+    }
+
+    // If we got here we have a useful cell, so we need to label the neighbours
+    // as useful too
+    for (std::shared_ptr<Cell> neighbour : cell->neighbours) {
+      neighbour->is_useful = true;
+    }
+  }
+
+  // Count the number of useful cells
+  int useful_count = 0;
+  for (int cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid]->is_useful) {
+      useful_count++;
+    }
+  }
+
+  message("Number of useful cells: %d (out of %d)", useful_count,
+          sim->nr_cells);
 }

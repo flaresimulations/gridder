@@ -167,8 +167,5 @@ public:
 // Prototypes for grid construction (used in construct_grid_points.cpp)
 double nearest(const double dx, const double box_size);
 Grid *createGrid(Parameters *params);
-std::vector<std::shared_ptr<GridPoint>>
-createGridPointsFromFile(Simulation *sim);
-std::vector<std::shared_ptr<GridPoint>>
-createGridPointsEverywhere(std::shared_ptr<Cell> *cells);
+void createGridPoints(Simulation *sim, Grid *grid);
 #endif // GRID_POINT_HPP
