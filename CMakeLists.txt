@@ -49,22 +49,17 @@ endif()
 # Check for OpenMP support
 find_package(OpenMP REQUIRED)
 
+# Check for HDF5 (we use the C API)
+find_package(HDF5 REQUIRED COMPONENTS C HL)
+
 # MPI
 if(ENABLE_MPI)
   find_package(MPI REQUIRED)
-
-  # Find HDF5 (for parallel support we use the C API)
-  find_package(HDF5 REQUIRED COMPONENTS C HL)
 
   # Ensure we have parallel HDF5 
   if(NOT HDF5_IS_PARALLEL)
     message(FATAL_ERROR "MPI support requested but HDF5 was not built with parallel support.") 
   endif() 
-else() 
-
-  # Find HDF5 (for serial support we use the C++ API)
-  find_package(HDF5 REQUIRED COMPONENTS CXX HL)
-
 endif()
 
 # ================= COMPILER FLAGS =================
