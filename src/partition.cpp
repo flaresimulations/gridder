@@ -8,6 +8,7 @@
 #include "partition.hpp"
 #include "simulation.hpp"
 
+#ifdef WITH_MPI
 void partitionCells(Simulation *sim, Grid *grid) {
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
@@ -61,3 +62,4 @@ void partitionCells(Simulation *sim, Grid *grid) {
   message("Rank %d has %d local particles", rank, rank_part_counts[rank]);
   message("Rank %d has %d local cells", rank, metadata->nr_local_cells);
 }
+#endif
