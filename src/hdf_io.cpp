@@ -22,10 +22,8 @@
  * @param file_info Optional MPI_Info object for additional hints (default is
  * MPI_INFO_NULL).
  */
-HDF5Helper(const std::string &filename,
-           unsigned int accessMode = H5F_ACC_RDONLY,
-           MPI_Comm communicator = MPI_COMM_WORLD,
-           MPI_Info file_info = MPI_INFO_NULL)
+HDF5Helper(const std::string &filename, unsigned int accessMode,
+           MPI_Comm communicator, MPI_Info file_info)
     : comm(communicator), info(file_info), file_open(true), file_closed(false) {
   // Set up the HDF5 file access property list for parallel I/O
   hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -52,8 +50,7 @@ HDF5Helper(const std::string &filename,
  * @param filename The name of the HDF5 file to open.
  * @param accessMode The file access mode, e.g., H5F_ACC_RDONLY, H5F_ACC_RDWR.
  */
-HDF5Helper::HDF5Helper(const std::string &filename,
-                       unsigned int accessMode = H5F_ACC_RDONLY)
+HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
     : file_open(true), file_closed(false) {
   if (accessMode == H5F_ACC_RDONLY) {
     file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
