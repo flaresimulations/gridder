@@ -133,14 +133,12 @@ void getTopCells(Simulation *sim, Grid *grid);
 void splitCells(Simulation *sim);
 
 // Prototypes for functions defined in cell.cpp
-std::shared_ptr<Cell> getCellContainingPoint(const std::shared_ptr<Cell> *cells,
-                                             const double pos[3]);
-std::shared_ptr<Cell>
-getCellIndexContainingPoint(const std::shared_ptr<Cell> *cells,
-                            const double pos[3]);
-void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells);
+std::shared_ptr<Cell> getCellContainingPoint(const double pos[3]);
+int getCellIndexContainingPoint(const double pos[3]);
+void assignPartsToCells(Simulation *sim);
+void assignGridPointsToCells(Simulation *sim, Grid *grid);
 
 // Prototypes for functions defined in cell_search.cpp
-void getKernelMasses(std::shared_ptr<Cell> *cells);
+void getKernelMasses(Simulation *sim, Grid *grid);
 
 #endif // CELL_HPP

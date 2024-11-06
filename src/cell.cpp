@@ -1,7 +1,15 @@
 // Standard includes
+#include <array>
+#include <memory>
+#include <vector>
 
 // Local includes
 #include "cell.hpp"
+#include "grid_point.hpp"
+#include "hdf_io.hpp"
+#include "metadata.hpp"
+#include "particle.hpp"
+#include "simulation.hpp"
 
 /**
  * @brief Is this cell within a grid point's kernel radius?
@@ -12,11 +20,12 @@
  * @return True if the cell is within the kernel radius of the grid point,
  * false otherwise.
  */
-bool inKernel(std::shared_ptr<GridPoint> grid_point, const double kernel_rad2) {
+bool Cell::inKernel(std::shared_ptr<GridPoint> grid_point,
+                    const double kernel_rad2) {
 
   // Get the boxsize from the metadata
-  Metadata &metadata = Metadata::getInstance();
-  double *dim = metadata.dim;
+  Metadata *metadata = &Metadata::getInstance();
+  double *dim = metadata->sim->dim;
 
   // Get the minimum and maximum positions for the cell.
   const double thisx_min = this->loc[0];
@@ -52,12 +61,12 @@ bool inKernel(std::shared_ptr<GridPoint> grid_point, const double kernel_rad2) {
  * @return True if the cell is outside the kernel radius of the grid point,
  * false otherwise.
  */
-bool outsideKernel(std::shared_ptr<GridPoint> grid_point,
-                   const double kernel_rad2) {
+bool Cell::outsideKernel(std::shared_ptr<GridPoint> grid_point,
+                         const double kernel_rad2) {
 
   // Get the boxsize from the metadata
-  Metadata &metadata = Metadata::getInstance();
-  double *dim = metadata.dim;
+  Metadata *metadata = &Metadata::getInstance();
+  double *dim = metadata->sim->dim;
 
   // Get cell centre and diagonal
   double cell_centre[3] = {this->loc[0] + this->width[0] / 2.0,
@@ -107,15 +116,18 @@ bool outsideKernel(std::shared_ptr<GridPoint> grid_point,
   return r2 > kernel_rad2;
 }
 
-// method to split this cell into 8 children (constructing an octree)
-void split() {
+/**
+ * @brief Split the cell into 8 children.
+ */
+void Cell::split() {
 
-  // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
+  // Get the metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+  Simulation *sim = metadata->sim;
 
   // Update the max depth
-  if (this->depth > metadata.max_depth)
-    metadata.max_depth = this->depth;
+  if (this->depth > sim->max_depth)
+    sim->max_depth = this->depth;
 
 #ifdef DEBUGGING_CHECKS
   // Ensure all the particles within this cell are in the correct place
@@ -146,7 +158,7 @@ void split() {
                          this->width[2] / 2.0};
 
   // Check we actually need to split
-  if (this->part_count < metadata.max_leaf_count &&
+  if (this->part_count < metadata->max_leaf_count &&
       this->grid_points.size() <= 1) {
     this->is_split = false;
     return;
@@ -173,8 +185,10 @@ void split() {
         std::shared_ptr<Cell> child = std::make_shared<Cell>(
             new_loc, new_width, shared_from_this(), this->top);
 
+#ifdef WITH_MPI
         // Set the rank of the child
         child->rank = this->rank;
+#endif
 
         // Attach the particles to the child and count them while we're at
         // it
@@ -237,49 +251,76 @@ void split() {
 #endif
 }
 
-// Get the cell that contains a given point
-std::shared_ptr<Cell> getCellContainingPoint(const std::shared_ptr<Cell> *cells,
-                                             const double pos[3]) {
+/**
+ * @brief Get the cell containing a position.
+ *
+ * @param pos The position of the point.
+ *
+ * @return The cell containing the point.
+ */
+std::shared_ptr<Cell> getCellContainingPoint(const double pos[3]) {
 
-  // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
+  // Get the metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+  Simulation *sim = metadata->sim;
 
   // Get the cell index
-  int i = static_cast<int>(pos[0] / metadata.width[0]);
-  int j = static_cast<int>(pos[1] / metadata.width[1]);
-  int k = static_cast<int>(pos[2] / metadata.width[2]);
+  int i = static_cast<int>(pos[0] / sim->width[0]);
+  int j = static_cast<int>(pos[1] / sim->width[1]);
+  int k = static_cast<int>(pos[2] / sim->width[2]);
 
   // Get the cell index
-  int cid =
-      (i * metadata.cdim[1] * metadata.cdim[2]) + (j * metadata.cdim[2]) + k;
+  int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
 
   // Return the cell
-  return cells[cid];
+  return sim->cells[cid];
 }
 
-void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
+/**
+ * @brief Get the cell index containing a position.
+ *
+ * @param pos The position of the point.
+ *
+ * @return The cell index containing the point.
+ */
+int getCellIndexContainingPoint(const double pos[3]) {
+
+  // Get the metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+  Simulation *sim = metadata->sim;
+
+  // Get the cell index
+  int i = static_cast<int>(pos[0] / sim->width[0]);
+  int j = static_cast<int>(pos[1] / sim->width[1]);
+  int k = static_cast<int>(pos[2] / sim->width[2]);
+
+  // Get the cell index
+  return (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
+}
+
+/**
+ * @brief Assign particles to cells.
+ *
+ * @param sim The simulation object.
+ */
+void assignPartsToCells(Simulation *sim) {
 
   // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Unpack the cell particle counts and offsets
+  std::vector<int> &counts = sim->cell_part_counts;
+  std::vector<int> &offsets = sim->cell_part_starts;
+
+  // Get the cells
+  std::shared_ptr<Cell> *cells = sim->cells;
 
   // Open the HDF5 file
-  HDF5Helper hdf(metadata.input_file);
-
-  // Get the dark matter offsets and counts for each simulation cell
-  std::vector<int64_t> offsets;
-  std::vector<int64_t> counts;
-  if (!hdf.readDataset<int64_t>(std::string("Cells/Counts/PartType1"),
-                                counts)) {
-    error("Failed to read cell counts");
-  }
-  if (!hdf.readDataset<int64_t>(std::string("Cells/OffsetsInFile/PartType1"),
-                                offsets)) {
-    error("Failed to read cell offsets");
-  }
+  HDF5Helper hdf(metadata->input_file);
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
-  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+  for (int cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
     std::shared_ptr<Cell> cell = cells[cid];
@@ -340,24 +381,10 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 #endif
   }
 
-#ifdef DEBUGGING_CHECKS
-  // Make sure we have attached all the particles
-  size_t total_cell_part_count = 0;
-  for (std::shared_ptr<Cell> cell : cells) {
-    total_cell_part_count += cell->part_count;
-  }
-  if (total_part_count != total_cell_part_count) {
-    error("Particle count mismatch (total_part_count = %d, "
-          "total_cell_part_count = "
-          "%d)",
-          total_part_count, total_cell_part_count);
-  }
-#endif
-
   // Compute the total mass in the simulation from the cells
   double total_mass = 0.0;
 #pragma omp parallel for reduction(+ : total_mass)
-  for (int cid = 0; cid < metadata.nr_cells; cid++) {
+  for (int cid = 0; cid < sim->nr_cells; cid++) {
     total_mass += cells[cid]->mass;
   }
 
@@ -370,53 +397,23 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 #endif
 
   // Compute the mean comoving density
-  metadata.mean_density =
-      total_mass / (metadata.dim[0] * metadata.dim[1] * metadata.dim[2]);
+  sim->mean_density = total_mass / sim->volume;
 
-  message("Mean comoving density: %e 10**10 Msun / cMpc^3",
-          metadata.mean_density);
-
-  // With the particles done we can now move on to creating and assigning grid
-  // points
-
-  // Create the grid points (we'll loop over every individual grid point for
-  // better parallelism)
-#pragma omp parallel for
-  for (int gid = 0; gid < nr_grid_points; gid++) {
-
-    // Convert the flat index to the ijk coordinates of the grid point
-    int i = gid / (grid_cdim * grid_cdim);
-    int j = (gid / grid_cdim) % grid_cdim;
-    int k = gid % grid_cdim;
-
-    // NOTE: Important to see here we are adding 0.5 to the grid point so
-    // the grid points start at 0.5 * grid_spacing and end at
-    // (grid_cdim - 0.5) * grid_spacing
-    double loc[3] = {(i + 0.5) * grid_spacing[0], (j + 0.5) * grid_spacing[1],
-                     (k + 0.5) * grid_spacing[2]};
-    int index[3] = {i, j, k};
-
-    // Get the cell this grid point is in
-    std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
-
-    // Skip if this grid point isn't on this rank
-    if (cell->rank != metadata.rank)
-      continue;
-
-    // Create the grid point
-    std::shared_ptr<GridPoint> grid_point =
-        std::make_shared<GridPoint>(loc, index);
-
-#pragma omp critical
-    {
-      // And attach the grid point to the cell
-      // TODO: We could use a tbb::concurrent_vector for grid points to
-      // avoid the need for a critical section here
-      cell->grid_points.push_back(grid_point);
-    }
-  }
+  message("Mean comoving density: %e 10**10 Msun / cMpc^3", sim->mean_density);
 
 #ifdef DEBUGGING_CHECKS
+  // Make sure we have attached all the particles
+  size_t total_cell_part_count = 0;
+  for (std::shared_ptr<Cell> cell : cells) {
+    total_cell_part_count += cell->part_count;
+  }
+  if (total_part_count != total_cell_part_count) {
+    error("Particle count mismatch (total_part_count = %d, "
+          "total_cell_part_count = "
+          "%d)",
+          total_part_count, total_cell_part_count);
+  }
+
   // Check particles are in the right cells
   for (std::shared_ptr<Cell> cell : cells) {
     for (std::shared_ptr<Particle> part : cell->particles) {
@@ -429,6 +426,42 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
         error("Particle not in correct cell");
     }
   }
+#endif
+}
+
+/**
+ * @brief Assign grid points to cells.
+ *
+ * @param cells The cells to assign grid points to.
+ */
+void assignGridPointsToCells(Simulation *sim, Grid *grid) {
+
+  // Get the metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Get the cells
+  std::shared_ptr<Cell> *cells = sim->cells;
+
+  // Get the grid points
+  std::shared_ptr<GridPoint> *grid_points = grid->grid_points;
+
+#pragma omp parallel for
+  // Loop over the grid points assigning them to cells
+  for (int gid = 0; gid < grid->n_grid_points; gid++) {
+
+    // Get the grid point
+    std::shared_ptr<GridPoint> grid_point = grid_points[gid];
+
+    // Get the cell this grid point is in
+    std::shared_ptr<Cell> cell = getCellContainingPoint(grid_point->loc);
+
+#pragma omp critical
+    {
+      // Attach the grid point to the cell
+      cell->grid_points.push_back(grid_point);
+    }
+  }
+#ifdef DEBUGGING_CHECKS
 
   // Check grid points are in the right cells
   for (std::shared_ptr<Cell> cell : cells) {
