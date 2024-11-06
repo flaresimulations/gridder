@@ -80,20 +80,25 @@ int main(int argc, char *argv[]) {
 #endif
 
   // Read the parameters from the parameter file
-  Parameters params;
+  Parameters *params;
   tic();
   try {
-    parseParams(params, param_file);
+    params = parseParams(param_file);
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
   }
   toc("Reading parameters");
 
+#ifdef DEBUGGING_CHECKS
+  // Print the parameters
+  params->printAllParameters();
+#endif
+
   // Setup the metadata we need to carry around
   tic();
   try {
-    readMetadata();
+    readMetadata(params);
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
@@ -110,6 +115,18 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   toc("Reading simulation data");
+
+  // Get the grid object (this doesn't initialise the grid points yet, just the
+  // object)
+  Grid *grid;
+  tic();
+  try {
+    grid = createGrid(params);
+  } catch (const std::exception &e) {
+    error(e.what());
+    return 1;
+  }
+  toc("Creating grid object");
 
   // Define the top level cells (this will initialise the top level with their
   // location, geometry and particle counts)

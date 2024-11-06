@@ -11,12 +11,9 @@
 #include <vector>
 
 // Local includes
+#include "logger.hpp"
+#include "params.hpp"
 #include "particle.hpp"
-#ifdef WITH_MPI
-#include "parallel_io.hpp"
-#else
-#include "serial_io.hpp"
-#endif
 
 // This is a Singleton class to store the necessary metadata used in the
 // zoom_region_selection library.
@@ -39,18 +36,8 @@ public:
   // The snapshot number we are working with
   int nsnap;
 
-  // Kernel information
-  std::vector<double> kernel_radii;
-  int nkernels;
-  double max_kernel_radius;
-  double max_kernel_radius2;
-
   // Tree properties
   int max_leaf_count;
-
-  // Grid properties
-  int grid_cdim;
-  int n_grid_points;
 
   // Deleted copy constructor and copy assignment to prevent duplication
   Metadata(const Metadata &) = delete;            // Copy constructor
@@ -67,27 +54,25 @@ private:
   Metadata &operator=(Metadata &&) = delete; // Move assignment operator
 };
 
-void readMetadata() {
+void readMetadata(Parameters *params) {
 
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
 
-  // Count the grid points
-  metadata->n_grid_points =
-      metadata->grid_cdim * metadata->grid_cdim * metadata->grid_cdim;
+  // Get the maximum leaf count
+  metadata->max_leaf_count =
+      params->getParameter<int>("Tree/max_leaf_count", 200);
 
-  // Report interesting things
-  std::stringstream ss;
-  ss << "Kernel radii (nkernels=%d):";
-  for (int i = 0; i < metadata->nkernels; i++) {
-    ss << " " << metadata->kernel_radii[i] << ",";
-  }
-  message(ss.str().c_str(), metadata->nkernels);
-  message("Max kernel radius: %f", metadata->max_kernel_radius);
+  // Get the snapshot number
+  metadata->nsnap = params->getParameter<int>("Snapshot/nsnap", 0);
 
-  // Set the maximum kernel radius squared
-  metadata->max_kernel_radius2 =
-      metadata->max_kernel_radius * metadata->max_kernel_radius;
+  // Get the input file path
+  metadata->input_file = getInputFilePath(params, metadata->nsnap);
+
+  // Get the output file path
+  metadata->output_file = getOutputFilePath(params, metadata->nsnap);
+
+  message("Reading data from: %s", metadata->input_file.c_str());
 }
 
 #endif // METADATA_HPP
