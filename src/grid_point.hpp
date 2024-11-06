@@ -5,79 +5,63 @@
 #define GRID_POINT_HPP
 
 // Standard includes
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 // Local includes
 #include "cell.hpp"
-#include "metadata.hpp"
+#include "params.hpp"
 #include "particle.hpp"
-
-/**
- * @brief Find the smallest distance dx along one axis within a box of size
- * box_size
- *
- * This macro evaluates its arguments exactly once.
- *
- * Only wraps once. If dx > 2b, the returned value will be larger than b.
- * Similarly for dx < -b.
- *
- */
-double nearest(const double dx, const double box_size) {
-
-  return ((dx > 0.5 * box_size)
-              ? (dx - box_size)
-              : ((dx < -0.5 * box_size) ? (dx + box_size) : dx));
-}
+#include "simulation.hpp"
 
 class GridPoint {
 public:
-  // Grid point metadata members
+  //! The location of the grid point
   double loc[3];
-  int index[3];
-  int count = 0;
 
-  // Define a map to accumulate the mass of particles within each kernel
-  // radius
-  std::map<double, double> mass_map;
+  //! The count of particles in each kernel radius
+  std::unordered_map<double, double> count_map;
+
+  //! The mass of particles in each kernel radius
+  std::unordered_map<double, double> mass_map;
 
   // Constructor
-  GridPoint(double loc[3], int index[3]) {
+  GridPoint(double loc[3]) {
     this->loc[0] = loc[0];
     this->loc[1] = loc[1];
     this->loc[2] = loc[2];
-    this->index[0] = index[0];
-    this->index[1] = index[1];
-    this->index[2] = index[2];
-
-    // Zero the mass maps
-    Metadata &metadata = Metadata::getInstance();
-    for (int i = 0; i < metadata.kernel_radii.size(); i++) {
-      this->mass_map[metadata.kernel_radii[i]] = 0.0;
-    }
   }
 
-  // Method to add a particle to the grid point
+  /**
+   * @brief Add a particle to the grid point
+   *
+   * @param part The particle to add
+   * @param kernel_radius The kernel radius
+   */
   void add_particle(std::shared_ptr<Particle> part, double kernel_radius) {
-    // Count that we've added a particle
-    this->count++;
-
+    this->count_map[kernel_radius]++;
     this->mass_map[kernel_radius] += part->mass;
   }
 
-  // Method to add a whole cell to the grid point
+  /**
+   * @brief Add a cell to the grid point
+   *
+   * @param cell_part_count The number of particles in the cell
+   * @param cell_mass The mass contained in the cell
+   * @param kernel_radius The kernel radius
+   */
   void add_cell(const int cell_part_count, const double cell_mass,
                 double kernel_radius) {
-    // Count that we've added a particle
-    this->count += cell_part_count;
-
+    this->count_map[kernel_radius] += cell_part_count;
     this->mass_map[kernel_radius] += cell_mass;
   }
 
   // Method to get over density inside kernel radius
-  double getOverDensity(const double kernel_radius) {
+  double getOverDensity(const double kernel_radius, Simulation *sim) {
     // Compute the volume of the kernel
     const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
 
@@ -85,79 +69,106 @@ public:
     const double density = this->mass_map[kernel_radius] / kernel_volume;
 
     // Compute the over density
-    return (density / Metadata::getInstance().mean_density) - 1;
+    return (density / sim->mean_density) - 1;
   }
 };
 
-std::vector<std::shared_ptr<GridPoint>> createGridPointsFromFile() {}
+class Grid {
+public:
+  //! How many kernels are we using?
+  int nkernels;
 
-/**
- * @brief Create grid points at every location in the simulation box
- *
- * @param cells The cells in the simulation
- * @return std::vector<std::shared_ptr<GridPoint>> The grid points
- */
-std::vector<std::shared_ptr<GridPoint>>
-createGridPointsEverywhere(std::shared_ptr<Cell> *cells) {
-  // Get the metadata
-  Metadata *metadata = &Metadata::getInstance();
+  //! The kernel radii
+  std::vector<double> kernel_radii;
 
-  // Get the grid size and simulation box size
-  int grid_cdim = metadata->grid_cdim;
-  double *dim = metadata->dim;
-  int n_grid_points = metadata->n_grid_points;
+  //! The maximum kernel radius
+  double max_kernel_radius;
 
-  // Warn the user the spacing will be uneven if the simulation isn't cubic
-  if (dim[0] != dim[1] || dim[0] != dim[2]) {
-    message("Warning: The simulation box is not cubic. The grid spacing "
-            "will be uneven. (dim= %f %f %f)",
-            dim[0], dim[1], dim[2]);
-  }
+  //! The maximum kernel radius squared
+  double max_kernel_radius2;
 
-  // Compute the grid spacing
-  double grid_spacing[3] = {dim[0] / grid_cdim, dim[1] / grid_cdim,
-                            dim[2] / grid_cdim};
+  //! Are we using a file of grid points?
+  bool grid_from_file;
 
-  message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
-          grid_spacing[2]);
+  //! The number of grid points
+  int n_grid_points;
 
-  // Create a vector to store the grid points
+  //! The number of grid points along a side (only used if we're creating grid)
+  int grid_cdim;
+
+  //! The grid points
   std::vector<std::shared_ptr<GridPoint>> grid_points;
-  grid_points.reserve(n_grid_points);
 
-  // Create the grid points (we'll loop over every individual grid point for
-  // better parallelism)
-#pragma omp parallel for
-  for (int gid = 0; gid < n_grid_points; gid++) {
+  /**
+   * @brief Construct a new Grid object
+   *
+   * @param kernel_radii The kernel radii
+   * @param grid_from_file Are we using a file of grid points?
+   */
+  Grid(Parameters *params) {
 
-    // Convert the flat index to the ijk coordinates of the grid point
-    int i = gid / (grid_cdim * grid_cdim);
-    int j = (gid / grid_cdim) % grid_cdim;
-    int k = gid % grid_cdim;
+    // How many kernels will each grid point have?
+    this->nkernels = params->getParameterNoDefault<int>("Kernels/nkernels");
 
-    // NOTE: Important to see here we are adding 0.5 to the grid point so
-    // the grid points start at 0.5 * grid_spacing and end at
-    // (grid_cdim - 0.5) * grid_spacing
-    double loc[3] = {(i + 0.5) * grid_spacing[0], (j + 0.5) * grid_spacing[1],
-                     (k + 0.5) * grid_spacing[2]};
-    int index[3] = {i, j, k};
+    // Populate the kernel radii
+    this->kernel_radii.resize(this->nkernels);
+    for (int i = 0; i < this->nkernels; i++) {
 
-#ifdef WITH_MPI
-    // In MPI land we need to make sure we own the cell this grid point
-    // belongs in
-    std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
-    if (cell->rank != metadata->rank)
-      continue;
-#endif
+      // Get the kernel key
+      std::stringstream kernel_param;
+      kernel_param << "Kernels/kernel_radius_" << i + 1;
 
-#pragma omp critical
-    {
-      // Create the grid point and add it to the vector
-      grid_points.push_back(std::make_shared<GridPoint>(loc, index));
+      // Get the kernel radius
+      this->kernel_radii[i] =
+          params->getParameterNoDefault<double>(kernel_param.str());
+    }
+
+    // Ensure we have some kernel radii
+    if (this->kernel_radii.size() == 0) {
+      throw std::runtime_error("No kernel radii were provided. Ensure Kernels/"
+                               "nkernels and Kernels/kernel_radius_* are set.");
+    }
+
+    // Get the maximum kernel radius
+    this->max_kernel_radius =
+        *std::max_element(this->kernel_radii.begin(), this->kernel_radii.end());
+
+    // Get the maximum kernel radius squared
+    this->max_kernel_radius2 =
+        this->max_kernel_radius * this->max_kernel_radius;
+
+    // Has a grid file been provided? If so Grid/grid_file will exist
+    this->grid_from_file = params->exists("Grid/grid_file");
+
+    // If we are not reading a file, get the number of grid points along an axis
+    if (!this->grid_from_file) {
+      this->grid_cdim = params->getParameterNoDefault<int>("Grid/cdim");
+    } else {
+      this->grid_cdim = 0;
+    }
+
+    // Get the number of grid points (either read from a parameter if loading
+    // a file or calculated from the grid_cdim)
+    if (this->grid_from_file) {
+      this->n_grid_points =
+          params->getParameterNoDefault<int>("Grid/n_grid_points");
+    } else {
+      this->n_grid_points = this->grid_cdim * this->grid_cdim * this->grid_cdim;
     }
   }
 
-  return grid_points;
-}
+  // Destructor
+  ~Grid() {
+    // Clear the grid points
+    this->grid_points.clear();
+  }
+};
 
+// Prototypes for grid construction (used in construct_grid_points.cpp)
+double nearest(const double dx, const double box_size);
+Grid *createGrid(Parameters *params);
+std::vector<std::shared_ptr<GridPoint>>
+createGridPointsFromFile(Simulation *sim);
+std::vector<std::shared_ptr<GridPoint>>
+createGridPointsEverywhere(std::shared_ptr<Cell> *cells);
 #endif // GRID_POINT_HPP
