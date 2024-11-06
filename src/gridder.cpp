@@ -20,9 +20,11 @@
 #include "logger.hpp"
 #include "metadata.hpp"
 #include "params.hpp"
-#include "partition.hpp"
 #include "simulation.hpp"
 #include "talking.hpp"
+#ifdef WITH_MPI
+#include "partition.hpp"
+#endif
 
 /**
  * @brief Function to handle the command line arguments
@@ -81,6 +83,13 @@ bool parseCmdArgs(int argc, char *argv[]) {
   return true;
 }
 
+/**
+ * @brief Main function
+ *
+ * @param argc The number of command line arguments
+ * @param argv The command line arguments
+ * @return int The exit status
+ */
 int main(int argc, char *argv[]) {
 
   // Parse the command line arguments
@@ -91,17 +100,18 @@ int main(int argc, char *argv[]) {
   // Howdy
   say_hello();
 
-  // Get a local pointer to the metadata
-  Metadata *metadata = &Metadata::getInstance();
-
-  // Set the snapshot number
-  metadata->nsnap = nsnap;
-
   // Start the timer for the whole shebang
   start();
 
+  // Get a local pointer to the metadata and unpack local variables we'll need
+  Metadata *metadata = &Metadata::getInstance();
+  std::string param_file = metadata->param_file;
+  const int nsnap = metadata->nsnap;
 #ifdef WITH_MPI
-  if (metadata->rank == 0) {
+  const int rank = metadata->rank;
+  const int size = metadata->size;
+
+  if (rank == 0) {
     message("Running on %d MPI ranks", metadata->size);
   }
 #endif
@@ -122,7 +132,8 @@ int main(int argc, char *argv[]) {
   params->printAllParameters();
 #endif
 
-  // Setup the metadata we need to carry around
+  // Setup the metadata we need to carry around (some has already been set,
+  // during command line argument parsing)
   tic();
   try {
     readMetadata(params);
@@ -133,6 +144,8 @@ int main(int argc, char *argv[]) {
   toc("Reading metadata");
 
   // Get all the simulation data (this will also allocate the cells array)
+  // NOTE: the cell array is automatically freed when the sim object is
+  // destroyed (leaves scope)
   Simulation *sim;
   tic();
   try {
@@ -157,8 +170,6 @@ int main(int argc, char *argv[]) {
 
   // Define the top level cells (this will initialise the top level with their
   // location, geometry and particle counts)
-  // NOTE: the cell array is automatically freed when the sim object is
-  // destroyed (leaves scope)
   tic();
   try {
     getTopCells(sim->cells);

@@ -53,6 +53,15 @@ std::string padString(const std::string &input, std::size_t length) {
  */
 void say_hello() {
 
+#ifdef WITH_MPI
+  // In MPI land only rank 0 should print
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank != 0) {
+    return;
+  }
+#endif
+
   string string1 =
       R"( ____ ____ ____ ____ ____ ____ ____ ____ ____ ____ ____ ____ ____ ____ )";
   string string2 =
