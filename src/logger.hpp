@@ -268,8 +268,6 @@ private:
   std::string getSnapshot() { return _snapshot; }
 };
 
-void append_to_stream(std::ostringstream &) {}
-
 /**
  * @brief Log an error message with file, function, and line details, then throw
  * a runtime exception.
