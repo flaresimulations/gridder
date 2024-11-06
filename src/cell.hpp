@@ -24,7 +24,9 @@
 #include "particle.hpp"
 
 // Forward declaration
+class Grid;
 class GridPoint;
+class Simulation;
 
 class Cell : public std::enable_shared_from_this<Cell> {
 public:
@@ -92,46 +94,6 @@ public:
     this->particles.clear();
     this->neighbours.clear();
     this->grid_points.clear();
-  }
-
-  // Minimum separation between this cell and another
-  double min_separation2(const std::shared_ptr<Cell> &other) {
-
-    // Get the metadata
-    Metadata &metadata = Metadata::getInstance();
-    double *dim = metadata.dim;
-
-    // Compute the minimum separation
-    const double thisx_min = this->loc[0];
-    const double thisy_min = this->loc[1];
-    const double thisz_min = this->loc[2];
-    const double otherx_min = other->loc[0];
-    const double othery_min = other->loc[1];
-    const double otherz_min = other->loc[2];
-
-    const double thisx_max = this->loc[0] + this->width[0];
-    const double thisy_max = this->loc[1] + this->width[1];
-    const double thisz_max = this->loc[2] + this->width[2];
-    const double otherx_max = other->loc[0] + other->width[0];
-    const double othery_max = other->loc[1] + other->width[1];
-    const double otherz_max = other->loc[2] + other->width[2];
-
-    const double dx = std::min({fabs(nearest(thisx_min - otherx_min, dim[0])),
-                                fabs(nearest(thisx_min - otherx_max, dim[0])),
-                                fabs(nearest(thisx_max - otherx_min, dim[0])),
-                                fabs(nearest(thisx_max - otherx_max, dim[0]))});
-
-    const double dy = std::min({fabs(nearest(thisy_min - othery_min, dim[1])),
-                                fabs(nearest(thisy_min - othery_max, dim[1])),
-                                fabs(nearest(thisy_max - othery_min, dim[1])),
-                                fabs(nearest(thisy_max - othery_max, dim[1]))});
-
-    const double dz = std::min({fabs(nearest(thisz_min - otherz_min, dim[2])),
-                                fabs(nearest(thisz_min - otherz_max, dim[2])),
-                                fabs(nearest(thisz_max - otherz_min, dim[2])),
-                                fabs(nearest(thisz_max - otherz_max, dim[2]))});
-
-    return dx * dx + dy * dy + dz * dz;
   }
 
   /**
@@ -622,22 +584,6 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 #endif
 }
 
-void splitCells(const std::shared_ptr<Cell> *cells) {
-  // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
-
-  // Loop over the cells and split them
-#pragma omp parallel for
-  for (int cid = 0; cid < metadata.nr_cells; cid++) {
-
-    // Skip cells that aren't on this rank
-    if (cells[cid]->rank != metadata.rank)
-      continue;
-
-    cells[cid]->split();
-  }
-}
-
 void addPartsToGridPoint(std::shared_ptr<Cell> cell,
                          std::shared_ptr<GridPoint> grid_point,
                          const double kernel_rad, const double kernel_rad2) {
@@ -811,5 +757,6 @@ void getKernelMasses(std::shared_ptr<Cell> *cells) {
 
 // Prototypes for functions defined in construct_cells.cpp
 void getTopCells(Simulation *sim, Grid *grid);
+void splitCells(Simulation *sim);
 
 #endif // CELL_HPP

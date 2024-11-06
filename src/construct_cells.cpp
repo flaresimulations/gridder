@@ -98,3 +98,30 @@ void getTopCells(Simulation *sim, Grid *grid) {
     }
   }
 }
+
+/**
+ * @brief Split the top level cells to create the cell tree.
+ *
+ * @param cells The top level cells
+ */
+void splitCells(Simulation *sim) {
+  // Get the metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Unpack the cells
+  const int nr_cells = sim->nr_cells;
+  std::shared_ptr<Cell> *cells = sim->cells;
+
+  // Loop over the cells and split them
+#pragma omp parallel for
+  for (int cid = 0; cid < nr_cells; cid++) {
+
+#ifdef WITH_MPI
+    // Skip cells that aren't on this rank and aren't proxies
+    if (cells[cid]->rank != metadata->rank && !cells[cid]->is_proxy)
+      continue;
+#endif
+
+    cells[cid]->split();
+  }
+}
