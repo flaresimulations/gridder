@@ -114,8 +114,8 @@ endif()
 
 # ================= LIBRARY INCLUSION =================
 
-# HDF5 (parallel or not)
-if (HDF5_IS_PARALLEL)
+# HDF5 
+if (ENABLE_MPI)
   target_link_libraries(${TARGET} PRIVATE MPI::MPI_CXX HDF5::HDF5)
 else()
   target_link_libraries(${TARGET} PRIVATE HDF5::HDF5)
