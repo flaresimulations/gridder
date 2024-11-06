@@ -92,8 +92,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 # Create a list of source files
 set(SOURCE_FILES
     src/gridder.cpp
+    src/cell.cpp
+    src/cell_search.cpp
     src/construct_grid_points.cpp
     src/construct_cells.cpp
+    src/partition.cpp 
 )
 
 # ================= COMPILATION =================
