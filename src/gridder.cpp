@@ -24,17 +24,37 @@
 #include "simulation.hpp"
 #include "talking.hpp"
 
-int main(int argc, char *argv[]) {
-
+/**
+ * @brief Function to handle the command line arguments
+ *
+ * This function will parse the command line arguments and set the metadata
+ * parameters accordingly.
+ *
+ * @param argc The number of command line arguments
+ * @param argv The command line arguments
+ * @return bool True if the command line arguments are valid
+ */
+bool parseCmdArgs(int argc, char *argv[]) {
   // Get the parameter file from the command line arguments
   if (argc > 4 || argc == 1) {
     std::cerr << "Usage: " << argv[0]
               << " <parameter_file> <nthreads> (optional <nsnap>)" << std::endl;
-    return 1;
+    return false;
   }
-  const std::string param_file = argv[1];
+
+  // Unpack the command line arguments
+  const std::string param_file_str(argv[1]);
   const int nthreads = std::stoi(argv[2]);
   const int nsnap = (argc == 4) ? std::stoi(argv[3]) : 0;
+
+  // Get a metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Set the snapshot number on the metadata
+  metadata->nsnap = nsnap;
+
+  // Set the parameter file on the metadata
+  metadata->param_file = param_file_str;
 
   // Set the number of threads (this is a global setting)
   omp_set_num_threads(nthreads);
@@ -49,20 +69,27 @@ int main(int argc, char *argv[]) {
   // Set the MPI rank on the logger and metadata (the former only for
   // formatting the printed messages)
   Logging::getInstance()->setRank(rank);
-  Metadata::getInstance().rank = rank;
-  Metadata::getInstance().size = size;
+  metadata->rank = rank;
+  metadata->size = size;
 
-  // Howdy
-  if (rank == 0) {
-    say_hello();
-  }
 #else
   // Set the rank to 0 (there is only one rank)
   Logging::getInstance()->setRank(0);
 
+#endif
+
+  return true;
+}
+
+int main(int argc, char *argv[]) {
+
+  // Parse the command line arguments
+  if (!parseCmdArgs(argc, argv)) {
+    return 1;
+  }
+
   // Howdy
   say_hello();
-#endif
 
   // Get a local pointer to the metadata
   Metadata *metadata = &Metadata::getInstance();

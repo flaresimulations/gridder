@@ -25,15 +25,18 @@ public:
     return instance;
   }
 
-  // MPI information
+  // MPI information (set in main.parseCmdArgs)
   int rank;
   int size;
+
+  // Parameter file path (set in main.parseCmdArgs)
+  std::string param_file;
 
   // HDF5 file paths
   std::string input_file;
   std::string output_file;
 
-  // The snapshot number we are working with
+  // The snapshot number we are working with (set in main.parseCmdArgs)
   int nsnap;
 
   // Tree properties
@@ -62,9 +65,6 @@ void readMetadata(Parameters *params) {
   // Get the maximum leaf count
   metadata->max_leaf_count =
       params->getParameter<int>("Tree/max_leaf_count", 200);
-
-  // Get the snapshot number
-  metadata->nsnap = params->getParameter<int>("Snapshot/nsnap", 0);
 
   // Get the input file path
   metadata->input_file = getInputFilePath(params, metadata->nsnap);
