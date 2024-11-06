@@ -93,10 +93,11 @@ set(SOURCE_FILES
     src/construct_cells.cpp
     src/grid_point.cpp
     src/hdf_io.cpp
-    src/partition.cpp 
-    src/output.cpp
-    src/params.cpp
     src/metadata.cpp
+    src/output.cpp
+    src/partition.cpp 
+    src/params.cpp
+    src/simulation.cpp
 )
 
 # ================= COMPILATION =================
