@@ -92,6 +92,7 @@ set(SOURCE_FILES
     src/construct_grid_points.cpp
     src/construct_cells.cpp
     src/partition.cpp 
+    src/hdf_io.cpp
 )
 
 # ================= COMPILATION =================
