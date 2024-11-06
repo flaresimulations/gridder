@@ -89,7 +89,6 @@ createGridPointsEverywhere(std::shared_ptr<Cell> *cells, Simulation *sim) {
     // (grid_cdim - 0.5) * grid_spacing
     double loc[3] = {(i + 0.5) * grid_spacing[0], (j + 0.5) * grid_spacing[1],
                      (k + 0.5) * grid_spacing[2]};
-    int index[3] = {i, j, k};
 
 #ifdef WITH_MPI
     // In MPI land we need to make sure we own the cell this grid point
@@ -102,6 +101,8 @@ createGridPointsEverywhere(std::shared_ptr<Cell> *cells, Simulation *sim) {
 #pragma omp critical
     {
       // Create the grid point and add it to the vector
+      // TODO: We could use a tbb::concurrent_vector for grid points to
+      // avoid the need for a critical section here
       grid_points.push_back(std::make_shared<GridPoint>(loc, index));
     }
   }
