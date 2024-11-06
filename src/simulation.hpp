@@ -37,6 +37,9 @@ public:
   //! The width of the simulation box
   double dim[3];
 
+  //! The comoving volume of the simulation
+  double volume;
+
   //! The maximum depth in the cell tree
   int max_depth = 0;
 
@@ -125,6 +128,9 @@ public:
                          this->cell_part_starts);
 
     hdf.close();
+
+    // Compute the comoving volume of the simulation
+    this->volume = this->dim[0] * this->dim[1] * this->dim[2];
   }
 };
 
