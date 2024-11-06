@@ -94,6 +94,7 @@ set(SOURCE_FILES
     src/grid_point.cpp
     src/partition.cpp 
     src/output.cpp
+    src/params.cpp
 )
 
 # ================= COMPILATION =================
