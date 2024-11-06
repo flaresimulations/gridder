@@ -46,10 +46,10 @@ public:
   // Tree properties
   int max_leaf_count;
 
-  //! Pointer to the simulation object
+  //! Pointer to the simulation object (set after Simulation instantiation)
   Simulation *sim;
 
-  //! Pointer to the grid object
+  //! Pointer to the grid object (set after Grid instantiation)
   Grid *grid;
 
   // Deleted copy constructor and copy assignment to prevent duplication
