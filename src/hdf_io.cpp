@@ -556,7 +556,7 @@ template bool HDF5Helper::writeAttribute<int>(const std::string &objName,
 template bool
 HDF5Helper::writeAttribute<int[3]>(const std::string &objName,
                                    const std::string &attributeName,
-                                   const int[3] & attributeValue);
+                                   const int[3] attributeValue);
 template bool
 HDF5Helper::writeAttribute<double>(const std::string &objName,
                                    const std::string &attributeName,
