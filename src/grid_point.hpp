@@ -11,6 +11,7 @@
 #include <vector>
 
 // Local includes
+#include "cell.hpp"
 #include "metadata.hpp"
 #include "particle.hpp"
 
@@ -87,5 +88,76 @@ public:
     return (density / Metadata::getInstance().mean_density) - 1;
   }
 };
+
+std::vector<std::shared_ptr<GridPoint>> createGridPointsFromFile() {}
+
+/**
+ * @brief Create grid points at every location in the simulation box
+ *
+ * @param cells The cells in the simulation
+ * @return std::vector<std::shared_ptr<GridPoint>> The grid points
+ */
+std::vector<std::shared_ptr<GridPoint>>
+createGridPointsEverywhere(std::shared_ptr<Cell> *cells) {
+  // Get the metadata
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Get the grid size and simulation box size
+  int grid_cdim = metadata->grid_cdim;
+  double *dim = metadata->dim;
+  int n_grid_points = metadata->n_grid_points;
+
+  // Warn the user the spacing will be uneven if the simulation isn't cubic
+  if (dim[0] != dim[1] || dim[0] != dim[2]) {
+    message("Warning: The simulation box is not cubic. The grid spacing "
+            "will be uneven. (dim= %f %f %f)",
+            dim[0], dim[1], dim[2]);
+  }
+
+  // Compute the grid spacing
+  double grid_spacing[3] = {dim[0] / grid_cdim, dim[1] / grid_cdim,
+                            dim[2] / grid_cdim};
+
+  message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
+          grid_spacing[2]);
+
+  // Create a vector to store the grid points
+  std::vector<std::shared_ptr<GridPoint>> grid_points;
+  grid_points.reserve(n_grid_points);
+
+  // Create the grid points (we'll loop over every individual grid point for
+  // better parallelism)
+#pragma omp parallel for
+  for (int gid = 0; gid < n_grid_points; gid++) {
+
+    // Convert the flat index to the ijk coordinates of the grid point
+    int i = gid / (grid_cdim * grid_cdim);
+    int j = (gid / grid_cdim) % grid_cdim;
+    int k = gid % grid_cdim;
+
+    // NOTE: Important to see here we are adding 0.5 to the grid point so
+    // the grid points start at 0.5 * grid_spacing and end at
+    // (grid_cdim - 0.5) * grid_spacing
+    double loc[3] = {(i + 0.5) * grid_spacing[0], (j + 0.5) * grid_spacing[1],
+                     (k + 0.5) * grid_spacing[2]};
+    int index[3] = {i, j, k};
+
+#ifdef WITH_MPI
+    // In MPI land we need to make sure we own the cell this grid point
+    // belongs in
+    std::shared_ptr<Cell> cell = getCellContainingPoint(cells, loc);
+    if (cell->rank != metadata->rank)
+      continue;
+#endif
+
+#pragma omp critical
+    {
+      // Create the grid point and add it to the vector
+      grid_points.push_back(std::make_shared<GridPoint>(loc, index));
+    }
+  }
+
+  return grid_points;
+}
 
 #endif // GRID_POINT_HPP

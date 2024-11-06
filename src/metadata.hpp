@@ -39,27 +39,11 @@ public:
   // The snapshot number we are working with
   int nsnap;
 
-  // Cosmology parameters
-  double redshift;
-  double mean_density;
-
   // Kernel information
   std::vector<double> kernel_radii;
   int nkernels;
   double max_kernel_radius;
   double max_kernel_radius2;
-
-  // Particle properties
-  size_t nr_dark_matter;
-
-  // Cell properties
-  size_t nr_cells;
-  int cdim[3];
-  double width[3];
-  int max_depth = 0;
-
-  // Simulation properties
-  double dim[3];
 
   // Tree properties
   int max_leaf_count;
@@ -83,42 +67,16 @@ private:
   Metadata &operator=(Metadata &&) = delete; // Move assignment operator
 };
 
-void readMetadata(std::string input_file) {
+void readMetadata() {
 
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
-
-  // Set up the HDF5 object
-  HDF5Helper hdf(input_file);
-
-  // Read the metadata from the file
-  hdf.readAttribute<double>(std::string("Header"), std::string("Redshift"),
-                            metadata->redshift);
-  int nr_particles[6];
-  hdf.readAttribute<int[6]>(std::string("Header"), std::string("NumPart_Total"),
-                            nr_particles);
-  metadata->nr_dark_matter = nr_particles[1];
-  hdf.readAttribute<int[3]>(std::string("Cells/Meta-data"),
-                            std::string("dimension"), metadata->cdim);
-  hdf.readAttribute<double[3]>(std::string("Cells/Meta-data"),
-                               std::string("size"), metadata->width);
-  hdf.readAttribute<double[3]>(std::string("Header"), std::string("BoxSize"),
-                               metadata->dim);
-
-  // Set the input file path
-  metadata->input_file = input_file;
-
-  // Count the cells
-  metadata->nr_cells =
-      metadata->cdim[0] * metadata->cdim[1] * metadata->cdim[2];
 
   // Count the grid points
   metadata->n_grid_points =
       metadata->grid_cdim * metadata->grid_cdim * metadata->grid_cdim;
 
   // Report interesting things
-  message("Redshift: %f", metadata->redshift);
-  message("Running with %d dark matter particles", metadata->nr_dark_matter);
   std::stringstream ss;
   ss << "Kernel radii (nkernels=%d):";
   for (int i = 0; i < metadata->nkernels; i++) {
@@ -126,13 +84,6 @@ void readMetadata(std::string input_file) {
   }
   message(ss.str().c_str(), metadata->nkernels);
   message("Max kernel radius: %f", metadata->max_kernel_radius);
-  message("Running with %d cells", metadata->nr_cells);
-  message("Cdim: %d %d %d", metadata->cdim[0], metadata->cdim[1],
-          metadata->cdim[2]);
-  message("Box size: %f %f %f", metadata->dim[0], metadata->dim[1],
-          metadata->dim[2]);
-  message("Cell size: %f %f %f", metadata->width[0], metadata->width[1],
-          metadata->width[2]);
 
   // Set the maximum kernel radius squared
   metadata->max_kernel_radius2 =

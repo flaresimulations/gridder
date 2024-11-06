@@ -21,6 +21,7 @@
 #include "metadata.hpp"
 #include "params.hpp"
 #include "partition.hpp"
+#include "simulation.hpp"
 #include "talking.hpp"
 
 int main(int argc, char *argv[]) {
@@ -38,8 +39,8 @@ int main(int argc, char *argv[]) {
   // Set the number of threads (this is a global setting)
   omp_set_num_threads(nthreads);
 
-  // Set up the MPI environment
 #ifdef WITH_MPI
+  // Set up the MPI environment
   MPI_Init(&argc, &argv);
   int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -89,38 +90,47 @@ int main(int argc, char *argv[]) {
   }
   toc("Reading parameters");
 
-  // Read the rest of the metadata from the input file
+  // Setup the metadata we need to carry around
   tic();
   try {
-    readMetadata(metadata->input_file);
+    readMetadata();
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
   }
   toc("Reading metadata");
 
-  // Get the cells array itself
+  // Get all the simulation data (this will also allocate the cells array)
+  Simulation *sim;
   tic();
-
-  // First allocate it onto the heap
-  std::shared_ptr<Cell> *cells = new std::shared_ptr<Cell>[metadata->nr_cells];
-
-  // Then read the top level cells from the input file
   try {
-    getTopCells(cells);
+    sim = new Simulation();
+  } catch (const std::exception &e) {
+    error(e.what());
+    return 1;
+  }
+  toc("Reading simulation data");
+
+  // Define the top level cells (this will initialise the top level with their
+  // location, geometry and particle counts)
+  // NOTE: the cell array is automatically freed when the sim object is
+  // destroyed (leaves scope)
+  tic();
+  try {
+    getTopCells(sim->cells);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Creating top level cells");
 
-  message("Number of top level cells: %d", metadata->nr_cells);
+  message("Number of top level cells: %d", sim->nr_cells);
 
 #ifdef WITH_MPI
   // Decomose the cells over the MPI ranks
   tic();
   try {
-    decomposeCells(cells);
+    decomposeCells(sim->cells);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
@@ -132,7 +142,7 @@ int main(int argc, char *argv[]) {
   // them and the particles to the cells
   tic();
   try {
-    assignPartsAndPointsToCells(cells);
+    assignPartsAndPointsToCells(sim->cells);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
@@ -142,19 +152,19 @@ int main(int argc, char *argv[]) {
   // And before we can actually get going we need to split the cells
   tic();
   try {
-    splitCells(cells);
+    splitCells(sim->cells);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Splitting cells");
-  message("Maximum depth in the tree: %d", metadata->max_depth);
+  message("Maximum depth in the tree: %d", sim->max_depth);
 
   // Now we can start the actual work... Associate particles with the grid
   // points within the maximum kernel radius
   tic();
   try {
-    getKernelMasses(cells);
+    getKernelMasses(sim->cells);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
@@ -165,7 +175,7 @@ int main(int argc, char *argv[]) {
   // We're done write the output in parallel
   tic();
   try {
-    writeGridFileParallel(cells, MPI_COMM_WORLD);
+    writeGridFileParallel(sim->cells, MPI_COMM_WORLD);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
@@ -175,16 +185,13 @@ int main(int argc, char *argv[]) {
   // We're done write the output in serial
   tic();
   try {
-    writeGridFileSerial(cells);
+    writeGridFileSerial(sim->cells);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
   toc("Writing output (in serial)");
 #endif
-
-  // Clean everything up, we're tidy people
-  delete[] cells;
 
   // Stop the timer for the whole shebang
   finish();

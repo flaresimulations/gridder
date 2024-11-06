@@ -20,7 +20,6 @@
 #endif
 
 // Local includes
-#include "grid_point.hpp"
 #include "logger.hpp"
 #include "particle.hpp"
 
@@ -30,6 +29,9 @@
 #else
 #include "serial_io.hpp"
 #endif
+
+// Forward declaration
+class GridPoint;
 
 class Cell : public std::enable_shared_from_this<Cell> {
 public:
@@ -654,25 +656,6 @@ void assignPartsAndPointsToCells(std::shared_ptr<Cell> *cells) {
 
   // With the particles done we can now move on to creating and assigning grid
   // points
-
-  // Get the grid size and simulation box size
-  int grid_cdim = metadata.grid_cdim;
-  double *dim = metadata.dim;
-  int nr_grid_points = grid_cdim * grid_cdim * grid_cdim;
-
-  // Warn the user the spacing will be uneven if the simulation isn't cubic
-  if (dim[0] != dim[1] || dim[0] != dim[2]) {
-    message("Warning: The simulation box is not cubic. The grid spacing "
-            "will be uneven. (dim= %f %f %f)",
-            dim[0], dim[1], dim[2]);
-  }
-
-  // Compute the grid spacing
-  double grid_spacing[3] = {dim[0] / grid_cdim, dim[1] / grid_cdim,
-                            dim[2] / grid_cdim};
-
-  message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
-          grid_spacing[2]);
 
   // Create the grid points (we'll loop over every individual grid point for
   // better parallelism)
