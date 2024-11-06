@@ -23,8 +23,8 @@ static void addPartsToGridPoint(std::shared_ptr<Cell> cell,
                                 const double kernel_rad2) {
 
   // Get the boxsize from the metadata
-  Metadata &metadata = Metadata::getInstance();
-  double *dim = metadata.dim;
+  Metadata *metadata = &Metadata::getInstance();
+  double *dim = metadata->sim->dim;
 
   // Loop over the particles in the cell and assign them to the grid point
   for (int p = 0; p < cell->part_count; p++) {

@@ -15,6 +15,10 @@
 #include "params.hpp"
 #include "particle.hpp"
 
+// Forward declaration
+class Simulation;
+class Grid;
+
 // This is a Singleton class to store the necessary metadata used in the
 // zoom_region_selection library.
 class Metadata {
@@ -41,6 +45,12 @@ public:
 
   // Tree properties
   int max_leaf_count;
+
+  //! Pointer to the simulation object
+  Simulation *sim;
+
+  //! Pointer to the grid object
+  Grid *grid;
 
   // Deleted copy constructor and copy assignment to prevent duplication
   Metadata(const Metadata &) = delete;            // Copy constructor

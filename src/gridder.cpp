@@ -151,6 +151,7 @@ int main(int argc, char *argv[]) {
   tic();
   try {
     sim = new Simulation();
+    metadata->sim = sim;
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
@@ -163,6 +164,7 @@ int main(int argc, char *argv[]) {
   tic();
   try {
     grid = createGrid(params);
+    metadata->grid = grid;
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
