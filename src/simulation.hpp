@@ -97,8 +97,9 @@ public:
     // Read the metadata from the file
     hdf.readAttribute<double>(std::string("Header"), std::string("Redshift"),
                               this->redshift);
-    hdf.readAttribute<int[6]>(std::string("Header"),
-                              std::string("NumPart_Total"), this->nr_particles);
+    hdf.readAttribute<size_t[6]>(std::string("Header"),
+                                 std::string("NumPart_Total"),
+                                 this->nr_particles);
     this->nr_dark_matter = this->nr_particles[1];
     hdf.readAttribute<int[3]>(std::string("Cells/Meta-data"),
                               std::string("dimension"), this->cdim);
