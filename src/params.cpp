@@ -91,7 +91,7 @@ bool Parameters::exists(const std::string &key) {
 /**
  * @brief Function to print all key-value pairs stored in the map.
  */
-void Parameters::printAllParameters() const {
+void Parameters::printAllParameters() {
   std::cout << "Key-Value Pairs:" << std::endl;
   for (const auto &pair : parameters) {
     std::cout << "Key: " << pair.first << " - Value: ";
