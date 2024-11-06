@@ -466,7 +466,7 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
   std::shared_ptr<Cell> *cells = sim->cells;
 
   // Get the grid points
-  std::shared_ptr<GridPoint> *grid_points = grid->grid_points;
+  std::vector<std::shared_ptr<GridPoint>> grid_points = grid->grid_points;
 
 #pragma omp parallel for
   // Loop over the grid points assigning them to cells
