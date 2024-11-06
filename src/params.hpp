@@ -99,4 +99,52 @@ static Param stringToVariant(const std::string &str) {
   }
 }
 
+/**
+ * @brief Set a key-value pair for a parameter.
+ *
+ * @param key The key for the parameter.
+ * @param value The value for the parameter.
+ */
+template <typename T>
+void Parameters::setParameter(const std::string &key, const T &value) {
+  parameters[key] = value;
+}
+
+/**
+ * @brief Get a parameter from the map, or return the default value.
+ *
+ * @param key The key for the parameter.
+ * @param defaultValue The default value for the parameter.
+ */
+template <typename T>
+T Parameters::getParameter(const std::string &key, T defaultValue) {
+
+  /* Get the parameter if exists, or error. */
+  if (parameters.count(key) > 0) {
+    return std::get<T>(parameters.at(key));
+  } else {
+    setParameter(key, defaultValue);
+    return defaultValue;
+  }
+}
+
+/**
+ * @brief Get a parameter from the map, or error if it does not exist.
+ *
+ * @param key The key for the parameter.
+ */
+template <typename T>
+T Parameters::getParameterNoDefault(const std::string &key) {
+
+  /* Get the parameter if exists, or error. */
+  T value;
+  if (parameters.count(key) > 0) {
+    value = std::get<T>(parameters.at(key));
+  } else {
+    printf("A required parameter was not set in the parameter file (%s)",
+           key.c_str());
+  }
+  return value;
+}
+
 #endif // PARAMS_H_
