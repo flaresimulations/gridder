@@ -1,5 +1,6 @@
 // Standard includes
 #include <algorithm>
+#include <cmath>
 
 // Local includes
 #include "cell.hpp"
@@ -100,8 +101,8 @@ void flagProxyCells(Simulation *sim) {
   // How many cells do we need to walk out from the boundary of the partition
   // to get all the cells that are within the kernel radius of the boundary
   // cells?
-  const double max_kernel_radius = metadata->max_kernel_radius;
-  const double cell_size = metadata->cell_size;
+  const double max_kernel_radius = grid->max_kernel_radius;
+  const double cell_size = sim->width[0];
   const int delta = std::ceil(max_kernel_radius / cell_size) + 1;
 
   // Loop over cells and find all local
