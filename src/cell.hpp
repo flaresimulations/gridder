@@ -47,9 +47,13 @@ public:
   //! What rank is this cell on?
   int rank = 0;
 
-  //! Do we border another rank? If this is true we will need to send our
-  // particles to the neighbouring rank.
-  bool is_proxy;
+  //! If we are receiving particles from another rank where are they coming
+  // from? (Otherwise -1)
+  int recv_rank = -1;
+
+  //! If we are sending particles to another rank where are they going? (Can be
+  //! multiple ranks)
+  std::vector<int> send_ranks;
 #endif
 
   //! Flag for whether the cell is "useful" (i.e. contains grid points or

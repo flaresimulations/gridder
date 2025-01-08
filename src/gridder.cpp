@@ -224,6 +224,18 @@ int main(int argc, char *argv[]) {
   }
   toc("Flagging useful cells");
 
+#ifdef WITH_MPI
+  // Find and flag the proxy cells at the edges of the partition
+  tic();
+  try {
+    flagProxyCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+  toc("Flagging proxy cells");
+#endif
+
   // Now we know which cells are where we can make the grid points, and assign
   // them and the particles to the cells
   tic();
@@ -233,9 +245,19 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Assigning particles and grid points to cells");
+  toc("Assigning particles to cells");
 
-  // TODO: Communicate proxies!
+  // Communicate the proxies
+#ifdef WITH_MPI
+  tic();
+  try {
+    exchangeProxyCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+  toc("Exchanging proxy cells");
+#endif
 
   // And before we can actually get going we need to split the cells
   tic();
