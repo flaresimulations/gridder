@@ -111,7 +111,8 @@ public:
 #ifdef WITH_MPI
     // Initialise the rank and proxy flags
     this->rank = 0;
-    this->is_proxy = false;
+    this->recv_rank = -1;
+    this->send_ranks.clear();
 #endif
   }
 

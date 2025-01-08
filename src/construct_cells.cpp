@@ -118,7 +118,7 @@ void splitCells(Simulation *sim) {
 
 #ifdef WITH_MPI
     // Skip cells that aren't on this rank and aren't proxies
-    if (cells[cid]->rank != metadata->rank && !cells[cid]->is_proxy)
+    if (cells[cid]->rank != metadata->rank && cells[cid]->recv_rank == -1)
       continue;
 #endif
 
