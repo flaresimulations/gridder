@@ -151,7 +151,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   std::shared_ptr<Cell> *cells = sim->cells;
 
   // How many cells do we have before the first on our rank?
-  const int nr_cells_before = 0;
+  int nr_cells_before = 0;
   for (int cid = 0; cid < sim->nr_cells; cid++) {
     if (cells[cid]->rank == metadata->rank)
       break;
