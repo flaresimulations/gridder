@@ -121,6 +121,12 @@ public:
     this->particles.clear();
     this->neighbours.clear();
     this->grid_points.clear();
+    this->children.fill(nullptr);
+    this->parent = nullptr;
+    this->top = nullptr;
+#ifdef WITH_MPI
+    this->send_ranks.clear();
+#endif
   }
 
   // Prototypes for member functions (defined in cell.cpp)
