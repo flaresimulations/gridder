@@ -228,7 +228,7 @@ int main(int argc, char *argv[]) {
   // Find and flag the proxy cells at the edges of the partition
   tic();
   try {
-    flagProxyCells(sim);
+    flagProxyCells(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;

@@ -89,7 +89,7 @@ void partitionCells(Simulation *sim, Grid *grid) {
  *
  * @param sim The simulation object.
  */
-void flagProxyCells(Simulation *sim) {
+void flagProxyCells(Simulation *sim, Grid *grid) {
 
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
