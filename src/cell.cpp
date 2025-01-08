@@ -326,16 +326,16 @@ void assignPartsToCells(Simulation *sim) {
   // Read the particle data slice for this rank
   std::vector<double> masses;
   std::array<int, 1> mass_dims = {metadata->nr_local_particles};
-  if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses,
-                               metadata->first_local_part_ind,
-                               mass_dims.data())) {
+  if (!hdf.readDatasetSlice<double>(std::string("PartType1/Masses"), masses,
+                                    metadata->first_local_part_ind,
+                                    mass_dims.data())) {
     error("Failed to read particle masses");
   }
   std::vector<double> poss;
   std::array<int, 2> pos_dims = {metadata->nr_local_particles, 3};
-  if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), poss,
-                               metadata->first_local_part_ind,
-                               pos_dims.data())) {
+  if (!hdf.readDatasetSlice<double>(std::string("PartType1/Coordinates"), poss,
+                                    metadata->first_local_part_ind,
+                                    pos_dims.data())) {
     error("Failed to read particle positions");
   }
 #else
