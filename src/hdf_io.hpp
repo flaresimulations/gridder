@@ -28,22 +28,9 @@ class HDF5Helper {
 public:
   hid_t file_id; ///< HDF5 file identifier
 
-#ifdef WITH_MPI
-  MPI_Comm comm; ///< MPI communicator
-  MPI_Info info; ///< MPI info object for additional options
-#endif
-
-#ifdef WITH_MPI
-  // Constructor with parallel I/O prototype
-  HDF5Helper(const std::string &filename,
-             unsigned int accessMode = H5F_ACC_RDONLY,
-             MPI_Comm communicator = MPI_COMM_WORLD,
-             MPI_Info file_info = MPI_INFO_NULL);
-#else
   // Constructor with serial I/O prototype
   HDF5Helper(const std::string &filename,
              unsigned int accessMode = H5F_ACC_RDONLY);
-#endif
 
   // Destructor prototype
   ~HDF5Helper();
