@@ -9,39 +9,6 @@
 #include "hdf_io.hpp"
 #include "logger.hpp"
 
-#ifdef WITH_MPI
-/**
- * @brief Constructor for a HDF5 helper object with parallel I/O
- *
- * @param filename The name of the HDF5 file to open.
- * @param accessMode The file access mode, e.g., H5F_ACC_RDONLY, H5F_ACC_RDWR.
- * @param communicator The MPI communicator to use (default is
- * MPI_COMM_WORLD).
- * @param file_info Optional MPI_Info object for additional hints (default is
- * MPI_INFO_NULL).
- */
-HDF5Helper(const std::string &filename, unsigned int accessMode,
-           MPI_Comm communicator, MPI_Info file_info)
-    : comm(communicator), info(file_info), file_open(true), file_closed(false) {
-  // Set up the HDF5 file access property list for parallel I/O
-  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(fapl, communicator, file_info);
-
-  // Open or create the HDF5 file in parallel mode
-  if (accessMode == H5F_ACC_RDONLY) {
-    file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, fapl);
-  } else {
-    file_id = H5Fcreate(filename.c_str(), accessMode, H5P_DEFAULT, fapl);
-  }
-
-  if (file_id < 0)
-    error("Failed to open HDF5 file: %s", filename.c_str());
-
-  H5Pclose(fapl); // Close the property list after use
-}
-
-#else
-
 /**
  * @brief Constructor for a HDF5 helper object with serial I/O
  *
@@ -59,8 +26,6 @@ HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
   if (file_id < 0)
     error("Failed to open HDF5 file: %s", filename.c_str());
 }
-
-#endif // WITH_MPI
 
 /**
  * @brief Destructor closes the file if it is still open
