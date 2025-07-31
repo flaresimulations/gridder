@@ -444,7 +444,7 @@ void assignPartsToCells(Simulation *sim) {
   }
 
   // Check particles are in the right cells
-  for (std::shared_ptr<Cell> cell : cells) {
+  for (int cid = 0; cid < sim->nr_cells; cid++) {
     std::shared_ptr<Cell> cell = cells[cid];
     for (std::shared_ptr<Particle> part : cell->particles) {
       if (part->pos[0] < cell->loc[0] ||
