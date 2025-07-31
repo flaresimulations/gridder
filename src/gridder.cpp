@@ -35,7 +35,7 @@
  */
 bool parseCmdArgs(int argc, char *argv[]) {
   // Get the parameter file from the command line arguments
-  if (argc > 4 || argc == 1) {
+  if (argc > 4 || argc == 1 || argc < 3) {
     std::cerr << "Usage: " << argv[0]
               << " <parameter_file> <nthreads> (optional <nsnap>)" << std::endl;
     return false;
