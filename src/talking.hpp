@@ -55,9 +55,7 @@ void say_hello() {
 
 #ifdef WITH_MPI
   // In MPI land only rank 0 should print
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (rank != 0) {
+  if (Metadata::getInstance().rank != 0) {
     return;
   }
 #endif
