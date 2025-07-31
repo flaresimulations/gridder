@@ -119,9 +119,6 @@ int main(int argc, char *argv[]) {
   std::string param_file = metadata->param_file;
   const int nsnap = metadata->nsnap;
 #ifdef WITH_MPI
-  const int rank = metadata->rank;
-  const int size = metadata->size;
-
   if (rank == 0) {
     message("Running on %d MPI ranks", metadata->size);
   }
