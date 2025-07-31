@@ -81,6 +81,11 @@ public:
   //! Depth in the tree
   int depth;
 
+#ifdef DEBUGGING_CHECKS
+  //! The index of the cell in the cells array (for debugging)
+  int ph_ind = -1;
+#endif
+
   // Constructor
   Cell(const double loc[3], const double width[3],
        std::shared_ptr<Cell> parent = nullptr,
