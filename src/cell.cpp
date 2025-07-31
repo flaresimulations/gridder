@@ -432,7 +432,8 @@ void assignPartsToCells(Simulation *sim) {
 #ifdef DEBUGGING_CHECKS
   // Make sure we have attached all the particles
   size_t total_cell_part_count = 0;
-  for (std::shared_ptr<Cell> cell : cells) {
+  for (int cid = 0; cid < sim->nr_cells; cid++) {
+    std::shared_ptr<Cell> cell = cells[cid];
     total_cell_part_count += cell->part_count;
   }
   if (total_part_count != total_cell_part_count) {

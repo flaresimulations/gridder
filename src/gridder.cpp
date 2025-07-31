@@ -117,7 +117,6 @@ int main(int argc, char *argv[]) {
   // Get a local pointer to the metadata and unpack local variables we'll need
   Metadata *metadata = &Metadata::getInstance();
   std::string param_file = metadata->param_file;
-  const int nsnap = metadata->nsnap;
 #ifdef WITH_MPI
   if (rank == 0) {
     message("Running on %d MPI ranks", metadata->size);
