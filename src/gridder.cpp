@@ -33,7 +33,7 @@
  * @param argv The command line arguments
  * @return bool True if the command line arguments are valid
  */
-bool parseCmdArgs(int argc, char *argv[]) {
+bool parseCmdArgs(int argc, char *argv[], int rank = 0, int size = 1) {
   // Get the parameter file from the command line arguments
   if (argc > 4 || argc == 1 || argc < 3) {
     std::cerr << "Usage: " << argv[0]
@@ -82,6 +82,8 @@ bool parseCmdArgs(int argc, char *argv[]) {
  */
 int main(int argc, char *argv[]) {
 
+  // Handle MPI setup if we need it
+  int rank, size;
 #ifdef WITH_MPI
   int mpi_initialized = 0;
   MPI_Initialized(&mpi_initialized);
@@ -93,13 +95,16 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
+#else
+  // If we're not using MPI, set the rank and size to 0
+  rank = 0;
+  size = 1;
 #endif
 
   // Parse the command line arguments
-  if (!parseCmdArgs(argc, argv)) {
+  if (!parseCmdArgs(argc, argv, rank, size)) {
     return 1;
   }
 
