@@ -24,7 +24,7 @@ HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
   }
 
   if (file_id < 0)
-    error("Failed to open HDF5 file: %s", filename.c_str());
+    error("Failed to open HDF5 file: ", filename.c_str());
 }
 
 /**
