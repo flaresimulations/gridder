@@ -494,7 +494,8 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 #ifdef DEBUGGING_CHECKS
 
   // Check grid points are in the right cells
-  for (std::shared_ptr<Cell> cell : cells) {
+  for (int cid = 0; cid < sim->nr_cells; cid++) {
+    std::shared_ptr<Cell> cell = cells[cid];
     for (std::shared_ptr<GridPoint> grid_point : cell->grid_points) {
       if (grid_point->loc[0] < cell->loc[0] ||
           grid_point->loc[0] >= cell->loc[0] + cell->width[0] ||
