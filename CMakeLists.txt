@@ -1,24 +1,26 @@
 cmake_minimum_required(VERSION 3.12)
 project(ZoomParentGridder CXX)
 
-# ================== Project version ==================
+# ================== Explicit Version Macros ==================
 set(PROJECT_VERSION_MAJOR 0)
 set(PROJECT_VERSION_MINOR 1)
 set(PROJECT_VERSION_PATCH 0)
+set(PROJECT_VERSION_STRING "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
-# ================== C++ standard ==================
+# ================== C++ Standard ==================
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ================== Options ==================
 option(ENABLE_MPI "Enable MPI support" OFF)
 
-# ================== Build type handling ==================
+# ================== Build Type ==================
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose build type" FORCE)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 set(CMAKE_CXX_FLAGS_DEBUG          "-g -O0 -Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS_RELEASE        "-O3 -march=native -Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -Wall -Wextra -Wpedantic")
@@ -36,7 +38,7 @@ if(ENABLE_MPI)
   endif()
 endif()
 
-# ================== Source files ==================
+# ================== Source Files ==================
 set(SOURCE_FILES
     src/gridder.cpp
     src/cell.cpp
@@ -52,7 +54,7 @@ set(SOURCE_FILES
     src/simulation.cpp
 )
 
-# ================== Git metadata ==================
+# ================== Git Metadata ==================
 execute_process(
   COMMAND git rev-parse --short HEAD
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -74,7 +76,7 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-# ================== Compiler info ==================
+# ================== Compiler Info ==================
 if(CMAKE_CXX_COMPILER_VERSION AND CMAKE_CXX_COMPILER_ID)
   set(COMPILER_INFO "${CMAKE_CXX_COMPILER_ID}@${CMAKE_CXX_COMPILER_VERSION}")
 else()
@@ -82,14 +84,15 @@ else()
 endif()
 
 string(REPLACE ";" " " CFLAGS_INFO "${CMAKE_CXX_FLAGS}")
+set(HDF5_VERSION "${HDF5_VERSION_STRING}")
 
-# ================== Configured version header ==================
+# ================== Version Header ==================
 configure_file(
   ${CMAKE_SOURCE_DIR}/src/config/version.h.in
   ${CMAKE_BINARY_DIR}/version.h
 )
 
-# ================== Target ==================
+# ================== Executable Target ==================
 add_executable(parent_gridder ${SOURCE_FILES})
 
 target_include_directories(parent_gridder PRIVATE
@@ -115,6 +118,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(parent_gridder PRIVATE DEBUGGING_CHECKS)
 endif()
 
-# ================== Final messages ==================
+# ================== Final Output ==================
 message(STATUS "MPI enabled: ${ENABLE_MPI}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "Version: ${PROJECT_VERSION_STRING}")
