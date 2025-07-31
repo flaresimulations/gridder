@@ -259,7 +259,9 @@ int main(int argc, char *argv[]) {
   toc("Exchanging proxy cells");
 #endif
 
-  // And before we can actually get going we need to split the cells
+  // And before we can actually get going we need to split the cells into the
+  // cell tree. Each top level cell will become the root of an octree that
+  // we can walk as we search for particles to associate with grid points
   tic();
   try {
     splitCells(sim);
