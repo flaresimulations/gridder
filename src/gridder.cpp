@@ -59,18 +59,11 @@ bool parseCmdArgs(int argc, char *argv[]) {
   omp_set_num_threads(nthreads);
 
 #ifdef WITH_MPI
-  // Set up the MPI environment
-  MPI_Init(&argc, &argv);
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
   // Set the MPI rank on the logger and metadata (the former only for
   // formatting the printed messages)
-  Logging::getInstance()->setRank(rank);
   metadata->rank = rank;
   metadata->size = size;
-
+  Logging::getInstance()->setRank(metadata->rank);
 #else
   // Set the rank to 0 (there is only one rank)
   Logging::getInstance()->setRank(0);
@@ -88,6 +81,22 @@ bool parseCmdArgs(int argc, char *argv[]) {
  * @return int The exit status
  */
 int main(int argc, char *argv[]) {
+
+#ifdef WITH_MPI
+  int mpi_initialized = 0;
+  MPI_Initialized(&mpi_initialized);
+  if (!mpi_initialized) {
+    int ierr = MPI_Init(&argc, &argv);
+    if (ierr != MPI_SUCCESS) {
+      std::cerr << "MPI_Init failed!" << std::endl;
+      MPI_Abort(MPI_COMM_WORLD, ierr);
+    }
+  }
+
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+#endif
 
   // Parse the command line arguments
   if (!parseCmdArgs(argc, argv)) {
