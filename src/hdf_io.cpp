@@ -17,14 +17,26 @@
  */
 HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
     : file_open(true), file_closed(false) {
+#ifdef WITH_MPI
+  // Create a file access property list with MPI-IO driver
+  hid_t plist_id = H5Pcreate(H5P_FILE_ACCESS);
+  H5Pset_fapl_mpio(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL);
+  if (accessMode == H5F_ACC_RDONLY) {
+    file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, plist_id);
+  } else {
+    file_id = H5Fcreate(filename.c_str(), accessMode, H5P_DEFAULT, plist_id);
+  }
+  H5Pclose(plist_id);
+#else
   if (accessMode == H5F_ACC_RDONLY) {
     file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
   } else {
     file_id = H5Fcreate(filename.c_str(), accessMode, H5P_DEFAULT, H5P_DEFAULT);
   }
+#endif
 
   if (file_id < 0)
-    error("Failed to open HDF5 file: ", filename.c_str());
+    error("Failed to open HDF5 file: %s", filename.c_str());
 }
 
 /**
