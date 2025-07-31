@@ -52,40 +52,6 @@ set(SOURCE_FILES
     src/simulation.cpp
 )
 
-# ================== Executable target ==================
-add_executable(parent_gridder ${SOURCE_FILES})
-
-# ================== Preprocessor definitions ==================
-target_compile_definitions(parent_gridder PRIVATE
-  PROJECT_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-  PROJECT_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-  PROJECT_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  target_compile_definitions(parent_gridder PRIVATE DEBUGGING_CHECKS)
-endif()
-
-if(ENABLE_MPI)
-  target_compile_definitions(parent_gridder PRIVATE WITH_MPI)
-endif()
-
-# ================== Include directories ==================
-target_include_directories(parent_gridder PRIVATE ${HDF5_INCLUDE_DIRS})
-if(ENABLE_MPI)
-  target_include_directories(parent_gridder PRIVATE ${MPI_CXX_INCLUDE_PATH})
-endif()
-
-# ================== Link libraries ==================
-target_link_libraries(parent_gridder PRIVATE
-  HDF5::HDF5
-  OpenMP::OpenMP_CXX
-)
-
-if(ENABLE_MPI)
-  target_link_libraries(parent_gridder PRIVATE MPI::MPI_CXX)
-endif()
-
 # ================== Git metadata ==================
 execute_process(
   COMMAND git rev-parse --short HEAD
@@ -108,13 +74,47 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-# Use these in a version header if desired
+# ================== Compiler info ==================
+if(CMAKE_CXX_COMPILER_VERSION AND CMAKE_CXX_COMPILER_ID)
+  set(COMPILER_INFO "${CMAKE_CXX_COMPILER_ID}@${CMAKE_CXX_COMPILER_VERSION}")
+else()
+  set(COMPILER_INFO "Unknown Compiler")
+endif()
+
+string(REPLACE ";" " " CFLAGS_INFO "${CMAKE_CXX_FLAGS}")
+
+# ================== Configured version header ==================
 configure_file(
   ${CMAKE_SOURCE_DIR}/src/config/version.h.in
   ${CMAKE_BINARY_DIR}/version.h
 )
-target_include_directories(parent_gridder PRIVATE ${CMAKE_BINARY_DIR})
 
-# ================== Final message ==================
+# ================== Target ==================
+add_executable(parent_gridder ${SOURCE_FILES})
+
+target_include_directories(parent_gridder PRIVATE
+  ${CMAKE_BINARY_DIR}
+  ${HDF5_INCLUDE_DIRS}
+)
+
+if(ENABLE_MPI)
+  target_include_directories(parent_gridder PRIVATE ${MPI_CXX_INCLUDE_PATH})
+endif()
+
+target_link_libraries(parent_gridder PRIVATE
+  HDF5::HDF5
+  OpenMP::OpenMP_CXX
+)
+
+if(ENABLE_MPI)
+  target_link_libraries(parent_gridder PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(parent_gridder PRIVATE WITH_MPI)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_definitions(parent_gridder PRIVATE DEBUGGING_CHECKS)
+endif()
+
+# ================== Final messages ==================
 message(STATUS "MPI enabled: ${ENABLE_MPI}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
