@@ -473,9 +473,6 @@ void assignPartsToCells(Simulation *sim) {
  */
 void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 
-  // Get the metadata instance
-  Metadata *metadata = &Metadata::getInstance();
-
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
 
@@ -494,6 +491,8 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 
     // If the cell is not local, nothing to do
 #ifdef WITH_MPI
+    // Get the metadata instance for MPI rank checking
+    Metadata *metadata = &Metadata::getInstance();
     if (cell->rank != metadata->rank && cell->recv_rank == -1)
       continue;
 #endif
@@ -531,9 +530,6 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
  * @param sim The simulation object.
  */
 void limitToUsefulCells(Simulation *sim) {
-
-  // Get the metadata instance
-  Metadata *metadata = &Metadata::getInstance();
 
   // Get the cells
   std::vector<Cell> &cells = sim->cells;

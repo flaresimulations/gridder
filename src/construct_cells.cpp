@@ -78,10 +78,9 @@ void getTopCells(Simulation *sim, Grid *grid) {
     cell->neighbours.reserve(max_neighbors);
 
     // Loop over the neighbours
-    int nid = 0;
-    for (int ii = -nwalk; ii < nwalk + 1; ii++) {
-      for (int jj = -nwalk; jj < nwalk + 1; jj++) {
-        for (int kk = -nwalk; kk < nwalk + 1; kk++) {
+    for (int ii = -nwalk_lower; ii < nwalk_upper + 1; ii++) {
+      for (int jj = -nwalk_lower; jj < nwalk_upper + 1; jj++) {
+        for (int kk = -nwalk_lower; kk < nwalk_upper + 1; kk++) {
 
           // Skip the cell itself
           if (ii == 0 && jj == 0 && kk == 0)
@@ -107,9 +106,6 @@ void getTopCells(Simulation *sim, Grid *grid) {
  * @param cells The top level cells
  */
 void splitCells(Simulation *sim) {
-  // Get the metadata instance
-  Metadata *metadata = &Metadata::getInstance();
-
   // Unpack the cells
   const size_t nr_cells = sim->nr_cells;
   std::vector<Cell>& cells = sim->cells;
@@ -119,6 +115,8 @@ void splitCells(Simulation *sim) {
   for (size_t cid = 0; cid < nr_cells; cid++) {
 
 #ifdef WITH_MPI
+    // Get the metadata instance for MPI rank checking
+    Metadata *metadata = &Metadata::getInstance();
     // Skip cells that aren't on this rank and aren't proxies
     if (cells[cid].rank != metadata->rank && cells[cid].recv_rank == -1)
       continue;

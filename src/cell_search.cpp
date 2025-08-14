@@ -194,9 +194,6 @@ static void recursiveSelfPartsToPoints(Cell* cell,
  */
 void getKernelMasses(Simulation *sim, Grid *grid) {
 
-  // Get the metadata
-  Metadata &metadata = Metadata::getInstance();
-
   // Get the cells
   std::vector<Cell>& cells = sim->cells;
 

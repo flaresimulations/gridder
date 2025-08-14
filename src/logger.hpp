@@ -72,12 +72,6 @@ private:
   std::chrono::high_resolution_clock::time_point _toc;
   std::chrono::high_resolution_clock::time_point _start;
 
-  // Error variables (used for throwing exceptions and reporting their location
-  // at the top of the call stack)
-  std::string error_message_;
-  char *error_file_;
-  char *error_func_;
-  int error_line_;
 
   // The current snapshot being processed
   std::string _snapshot;

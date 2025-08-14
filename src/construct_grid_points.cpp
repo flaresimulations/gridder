@@ -47,9 +47,6 @@ Grid *createGrid(Parameters *params) {
  * @param grid The grid object
  */
 static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
-  // Get the metadata
-  Metadata *metadata = &Metadata::getInstance();
-
   // Get the grid size and simulation box size
   int grid_cdim = grid->grid_cdim;
   double *dim = sim->dim;
@@ -114,7 +111,7 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
  * @param sim The simulation object
  * @param grid The grid object
  */
-static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
+static void createGridPointsFromFile(Simulation * /* sim */, Grid * /* grid */) {
   error("%s is not implemented", __func__);
 }
 
