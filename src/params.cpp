@@ -1,4 +1,5 @@
 // Standard includes
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -11,6 +12,66 @@
 // Local includes
 #include "logger.hpp"
 #include "params.hpp"
+
+/** @brief Helper function to convert a string to a YAMLValue
+ *
+ * @param str The string to convert
+ *
+ * @return The converted YAMLValue
+ */
+Param stringToVariant(const std::string &str) {
+
+  /* Set up conversion varibales. */
+  int intValue;
+  double doubleValue;
+  std::istringstream intStream(str);
+  std::istringstream doubleStream(str);
+
+  /* Does it contain a decimal place? */
+  bool isString = false;
+  int decimalCount = 0;
+  for (char c : str) {
+
+    /* Check if character is a decimal point, if not check its not a
+     * digit. If its not a digit we know we have a string. */
+    if (c == '.') {
+      decimalCount++;
+    } else if (!(isdigit(c))) {
+      isString = true;
+      break;
+    }
+  }
+
+  /* Return if its a string. */
+  if (isString) {
+    // But before we return just strip off any quotes.
+    if (str.front() == '"' && str.back() == '"') {
+      return str.substr(1, str.length() - 2);
+    }
+    return str;
+  }
+
+  /* If it isn't a string and it only has one deminal point its a double. */
+  if (decimalCount == 1) {
+    doubleStream >> doubleValue;
+    return doubleValue;
+  }
+
+  /* Test if it's an integer */
+  else if (intStream >> intValue) {
+
+    /* It is! */
+    return intValue;
+
+  }
+
+  /* Otherwise, something bizzare has happened... */
+  else {
+    printf("Parameter %s could not be converted to string, double, or int!",
+           str.c_str());
+    return str;
+  }
+}
 
 /**
  * @brief Get a parameter from the map as a string, or return the default value.
