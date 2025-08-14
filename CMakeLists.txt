@@ -42,13 +42,55 @@ if(ENABLE_MPI)
                         "Please install HDF5 with --enable-parallel or set ENABLE_MPI=OFF")
   endif()
   
-  message(STATUS "Found parallel HDF5: ${HDF5_VERSION}")
   message(STATUS "MPI C compiler: ${MPI_C_COMPILER}")
   message(STATUS "MPI CXX compiler: ${MPI_CXX_COMPILER}")
 else()
   # Serial HDF5
   find_package(HDF5 REQUIRED COMPONENTS C HL)
-  message(STATUS "Found serial HDF5: ${HDF5_VERSION}")
+endif()
+
+# Detect HDF5 version with multiple fallback methods
+set(HDF5_VERSION "unknown")
+if(HDF5_VERSION_STRING)
+  set(HDF5_VERSION "${HDF5_VERSION_STRING}")
+elseif(HDF5_VERSION_MAJOR AND HDF5_VERSION_MINOR)
+  if(HDF5_VERSION_PATCH)
+    set(HDF5_VERSION "${HDF5_VERSION_MAJOR}.${HDF5_VERSION_MINOR}.${HDF5_VERSION_PATCH}")
+  else()
+    set(HDF5_VERSION "${HDF5_VERSION_MAJOR}.${HDF5_VERSION_MINOR}")
+  endif()
+else()
+  # Try to extract version from h5cc or pkg-config
+  find_program(H5CC_EXECUTABLE h5cc)
+  if(H5CC_EXECUTABLE)
+    execute_process(
+      COMMAND ${H5CC_EXECUTABLE} -showconfig
+      OUTPUT_VARIABLE H5CC_OUTPUT
+      ERROR_QUIET
+    )
+    string(REGEX MATCH "HDF5 Version: ([0-9]+\\.[0-9]+\\.[0-9]+)" HDF5_VERSION_MATCH "${H5CC_OUTPUT}")
+    if(HDF5_VERSION_MATCH)
+      set(HDF5_VERSION "${CMAKE_MATCH_1}")
+    endif()
+  endif()
+  
+  # Last resort: try pkg-config
+  if(HDF5_VERSION STREQUAL "unknown")
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+      pkg_check_modules(HDF5_PC QUIET hdf5)
+      if(HDF5_PC_VERSION)
+        set(HDF5_VERSION "${HDF5_PC_VERSION}")
+      endif()
+    endif()
+  endif()
+endif()
+
+message(STATUS "Found HDF5 version: ${HDF5_VERSION}")
+if(ENABLE_MPI)
+  message(STATUS "HDF5 parallel support: YES")
+else()
+  message(STATUS "HDF5 parallel support: NO")
 endif()
 
 # ========== Metadata ==========
@@ -94,7 +136,7 @@ else()
 endif()
 
 string(REPLACE ";" " " CFLAGS_INFO "${CMAKE_CXX_FLAGS}")
-set(HDF5_VERSION "${HDF5_VERSION_STRING}")
+# Note: HDF5_VERSION is now set above after HDF5 detection
 
 # ========== Version Header ==========
 configure_file(
