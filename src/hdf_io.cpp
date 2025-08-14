@@ -146,7 +146,6 @@ bool HDF5Helper::createGroup(const std::string &groupName) {
   }
 
   hid_t group_id = -1;
-  bool success = true;
 
 #ifdef WITH_MPI
   if (is_parallel) {
@@ -156,14 +155,13 @@ bool HDF5Helper::createGroup(const std::string &groupName) {
                            H5P_DEFAULT);
       if (group_id < 0) {
         error("Failed to create group '%s'", groupName.c_str());
-        success = false;
       } else {
         H5Gclose(group_id);
       }
     }
     // All ranks wait for group creation to complete
     MPI_Barrier(MPI_COMM_WORLD);
-    return success;
+    return (group_id >= 0);
   } else {
 #endif
     group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT,
@@ -311,39 +309,40 @@ template <> hid_t HDF5Helper::getHDF5Type<double *>() {
   return H5T_NATIVE_DOUBLE;
 }
 
+// Conditional specializations to avoid conflicts between different integer
+// types On some systems, long == int64_t, on others they're different
+
+#if !defined(__SIZEOF_LONG__) || (__SIZEOF_LONG__ != 8)
 /**
- * @brief Template specialization for unsigned long
+ * @brief Template specialization for long (when long != int64_t)
+ */
+template <> hid_t HDF5Helper::getHDF5Type<long>() { return H5T_NATIVE_LONG; }
+
+/**
+ * @brief Template specialization for long arrays (when long != int64_t)
+ */
+template <> hid_t HDF5Helper::getHDF5Type<long[6]>() { return H5T_NATIVE_LONG; }
+#endif
+
+#if !defined(__SIZEOF_LONG__) || (__SIZEOF_LONG__ != __SIZEOF_SIZE_T__)
+/**
+ * @brief Template specialization for unsigned long (when unsigned long !=
+ * size_t)
  */
 template <> hid_t HDF5Helper::getHDF5Type<unsigned long>() {
   return H5T_NATIVE_ULONG;
 }
 
 /**
- * @brief Template specialization for unsigned long arrays (used for attributes)
+ * @brief Template specialization for unsigned long arrays (when unsigned long
+ * != size_t)
  */
 template <> hid_t HDF5Helper::getHDF5Type<unsigned long[6]>() {
   return H5T_NATIVE_ULONG;
 }
+#endif
 
 /**
- * @brief Template specialization for long
- */
-template <> hid_t HDF5Helper::getHDF5Type<long>() { return H5T_NATIVE_LONG; }
-
-/**
- * @brief Template specialization for long arrays (used for attributes)
- */
-template <> hid_t HDF5Helper::getHDF5Type<long[6]>() { return H5T_NATIVE_LONG; }
-
-/**
- * @brief Template specialization for size_t (might be needed depending on
- * platform)
+ * @brief Template specialization for size_t
  */
 template <> hid_t HDF5Helper::getHDF5Type<size_t>() { return H5T_NATIVE_HSIZE; }
-
-/**
- * @brief Template specialization for hsize_t (HDF5's size type)
- */
-template <> hid_t HDF5Helper::getHDF5Type<hsize_t>() {
-  return H5T_NATIVE_HSIZE;
-}
