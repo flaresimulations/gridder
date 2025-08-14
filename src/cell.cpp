@@ -485,6 +485,12 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
     // Get the cell this grid point is in
     std::shared_ptr<Cell> cell = getCellContainingPoint(grid_point->loc);
 
+    // If the cell is not local, nothing to do
+#ifdef WITH_MPI
+    if (cell->rank != metadata->rank && cell->recv_rank == -1)
+      continue;
+#endif
+
 #pragma omp critical
     {
       // Attach the grid point to the cell
