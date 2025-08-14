@@ -98,7 +98,7 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
       // Create the grid point and add it to the vector
       // TODO: We could use a tbb::concurrent_vector for grid points to
       // avoid the need for a critical section here
-      grid->grid_points.push_back(std::make_shared<GridPoint>(loc));
+      grid->grid_points[gid] = std::make_shared<GridPoint>(loc);
     }
   }
 
