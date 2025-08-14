@@ -273,9 +273,6 @@ std::shared_ptr<Cell> getCellContainingPoint(const double pos[3]) {
   int j = static_cast<int>(pos[1] / sim->width[1]);
   int k = static_cast<int>(pos[2] / sim->width[2]);
 
-  message("Cell index for point (%.2e, %.2e, %.2e) is (%d, %d, %d)", pos[0],
-          pos[1], pos[2], i, j, k);
-
   // Get the cell index
   int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
 
@@ -488,6 +485,7 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 
     // Get the cell this grid point is in
     std::shared_ptr<Cell> cell = getCellContainingPoint(grid_point->loc);
+    message("Got cell %p for grid point %d", cell.get(), gid);
     message("Grid point %d is in cell [%.2e %.2e %.2e] "
             "with width [%.2e %.2e %.2e]",
             gid, cell->loc[0], cell->loc[1], cell->loc[2], cell->width[0],
