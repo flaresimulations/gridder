@@ -12,6 +12,7 @@
 
 // Local includes
 #include "cell.hpp"
+#include "cmd_parser.hpp"
 #include "grid_point.hpp"
 #include "hdf_io.hpp"
 #include "logger.hpp"
@@ -24,53 +25,49 @@
 #endif
 
 /**
- * @brief Function to handle the command line arguments
- *
- * This function will parse the command line arguments and set the metadata
- * parameters accordingly.
+ * @brief Function to handle the command line arguments using robust parser
  *
  * @param argc The number of command line arguments
  * @param argv The command line arguments
- * @return bool True if the command line arguments are valid
+ * @param rank MPI rank for error reporting
+ * @param size MPI size for validation
+ * @return CommandLineArgs structure with parsed arguments
+ * @throws std::runtime_error if parsing fails
  */
-bool parseCmdArgs(int argc, char *argv[], int rank = 0, int size = 1) {
-  // Get the parameter file from the command line arguments
-  if (argc > 4 || argc == 1 || argc < 3) {
-    std::cerr << "Usage: " << argv[0]
-              << " <parameter_file> <nthreads> (optional <nsnap>)" << std::endl;
-    return false;
+CommandLineArgs parseCmdArgs(int argc, char *argv[], int rank = 0, int size = 1) {
+  // Parse arguments with comprehensive validation
+  CommandLineArgs args = CommandLineParser::parse(argc, argv, rank, size);
+  
+  // Handle help request
+  if (args.help_requested) {
+    if (rank == 0) {  // Only print from rank 0 in MPI
+      CommandLineParser::printUsage(argv[0]);
+    }
+    // Return args with help flag set - caller should handle exit
+    return args;
   }
 
-  // Unpack the command line arguments
-  const std::string param_file_str(argv[1]);
-  const int nthreads = std::stoi(argv[2]);
-  const int nsnap = (argc == 4) ? std::stoi(argv[3]) : 0;
-
-  // Get a metadata instance
+  // Get a metadata instance and configure it
   Metadata *metadata = &Metadata::getInstance();
 
-  // Set the snapshot number on the metadata
-  metadata->nsnap = nsnap;
-
-  // Set the parameter file on the metadata
-  metadata->param_file = param_file_str;
+  // Set parsed values on metadata
+  metadata->nsnap = args.nsnap;
+  metadata->param_file = args.parameter_file;
 
   // Set the number of threads (this is a global setting)
-  omp_set_num_threads(nthreads);
+  omp_set_num_threads(args.nthreads);
 
 #ifdef WITH_MPI
-  // Set the MPI rank on the logger and metadata (the former only for
-  // formatting the printed messages)
+  // Set the MPI rank on the logger and metadata
   metadata->rank = rank;
   metadata->size = size;
   Logging::getInstance()->setRank(metadata->rank);
 #else
   // Set the rank to 0 (there is only one rank)
   Logging::getInstance()->setRank(0);
-
 #endif
 
-  return true;
+  return args;
 }
 
 /**
@@ -103,8 +100,22 @@ int main(int argc, char *argv[]) {
   size = 1;
 #endif
 
-  // Parse the command line arguments
-  if (!parseCmdArgs(argc, argv, rank, size)) {
+  // Parse the command line arguments with robust validation
+  CommandLineArgs args;
+  try {
+    args = parseCmdArgs(argc, argv, rank, size);
+    
+    // Handle help request
+    if (args.help_requested) {
+      return 0;  // Exit cleanly after showing help
+    }
+  } catch (const std::exception& e) {
+    if (rank == 0) {  // Only print from rank 0 in MPI
+      CommandLineParser::printError(e.what(), argv[0]);
+    }
+#ifdef WITH_MPI
+    MPI_Finalize();
+#endif
     return 1;
   }
 
@@ -129,7 +140,12 @@ int main(int argc, char *argv[]) {
   try {
     params = parseParams(param_file);
   } catch (const std::exception &e) {
-    error(e.what());
+    if (rank == 0) {
+      error("Failed to parse parameter file '%s': %s", param_file.c_str(), e.what());
+    }
+#ifdef WITH_MPI
+    MPI_Finalize();
+#endif
     return 1;
   }
   toc("Reading parameters");
