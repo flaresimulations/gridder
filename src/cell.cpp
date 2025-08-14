@@ -273,6 +273,9 @@ std::shared_ptr<Cell> getCellContainingPoint(const double pos[3]) {
   int j = static_cast<int>(pos[1] / sim->width[1]);
   int k = static_cast<int>(pos[2] / sim->width[2]);
 
+  message("Cell index for point (%.2e, %.2e, %.2e) is (%d, %d, %d)", pos[0],
+          pos[1], pos[2], i, j, k);
+
   // Get the cell index
   int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
 
