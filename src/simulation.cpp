@@ -18,16 +18,9 @@ Simulation::Simulation() {
   this->readSimulationData();
 
   // Allocate the cells array
-  this->cells = new std::shared_ptr<Cell>[nr_cells];
+  this->cells.resize(this->nr_cells);
 }
 
-/**
- * @brief Destroy the Simulation object
- */
-Simulation::~Simulation() {
-  // Delete the cells array
-  delete[] this->cells;
-}
 
 /**
  * @brief Read the simulation data from the input file.

@@ -27,8 +27,7 @@ GridPoint::GridPoint(double loc[3]) {
  * @param part The particle to add
  * @param kernel_radius The kernel radius
  */
-void GridPoint::add_particle(std::shared_ptr<Particle> part,
-                             double kernel_radius) {
+void GridPoint::add_particle(Particle* part, double kernel_radius) {
   this->count_map[kernel_radius]++;
   this->mass_map[kernel_radius] += part->mass;
 }

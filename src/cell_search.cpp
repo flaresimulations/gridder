@@ -17,8 +17,7 @@
  * @param kernel_rad The kernel radius.
  * @param kernel_rad2 The squared kernel radius.
  */
-static void addPartsToGridPoint(std::shared_ptr<Cell> cell,
-                                std::shared_ptr<GridPoint> grid_point,
+static void addPartsToGridPoint(Cell cell, GridPoint grid_point,
                                 const double kernel_rad,
                                 const double kernel_rad2) {
 
@@ -28,7 +27,7 @@ static void addPartsToGridPoint(std::shared_ptr<Cell> cell,
 
   // Loop over the particles in the cell and assign them to the grid point
   for (int p = 0; p < cell->part_count; p++) {
-    std::shared_ptr<Particle> part = cell->particles[p];
+    Particle part = cell->particles[p];
 
     // Get the distance between the particle and the grid point
     double dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
@@ -62,8 +61,8 @@ static void addPartsToGridPoint(std::shared_ptr<Cell> cell,
  * @param kernel_rad The kernel radius
  * @param kernel_rad2 The squared kernel radius
  */
-static void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
-                                       std::shared_ptr<Cell> other,
+static void recursivePairPartsToPoints(Cell* cell,
+                                       Cell* other,
                                        const double kernel_rad,
                                        const double kernel_rad2) {
 
@@ -93,7 +92,7 @@ static void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
   }
 
   // Get the single grid point in this leaf
-  std::shared_ptr<GridPoint> grid_point = cell->grid_points[0];
+  GridPoint* grid_point = cell->grid_points[0];
 
   // Early exit if the cells are too far apart.
   if (other->outsideKernel(grid_point, kernel_rad2))
@@ -135,7 +134,7 @@ static void recursivePairPartsToPoints(std::shared_ptr<Cell> cell,
  * @param kernel_rad The kernel radius.
  * @param kernel_rad2 The squared kernel radius.
  */
-static void recursiveSelfPartsToPoints(std::shared_ptr<Cell> cell,
+static void recursiveSelfPartsToPoints(Cell* cell,
                                        const double kernel_rad,
                                        const double kernel_rad2) {
 
@@ -199,14 +198,14 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
   Metadata &metadata = Metadata::getInstance();
 
   // Get the cells
-  std::shared_ptr<Cell> *cells = sim->cells;
+  std::vector<Cell>& cells = sim->cells;
 
   // Loop over the cells
 #pragma omp parallel for
   for (int cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
-    std::shared_ptr<Cell> cell = cells[cid];
+    Cell* cell = &cells[cid];
 
     // Skip unuseful cells
     if (!cell->is_useful)
@@ -230,7 +229,7 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
 
       // Recursively assign particles within any neighbours to the grid points
       // within a cell
-      for (std::shared_ptr<Cell> neighbour : cell->neighbours) {
+      for (Cell* neighbour : cell->neighbours) {
         recursivePairPartsToPoints(cell, neighbour, kernel_rad, kernel_rad2);
       }
     }

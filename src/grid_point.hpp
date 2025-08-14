@@ -22,7 +22,7 @@ public:
 
   // Prototypes for member functions (defined in grid_point.cpp)
   GridPoint(double loc[3]);
-  void add_particle(std::shared_ptr<Particle> part, double kernel_radius);
+  void add_particle(Particle* part, double kernel_radius);
   void add_cell(const int cell_part_count, const double cell_mass,
                 double kernel_radius);
   double getOverDensity(const double kernel_radius, Simulation *sim);
@@ -59,7 +59,7 @@ public:
   int grid_cdim;
 
   //! The grid points
-  std::vector<std::shared_ptr<GridPoint>> grid_points;
+  std::vector<GridPoint> grid_points;
 
   // Prototypes for member functions (defined in grid_point.cpp)
   Grid(Parameters *params);

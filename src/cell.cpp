@@ -24,7 +24,7 @@
  * @return True if the cell is within the kernel radius of the grid point,
  * false otherwise.
  */
-bool Cell::inKernel(std::shared_ptr<GridPoint> grid_point,
+bool Cell::inKernel(GridPoint* grid_point,
                     const double kernel_rad2) {
 
   // Get the boxsize from the metadata
@@ -65,7 +65,7 @@ bool Cell::inKernel(std::shared_ptr<GridPoint> grid_point,
  * @return True if the cell is outside the kernel radius of the grid point,
  * false otherwise.
  */
-bool Cell::outsideKernel(std::shared_ptr<GridPoint> grid_point,
+bool Cell::outsideKernel(GridPoint* grid_point,
                          const double kernel_rad2) {
 
   // Get the boxsize from the metadata
@@ -97,7 +97,7 @@ bool Cell::outsideKernel(std::shared_ptr<GridPoint> grid_point,
   // Ensure we aren't reporting we're outside when particles are inside
   if (r2 > kernel_rad2) {
     for (int p = 0; p < this->part_count; p++) {
-      std::shared_ptr<Particle> part = this->particles[p];
+      Particle* part = this->particles[p];
       const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
       const double p_dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
       const double p_dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
@@ -184,10 +184,13 @@ void Cell::split() {
         new_loc[1] = this->loc[1] + j * new_width[1];
         new_loc[2] = this->loc[2] + k * new_width[2];
 
-        // Create the child (here we have to do some pointer magic to get
-        // the shared pointer to work)
-        std::shared_ptr<Cell> child = std::make_shared<Cell>(
-            new_loc, new_width, shared_from_this(), this->top);
+        // Create the child in the sub_cells vector
+        Metadata *metadata = &Metadata::getInstance();
+        Simulation *sim = metadata->sim;
+        
+        // Add child to sub_cells vector and get pointer
+        sim->sub_cells.emplace_back(new_loc, new_width, this, this->top);
+        Cell* child = &sim->sub_cells.back();
 
 #ifdef WITH_MPI
         // Set the rank of the child
@@ -262,7 +265,7 @@ void Cell::split() {
  *
  * @return The cell containing the point.
  */
-std::shared_ptr<Cell> getCellContainingPoint(const double pos[3]) {
+Cell* getCellContainingPoint(const double pos[3]) {
 
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
@@ -277,7 +280,7 @@ std::shared_ptr<Cell> getCellContainingPoint(const double pos[3]) {
   int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
 
   // Return the cell
-  return sim->cells[cid];
+  return &sim->cells[cid];
 }
 
 /**
@@ -317,7 +320,7 @@ void assignPartsToCells(Simulation *sim) {
   std::vector<int> &offsets = sim->cell_part_starts;
 
   // Get the cells
-  std::shared_ptr<Cell> *cells = sim->cells;
+  std::vector<Cell>& cells = sim->cells;
 
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
@@ -360,7 +363,7 @@ void assignPartsToCells(Simulation *sim) {
   for (int cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
-    std::shared_ptr<Cell> cell = cells[cid];
+    Cell* cell = &cells[cid];
 
     // Skip unuseful cells
     if (!cell->is_useful)
@@ -393,10 +396,14 @@ void assignPartsToCells(Simulation *sim) {
       const double mass = masses[p];
       const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
 
-      // Create the particle
-      std::shared_ptr<Particle> part;
+      // Create the particle in the particles vector
+      Metadata *metadata = &Metadata::getInstance();
+      Simulation *sim = metadata->sim;
+      
+      Particle* part = nullptr;
       try {
-        part = std::make_shared<Particle>(pos, mass);
+        sim->particles.emplace_back(pos, mass);
+        part = &sim->particles.back();
       } catch (const std::exception &e) {
         error("Failed to create particle: %s", e.what());
       }
@@ -433,7 +440,7 @@ void assignPartsToCells(Simulation *sim) {
   // Make sure we have attached all the particles
   size_t total_cell_part_count = 0;
   for (int cid = 0; cid < sim->nr_cells; cid++) {
-    std::shared_ptr<Cell> cell = cells[cid];
+    Cell* cell = &cells[cid];
     total_cell_part_count += cell->part_count;
   }
   if (total_part_count != total_cell_part_count) {
@@ -445,8 +452,8 @@ void assignPartsToCells(Simulation *sim) {
 
   // Check particles are in the right cells
   for (int cid = 0; cid < sim->nr_cells; cid++) {
-    std::shared_ptr<Cell> cell = cells[cid];
-    for (std::shared_ptr<Particle> part : cell->particles) {
+    Cell* cell = &cells[cid];
+    for (Particle* part : cell->particles) {
       if (part->pos[0] < cell->loc[0] ||
           part->pos[0] >= cell->loc[0] + cell->width[0] ||
           part->pos[1] < cell->loc[1] ||
@@ -470,22 +477,22 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
   Metadata *metadata = &Metadata::getInstance();
 
   // Get the cells
-  std::shared_ptr<Cell> *cells = sim->cells;
+  std::vector<Cell>& cells = sim->cells;
 
   // Get the grid points
-  std::vector<std::shared_ptr<GridPoint>> grid_points = grid->grid_points;
+  std::vector<GridPoint>& grid_points = grid->grid_points;
 
 #pragma omp parallel for
   // Loop over the grid points assigning them to cells
   for (int gid = 0; gid < grid->n_grid_points; gid++) {
 
     // Get the grid point
-    std::shared_ptr<GridPoint> grid_point = grid_points[gid];
+    GridPoint* grid_point = &grid_points[gid];
     message("Assigning grid point %d to cell", gid);
 
     // Get the cell this grid point is in
-    std::shared_ptr<Cell> cell = getCellContainingPoint(grid_point->loc);
-    message("Got cell %p for grid point %d", cell.get(), gid);
+    Cell* cell = getCellContainingPoint(grid_point->loc);
+    message("Got cell %p for grid point %d", cell, gid);
     message("Grid point %d is in cell [%.2e %.2e %.2e] "
             "with width [%.2e %.2e %.2e]",
             gid, cell->loc[0], cell->loc[1], cell->loc[2], cell->width[0],
@@ -507,8 +514,8 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 
   // Check grid points are in the right cells
   for (int cid = 0; cid < sim->nr_cells; cid++) {
-    std::shared_ptr<Cell> cell = cells[cid];
-    for (std::shared_ptr<GridPoint> grid_point : cell->grid_points) {
+    Cell* cell = &cells[cid];
+    for (GridPoint* grid_point : cell->grid_points) {
       if (grid_point->loc[0] < cell->loc[0] ||
           grid_point->loc[0] >= cell->loc[0] + cell->width[0] ||
           grid_point->loc[1] < cell->loc[1] ||
@@ -535,13 +542,13 @@ void limitToUsefulCells(Simulation *sim) {
   Metadata *metadata = &Metadata::getInstance();
 
   // Get the cells
-  std::shared_ptr<Cell> *cells = sim->cells;
+  std::vector<Cell>& cells = sim->cells;
 
   // Loop over the cells and label the useful ones
   for (int cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
-    std::shared_ptr<Cell> cell = cells[cid];
+    Cell* cell = &cells[cid];
 
     // Check if the cell is useful
     if (cell->grid_points.size() > 0) {
@@ -552,7 +559,7 @@ void limitToUsefulCells(Simulation *sim) {
 
     // If we got here we have a useful cell, so we need to label the neighbours
     // as useful too
-    for (std::shared_ptr<Cell> neighbour : cell->neighbours) {
+    for (Cell* neighbour : cell->neighbours) {
       neighbour->is_useful = true;
     }
   }

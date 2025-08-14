@@ -11,7 +11,7 @@
 
 void getTopCells(Simulation *sim, Grid *grid) {
   // Unpack the simulation information we need
-  std::shared_ptr<Cell> *cells = sim->cells;
+  std::vector<Cell>& cells = sim->cells;
   const double width[3] = {sim->width[0], sim->width[1], sim->width[2]};
   const int nr_cells = sim->nr_cells;
   const int cdim[3] = {sim->cdim[0], sim->cdim[1], sim->cdim[2]};
@@ -30,18 +30,14 @@ void getTopCells(Simulation *sim, Grid *grid) {
     // Get the cell location and width
     double loc[3] = {i * width[0], j * width[1], k * width[2]};
 
-    // Create the cell
-    std::shared_ptr<Cell> cell =
-        std::make_shared<Cell>(loc, width, /*parent*/ nullptr);
+    // Initialize the cell in-place
+    cells[cid] = Cell(loc, width, /*parent*/ nullptr);
 
     // Assign the particle count in this cell
-    cell->part_count = counts[cid];
+    cells[cid].part_count = counts[cid];
 
     // We need to set top outside the constructor
-    cell->top = cell;
-
-    // Add the cell to the cells vector
-    cells[cid] = cell;
+    cells[cid].top = &cells[cid];
   }
 
   // Now the top level cells are made we can attached the pointers to
@@ -73,7 +69,7 @@ void getTopCells(Simulation *sim, Grid *grid) {
     int k = cid % cdim[2];
 
     // Get the cell
-    std::shared_ptr<Cell> cell = cells[cid];
+    Cell* cell = &cells[cid];
 
     // Loop over the neighbours
     int nid = 0;
@@ -92,7 +88,7 @@ void getTopCells(Simulation *sim, Grid *grid) {
           int cjd = iii * cdim[1] * cdim[2] + jjj * cdim[2] + kkk;
 
           // Attach the neighbour to the cell
-          cell->neighbours.push_back(cells[cjd]);
+          cell->neighbours.push_back(&cells[cjd]);
         }
       }
     }
@@ -110,7 +106,7 @@ void splitCells(Simulation *sim) {
 
   // Unpack the cells
   const int nr_cells = sim->nr_cells;
-  std::shared_ptr<Cell> *cells = sim->cells;
+  std::vector<Cell>& cells = sim->cells;
 
   // Loop over the cells and split them
 #pragma omp parallel for
@@ -118,10 +114,10 @@ void splitCells(Simulation *sim) {
 
 #ifdef WITH_MPI
     // Skip cells that aren't on this rank and aren't proxies
-    if (cells[cid]->rank != metadata->rank && cells[cid]->recv_rank == -1)
+    if (cells[cid].rank != metadata->rank && cells[cid].recv_rank == -1)
       continue;
 #endif
 
-    cells[cid]->split();
+    cells[cid].split();
   }
 }

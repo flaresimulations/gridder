@@ -13,6 +13,7 @@
 #include "cell.hpp"
 #include "hdf_io.hpp"
 #include "metadata.hpp"
+#include "particle.hpp"
 
 class Simulation {
 
@@ -49,7 +50,13 @@ public:
   double mean_density;
 
   //! An array of the cells
-  std::shared_ptr<Cell> *cells;
+  std::vector<Cell> cells;
+
+  //! Storage for dynamically created child cells
+  std::vector<Cell> sub_cells;
+
+  //! Storage for particles
+  std::vector<Particle> particles;
 
   //! The number of particles in each cell
   std::vector<int> cell_part_counts;
@@ -57,9 +64,8 @@ public:
   //! The indices to the particles in each cell in the simulation output
   std::vector<int> cell_part_starts;
 
-  // Constructor and destructor prototypes
+  // Constructor prototype
   Simulation();
-  ~Simulation();
 
   // Prototype for reader function (defined in simulation.cpp)
   void readSimulationData();

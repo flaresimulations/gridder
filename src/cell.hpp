@@ -24,7 +24,7 @@ class Grid;
 class GridPoint;
 class Simulation;
 
-class Cell : public std::enable_shared_from_this<Cell> {
+class Cell {
 public:
   //! Cell location
   double loc[3];
@@ -61,22 +61,22 @@ public:
   bool is_useful = false;
 
   //! Particles within the cell
-  std::vector<std::shared_ptr<Particle>> particles;
+  std::vector<Particle*> particles;
 
   //! Grid points within the cell
-  std::vector<std::shared_ptr<GridPoint>> grid_points;
+  std::vector<GridPoint*> grid_points;
 
   //! Child cells
-  std::array<std::shared_ptr<Cell>, 8> children;
+  std::array<Cell*, 8> children;
 
   //! Parent cell
-  std::shared_ptr<Cell> parent;
+  Cell *parent;
 
   //! Pointer to the top level cell
-  std::shared_ptr<Cell> top;
+  Cell *top;
 
   //! Store the neighbouring cells
-  std::vector<std::shared_ptr<Cell>> neighbours;
+  std::vector<Cell*> neighbours;
 
   //! Depth in the tree
   int depth;
@@ -88,8 +88,8 @@ public:
 
   // Constructor
   Cell(const double loc[3], const double width[3],
-       std::shared_ptr<Cell> parent = nullptr,
-       std::shared_ptr<Cell> top = nullptr) {
+       Cell* parent = nullptr,
+       Cell* top = nullptr) {
 
     // Set the location and width of the cell
     this->loc[0] = loc[0];
@@ -136,9 +136,9 @@ public:
   }
 
   // Prototypes for member functions (defined in cell.cpp)
-  bool inKernel(std::shared_ptr<GridPoint> grid_point,
+  bool inKernel(GridPoint* grid_point,
                 const double kernel_rad2);
-  bool outsideKernel(std::shared_ptr<GridPoint> grid_point,
+  bool outsideKernel(GridPoint* grid_point,
                      const double kernel_rad2);
   void split();
 };
@@ -148,7 +148,7 @@ void getTopCells(Simulation *sim, Grid *grid);
 void splitCells(Simulation *sim);
 
 // Prototypes for functions defined in cell.cpp
-std::shared_ptr<Cell> getCellContainingPoint(const double pos[3]);
+Cell* getCellContainingPoint(const double pos[3]);
 int getCellIndexContainingPoint(const double pos[3]);
 void assignPartsToCells(Simulation *sim);
 void assignGridPointsToCells(Simulation *sim, Grid *grid);

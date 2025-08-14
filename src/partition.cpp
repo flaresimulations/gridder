@@ -40,7 +40,7 @@ void partitionCells(Simulation *sim, Grid *grid) {
   int select = 0;
   for (int cid = 0; cid < sim->nr_cells; cid++) {
     // Get the cell
-    std::shared_ptr<Cell> cell = sim->cells[cid];
+    Cell* cell = &sim->cells[cid];
 
     // Get the number of particles in the cell
     int part_count = cell->part_count;
@@ -113,7 +113,7 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
         int cid = i * sim->cdim[1] * sim->cdim[2] + j * sim->cdim[2] + k;
 
         // Get the cell
-        std::shared_ptr<Cell> ci = sim->cells[cid];
+        Cell* ci = &sim->cells[cid];
 
         // Skip useless cells
         if (!ci->is_useful) {
@@ -132,7 +132,7 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
               // Get the cj possible proxy
               const int cjd =
                   iii * sim->cdim[1] * sim->cdim[2] + jjj * sim->cdim[2] + kkk;
-              std::shared_ptr<Cell> cj = sim->cells[cjd];
+              Cell* cj = &sim->cells[cjd];
 
               // Ensure no double counts
               if (cjd < cid) {
@@ -190,7 +190,7 @@ void exchangeProxyCells(Simulation *sim) {
   // Loop over all cells in the simulation
   for (int cid = 0; cid < sim->nr_cells; cid++) {
     // Get the cell
-    std::shared_ptr<Cell> cell = sim->cells[cid];
+    Cell* cell = &sim->cells[cid];
 
     // Skip cells that have no communication (no send or receive ranks)
     if (cell->send_ranks.empty() && cell->recv_rank == -1) {
@@ -221,8 +221,12 @@ void exchangeProxyCells(Simulation *sim) {
 
         // Create a new particle and handle any exceptions
         try {
-          std::shared_ptr<Particle> part =
-              std::make_shared<Particle>(pos, mass);
+          // Get the simulation instance to access particles vector
+          Metadata *metadata = &Metadata::getInstance();
+          Simulation *sim = metadata->sim;
+          
+          sim->particles.emplace_back(pos, mass);
+          Particle* part = &sim->particles.back();
 
           // Update the cell's total mass
           cell->mass += mass;

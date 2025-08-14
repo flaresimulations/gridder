@@ -87,7 +87,7 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
 
 #ifdef WITH_MPI
     // Skip grid points that are in cells we don't own
-    std::shared_ptr<Cell> cell = getCellContainingPoint(loc);
+    Cell* cell = getCellContainingPoint(loc);
     if (cell->rank != metadata->rank) {
       continue;
     }
@@ -98,7 +98,7 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
       // Create the grid point and add it to the vector
       // TODO: We could use a tbb::concurrent_vector for grid points to
       // avoid the need for a critical section here
-      grid->grid_points[gid] = std::make_shared<GridPoint>(loc);
+      grid->grid_points.emplace_back(loc);
     }
   }
 
