@@ -27,13 +27,28 @@ set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -Wall -Wextra -Wpedantic")
 
 # ========== Dependencies ==========
 find_package(OpenMP REQUIRED)
-find_package(HDF5 REQUIRED COMPONENTS C HL)
 
+# HDF5 with proper parallel detection
 if(ENABLE_MPI)
+  # Find MPI first
   find_package(MPI REQUIRED)
+  
+  # Find HDF5 and check for parallel support
+  find_package(HDF5 REQUIRED COMPONENTS C HL)
+  
+  # More robust check for parallel HDF5
   if(NOT HDF5_IS_PARALLEL)
-    message(FATAL_ERROR "MPI enabled but HDF5 is not parallel")
+    message(FATAL_ERROR "MPI enabled but HDF5 was not built with parallel support. "
+                        "Please install HDF5 with --enable-parallel or set ENABLE_MPI=OFF")
   endif()
+  
+  message(STATUS "Found parallel HDF5: ${HDF5_VERSION}")
+  message(STATUS "MPI C compiler: ${MPI_C_COMPILER}")
+  message(STATUS "MPI CXX compiler: ${MPI_CXX_COMPILER}")
+else()
+  # Serial HDF5
+  find_package(HDF5 REQUIRED COMPONENTS C HL)
+  message(STATUS "Found serial HDF5: ${HDF5_VERSION}")
 endif()
 
 # ========== Metadata ==========
@@ -42,6 +57,7 @@ execute_process(
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   OUTPUT_VARIABLE GIT_REVISION
   OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
 )
 
 execute_process(
@@ -49,6 +65,7 @@ execute_process(
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   OUTPUT_VARIABLE GIT_BRANCH
   OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
 )
 
 execute_process(
@@ -56,7 +73,19 @@ execute_process(
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   OUTPUT_VARIABLE GIT_DATE
   OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
 )
+
+# Handle case where git commands fail (e.g., not a git repo)
+if(NOT GIT_REVISION)
+  set(GIT_REVISION "unknown")
+endif()
+if(NOT GIT_BRANCH)
+  set(GIT_BRANCH "unknown")
+endif()
+if(NOT GIT_DATE)
+  set(GIT_DATE "unknown")
+endif()
 
 if(CMAKE_CXX_COMPILER_VERSION AND CMAKE_CXX_COMPILER_ID)
   set(COMPILER_INFO "${CMAKE_CXX_COMPILER_ID}@${CMAKE_CXX_COMPILER_VERSION}")
@@ -92,29 +121,79 @@ set(SOURCE_FILES
 # ========== Target ==========
 add_executable(parent_gridder ${SOURCE_FILES})
 
+# Base include directories
 target_include_directories(parent_gridder PRIVATE
   ${CMAKE_SOURCE_DIR}/src
   ${HDF5_INCLUDE_DIRS}
 )
 
-if(ENABLE_MPI)
-  target_include_directories(parent_gridder PRIVATE ${MPI_CXX_INCLUDE_PATH})
-endif()
-
+# Base libraries
 target_link_libraries(parent_gridder PRIVATE
-  HDF5::HDF5
+  ${HDF5_LIBRARIES}  # Use HDF5_LIBRARIES instead of HDF5::HDF5 for broader compatibility
   OpenMP::OpenMP_CXX
 )
 
+# MPI-specific configuration
 if(ENABLE_MPI)
-  target_link_libraries(parent_gridder PRIVATE MPI::MPI_CXX)
+  target_include_directories(parent_gridder PRIVATE ${MPI_CXX_INCLUDE_DIRS})
+  target_link_libraries(parent_gridder PRIVATE ${MPI_CXX_LIBRARIES})
   target_compile_definitions(parent_gridder PRIVATE WITH_MPI)
+  
+  # Add MPI compile flags if needed
+  if(MPI_CXX_COMPILE_FLAGS)
+    set_target_properties(parent_gridder PROPERTIES
+      COMPILE_FLAGS "${MPI_CXX_COMPILE_FLAGS}")
+  endif()
+  
+  # Add MPI link flags if needed  
+  if(MPI_CXX_LINK_FLAGS)
+    set_target_properties(parent_gridder PROPERTIES
+      LINK_FLAGS "${MPI_CXX_LINK_FLAGS}")
+  endif()
 endif()
 
+# Debug-specific definitions
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_definitions(parent_gridder PRIVATE DEBUGGING_CHECKS)
 endif()
 
-# ========== Status ==========
-message(STATUS "MPI enabled: ${ENABLE_MPI}")
+# ========== Status Messages ==========
+message(STATUS "=== Configuration Summary ===")
+message(STATUS "Project: ${PROJECT_NAME}")
+message(STATUS "Version: ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Compiler: ${COMPILER_INFO}")
+message(STATUS "MPI enabled: ${ENABLE_MPI}")
+if(ENABLE_MPI)
+  message(STATUS "  - MPI version: ${MPI_CXX_VERSION}")
+  message(STATUS "  - MPI include dirs: ${MPI_CXX_INCLUDE_DIRS}")
+  message(STATUS "  - Parallel HDF5: YES")
+else()
+  message(STATUS "  - Parallel HDF5: NO")
+endif()
+message(STATUS "HDF5 version: ${HDF5_VERSION}")
+message(STATUS "OpenMP enabled: ${OpenMP_CXX_FOUND}")
+message(STATUS "Git revision: ${GIT_REVISION}")
+message(STATUS "Git branch: ${GIT_BRANCH}")
+message(STATUS "Git date: ${GIT_DATE}")
+message(STATUS "===============================")
+
+# ========== Build Instructions ==========
+if(ENABLE_MPI)
+  message(STATUS "")
+  message(STATUS "To build with MPI:")
+  message(STATUS "  mkdir build && cd build")
+  message(STATUS "  CC=mpicc CXX=mpicxx cmake -DENABLE_MPI=ON ..")
+  message(STATUS "  make -j$(nproc)")
+  message(STATUS "")
+  message(STATUS "To run with MPI:")
+  message(STATUS "  mpirun -np <num_procs> ./parent_gridder [options]")
+else()
+  message(STATUS "")
+  message(STATUS "To build without MPI:")
+  message(STATUS "  mkdir build && cd build")
+  message(STATUS "  cmake ..")
+  message(STATUS "  make -j$(nproc)")
+endif()
+message(STATUS "")
