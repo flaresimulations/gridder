@@ -485,10 +485,10 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 
     // Get the cell this grid point is in
     std::shared_ptr<Cell> cell = getCellContainingPoint(grid_point->loc);
-    if (!cell) {
-      error("Grid point %d (%f %f %f) is not in any cell", gid,
-            grid_point->loc[0], grid_point->loc[1], grid_point->loc[2]);
-    }
+    message("Grid point %d is in cell [%.2e %.2e %.2e] "
+            "with width [%.2e %.2e %.2e]",
+            gid, cell->loc[0], cell->loc[1], cell->loc[2], cell->width[0],
+            cell->width[1], cell->width[2]);
 
     // If the cell is not local, nothing to do
 #ifdef WITH_MPI
