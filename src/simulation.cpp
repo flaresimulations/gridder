@@ -19,6 +19,13 @@ Simulation::Simulation() {
 
   // Allocate the cells array
   this->cells.resize(this->nr_cells);
+  
+  // Reserve space for dynamic storage to avoid reallocations
+  // Estimate: sub_cells could be up to nr_cells * 8 (if all split once)  
+  this->sub_cells.reserve(this->nr_cells * 2);  // Conservative estimate
+  
+  // Estimate: particles should be around nr_dark_matter
+  this->particles.reserve(this->nr_dark_matter);
 }
 
 

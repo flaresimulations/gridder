@@ -24,8 +24,8 @@
  * @return True if the cell is within the kernel radius of the grid point,
  * false otherwise.
  */
-bool Cell::inKernel(GridPoint* grid_point,
-                    const double kernel_rad2) {
+bool Cell::inKernel(const GridPoint* grid_point,
+                    const double kernel_rad2) const {
 
   // Get the boxsize from the metadata
   Metadata *metadata = &Metadata::getInstance();
@@ -65,8 +65,8 @@ bool Cell::inKernel(GridPoint* grid_point,
  * @return True if the cell is outside the kernel radius of the grid point,
  * false otherwise.
  */
-bool Cell::outsideKernel(GridPoint* grid_point,
-                         const double kernel_rad2) {
+bool Cell::outsideKernel(const GridPoint* grid_point,
+                         const double kernel_rad2) const {
 
   // Get the boxsize from the metadata
   Metadata *metadata = &Metadata::getInstance();
@@ -171,12 +171,12 @@ void Cell::split() {
   // Flag that we are splitting this cell
   this->is_split = true;
 
-  // Loop over the 8 children creating the cells and attaching the particles
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2; j++) {
-      for (int k = 0; k < 2; k++) {
+  // Loop over the children creating the cells and attaching the particles
+  for (int i = 0; i < OCTREE_DIM; i++) {
+    for (int j = 0; j < OCTREE_DIM; j++) {
+      for (int k = 0; k < OCTREE_DIM; k++) {
         // Define the index of the child
-        int iprogeny = k + 2 * j + 4 * i;
+        int iprogeny = k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
 
         // Calculate the new location of the child
         double new_loc[3];
@@ -236,7 +236,7 @@ void Cell::split() {
 #ifdef DEBUGGING_CHECKS
   // Make sure the sum of child particle counts is the same as the parent
   size_t child_part_count = 0;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < OCTREE_CHILDREN; i++) {
     child_part_count += this->children[i]->part_count;
   }
   if (child_part_count != this->part_count)
@@ -247,7 +247,7 @@ void Cell::split() {
   // Make sure the sum of the child grid point counts is the same as the
   // parent
   size_t child_grid_point_count = 0;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < OCTREE_CHILDREN; i++) {
     child_grid_point_count += this->children[i]->grid_points.size();
   }
   if (child_grid_point_count != this->grid_points.size())

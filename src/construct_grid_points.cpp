@@ -69,6 +69,9 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
   message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
           grid_spacing[2]);
 
+  // Reserve space for grid points to avoid reallocations
+  grid->grid_points.reserve(n_grid_points);
+
   // Create the grid points (we'll loop over every individual grid point for
   // better parallelism)
 #pragma omp parallel for

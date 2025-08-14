@@ -11,6 +11,9 @@
 #include "simulation.hpp"
 
 #ifdef WITH_MPI
+// MPI communication tags
+static constexpr int MPI_TAG_MASS = 0;
+static constexpr int MPI_TAG_POSITION = 1;
 /**
  * @brief Function to partition the cells over the MPI ranks.
  *
@@ -208,9 +211,9 @@ void exchangeProxyCells(Simulation *sim) {
     if (cell->recv_rank != -1) {
       // Receive masses and positions from the specified rank
       MPI_Recv(send_masses.data(), npart_exchange, MPI_DOUBLE, cell->recv_rank,
-               0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+               MPI_TAG_MASS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       MPI_Recv(send_poss.data(), 3 * npart_exchange, MPI_DOUBLE,
-               cell->recv_rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+               cell->recv_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
       // Loop over received particles and attach them to the cell
       for (int p = 0; p < npart_exchange; p++) {
@@ -250,9 +253,9 @@ void exchangeProxyCells(Simulation *sim) {
 
       // Send particle data to all ranks in send_ranks
       for (int send_rank : cell->send_ranks) {
-        MPI_Send(send_masses.data(), npart_exchange, MPI_DOUBLE, send_rank, 0,
+        MPI_Send(send_masses.data(), npart_exchange, MPI_DOUBLE, send_rank, MPI_TAG_MASS,
                  MPI_COMM_WORLD);
-        MPI_Send(send_poss.data(), 3 * npart_exchange, MPI_DOUBLE, send_rank, 1,
+        MPI_Send(send_poss.data(), 3 * npart_exchange, MPI_DOUBLE, send_rank, MPI_TAG_POSITION,
                  MPI_COMM_WORLD);
       }
     }

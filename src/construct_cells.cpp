@@ -58,6 +58,9 @@ void getTopCells(Simulation *sim, Grid *grid) {
 
   message("Looking for neighbours within %d cells", nwalk);
 
+  // Calculate maximum neighbors and reserve space
+  const int max_neighbors = (2 * nwalk + 1) * (2 * nwalk + 1) * (2 * nwalk + 1) - 1;  // -1 excludes self
+
   // Loop over the cells attaching the pointers the neighbouring cells (taking
   // into account periodic boundary conditions)
 #pragma omp parallel for
@@ -70,6 +73,9 @@ void getTopCells(Simulation *sim, Grid *grid) {
 
     // Get the cell
     Cell* cell = &cells[cid];
+    
+    // Reserve space for neighbors
+    cell->neighbours.reserve(max_neighbors);
 
     // Loop over the neighbours
     int nid = 0;

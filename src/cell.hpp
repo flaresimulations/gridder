@@ -26,6 +26,10 @@ class Simulation;
 
 class Cell {
 public:
+  //! Constants for octree structure
+  static constexpr int OCTREE_CHILDREN = 8;
+  static constexpr int OCTREE_DIM = 2;  // 2x2x2 = 8 children
+  static constexpr int SPATIAL_DIMS = 3;
   //! Cell location
   double loc[3];
 
@@ -67,7 +71,7 @@ public:
   std::vector<GridPoint*> grid_points;
 
   //! Child cells
-  std::array<Cell*, 8> children;
+  std::array<Cell*, OCTREE_CHILDREN> children;
 
   //! Parent cell
   Cell *parent;
@@ -136,10 +140,10 @@ public:
   }
 
   // Prototypes for member functions (defined in cell.cpp)
-  bool inKernel(GridPoint* grid_point,
-                const double kernel_rad2);
-  bool outsideKernel(GridPoint* grid_point,
-                     const double kernel_rad2);
+  bool inKernel(const GridPoint* grid_point,
+                const double kernel_rad2) const;
+  bool outsideKernel(const GridPoint* grid_point,
+                     const double kernel_rad2) const;
   void split();
 };
 

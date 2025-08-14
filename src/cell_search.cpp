@@ -77,7 +77,7 @@ static void recursivePairPartsToPoints(Cell* cell,
   // If we have more than one grid point recurse (we can always do this since
   // the cell tree was constructed such that the leaves have only 1 grid point)
   if (cell->grid_points.size() > 1) {
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
       recursivePairPartsToPoints(cell->children[i], other, kernel_rad,
                                  kernel_rad2);
     }
@@ -110,7 +110,7 @@ static void recursivePairPartsToPoints(Cell* cell,
   // If the other cell is split then we need to recurse over the children before
   // trying to add the particles
   if (other->is_split && other->part_count > metadata.max_leaf_count) {
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
       recursivePairPartsToPoints(cell, other->children[i], kernel_rad,
                                  kernel_rad2);
     }
@@ -144,11 +144,11 @@ static void recursiveSelfPartsToPoints(Cell* cell,
 
   // If the cell is split then we need to recurse over the children
   if (cell->is_split && cell->grid_points.size() > 1) {
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
       recursiveSelfPartsToPoints(cell->children[i], kernel_rad, kernel_rad2);
 
       // And do the pair assignment
-      for (int j = 0; j < 8; j++) {
+      for (int j = 0; j < Cell::OCTREE_CHILDREN; j++) {
         if (i == j)
           continue;
         recursivePairPartsToPoints(cell->children[i], cell->children[j],
