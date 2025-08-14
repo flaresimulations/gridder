@@ -245,7 +245,11 @@ private:
 
     // Format the message
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), format, args...);
+    if constexpr (sizeof...(args) == 0) {
+      snprintf(buffer, sizeof(buffer), "%s", format);
+    } else {
+      snprintf(buffer, sizeof(buffer), format, args...);
+    }
 
     // Include the message
     oss << buffer << std::endl;

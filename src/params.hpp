@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <variant>
 
@@ -137,14 +138,13 @@ template <typename T>
 T Parameters::getParameterNoDefault(const std::string &key) {
 
   /* Get the parameter if exists, or error. */
-  T value;
   if (parameters.count(key) > 0) {
-    value = std::get<T>(parameters.at(key));
+    return std::get<T>(parameters.at(key));
   } else {
     printf("A required parameter was not set in the parameter file (%s)",
            key.c_str());
+    throw std::runtime_error("Required parameter not found: " + key);
   }
-  return value;
 }
 
 #endif // PARAMS_H_
