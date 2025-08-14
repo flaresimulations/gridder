@@ -337,7 +337,7 @@ template <> hid_t HDF5Helper::getHDF5Type<unsigned long>() {
  * @brief Template specialization for unsigned long arrays (when unsigned long
  * != size_t)
  */
-template <> hid_t HDF5Helper::getHDF5Type<long[6]>() {
+template <> hid_t HDF5Helper::getHDF5Type<unsigned long[6]>() {
   return H5T_NATIVE_ULONG;
 }
 #endif
@@ -346,3 +346,10 @@ template <> hid_t HDF5Helper::getHDF5Type<long[6]>() {
  * @brief Template specialization for size_t
  */
 template <> hid_t HDF5Helper::getHDF5Type<size_t>() { return H5T_NATIVE_HSIZE; }
+
+/**
+ * @brief Template specialization for size_t arrays (used for attributes)
+ */
+template <> hid_t HDF5Helper::getHDF5Type<size_t[6]>() {
+  return H5T_NATIVE_HSIZE;
+}
