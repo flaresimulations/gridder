@@ -24,7 +24,7 @@
  * @return True if the cell is within the kernel radius of the grid point,
  * false otherwise.
  */
-bool Cell::inKernel(const GridPoint* grid_point,
+bool Cell::inKernel(const GridPoint *grid_point,
                     const double kernel_rad2) const {
 
   // Get the boxsize from the metadata
@@ -65,7 +65,7 @@ bool Cell::inKernel(const GridPoint* grid_point,
  * @return True if the cell is outside the kernel radius of the grid point,
  * false otherwise.
  */
-bool Cell::outsideKernel(const GridPoint* grid_point,
+bool Cell::outsideKernel(const GridPoint *grid_point,
                          const double kernel_rad2) const {
 
   // Get the boxsize from the metadata
@@ -97,7 +97,7 @@ bool Cell::outsideKernel(const GridPoint* grid_point,
   // Ensure we aren't reporting we're outside when particles are inside
   if (r2 > kernel_rad2) {
     for (size_t p = 0; p < this->part_count; p++) {
-      Particle* part = this->particles[p];
+      Particle *part = this->particles[p];
       const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
       const double p_dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
       const double p_dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
@@ -187,10 +187,10 @@ void Cell::split() {
         // Create the child in the sub_cells vector
         Metadata *metadata = &Metadata::getInstance();
         Simulation *sim = metadata->sim;
-        
+
         // Add child to sub_cells vector and get pointer
         sim->sub_cells.emplace_back(new_loc, new_width, this, this->top);
-        Cell* child = &sim->sub_cells.back();
+        Cell *child = &sim->sub_cells.back();
 
 #ifdef WITH_MPI
         // Set the rank of the child
@@ -265,7 +265,7 @@ void Cell::split() {
  *
  * @return The cell containing the point.
  */
-Cell* getCellContainingPoint(const double pos[3]) {
+Cell *getCellContainingPoint(const double pos[3]) {
 
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
@@ -320,7 +320,7 @@ void assignPartsToCells(Simulation *sim) {
   std::vector<int> &offsets = sim->cell_part_starts;
 
   // Get the cells
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
 
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
@@ -363,7 +363,7 @@ void assignPartsToCells(Simulation *sim) {
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
-    Cell* cell = &cells[cid];
+    Cell *cell = &cells[cid];
 
     // Skip unuseful cells
     if (!cell->is_useful)
@@ -399,8 +399,8 @@ void assignPartsToCells(Simulation *sim) {
       // Create the particle in the particles vector
       Metadata *metadata = &Metadata::getInstance();
       Simulation *sim = metadata->sim;
-      
-      Particle* part = nullptr;
+
+      Particle *part = nullptr;
       try {
         sim->particles.emplace_back(pos, mass);
         part = &sim->particles.back();
@@ -440,7 +440,7 @@ void assignPartsToCells(Simulation *sim) {
   // Make sure we have attached all the particles
   size_t total_cell_part_count = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell* cell = &cells[cid];
+    Cell *cell = &cells[cid];
     total_cell_part_count += cell->part_count;
   }
   if (total_part_count != total_cell_part_count) {
@@ -452,8 +452,8 @@ void assignPartsToCells(Simulation *sim) {
 
   // Check particles are in the right cells
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell* cell = &cells[cid];
-    for (Particle* part : cell->particles) {
+    Cell *cell = &cells[cid];
+    for (Particle *part : cell->particles) {
       if (part->pos[0] < cell->loc[0] ||
           part->pos[0] >= cell->loc[0] + cell->width[0] ||
           part->pos[1] < cell->loc[1] ||
@@ -477,26 +477,20 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
   Metadata *metadata = &Metadata::getInstance();
 
   // Get the cells
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
 
   // Get the grid points
-  std::vector<GridPoint>& grid_points = grid->grid_points;
+  std::vector<GridPoint> &grid_points = grid->grid_points;
 
 #pragma omp parallel for
   // Loop over the grid points assigning them to cells
   for (int gid = 0; gid < grid->n_grid_points; gid++) {
 
     // Get the grid point
-    GridPoint* grid_point = &grid_points[gid];
-    message("Assigning grid point %d to cell", gid);
+    GridPoint *grid_point = &grid_points[gid];
 
     // Get the cell this grid point is in
-    Cell* cell = getCellContainingPoint(grid_point->loc);
-    message("Got cell %p for grid point %d", cell, gid);
-    message("Grid point %d is in cell [%.2e %.2e %.2e] "
-            "with width [%.2e %.2e %.2e]",
-            gid, cell->loc[0], cell->loc[1], cell->loc[2], cell->width[0],
-            cell->width[1], cell->width[2]);
+    Cell *cell = getCellContainingPoint(grid_point->loc);
 
     // If the cell is not local, nothing to do
 #ifdef WITH_MPI
@@ -514,8 +508,8 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 
   // Check grid points are in the right cells
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell* cell = &cells[cid];
-    for (GridPoint* grid_point : cell->grid_points) {
+    Cell *cell = &cells[cid];
+    for (GridPoint *grid_point : cell->grid_points) {
       if (grid_point->loc[0] < cell->loc[0] ||
           grid_point->loc[0] >= cell->loc[0] + cell->width[0] ||
           grid_point->loc[1] < cell->loc[1] ||
@@ -542,13 +536,13 @@ void limitToUsefulCells(Simulation *sim) {
   Metadata *metadata = &Metadata::getInstance();
 
   // Get the cells
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
 
   // Loop over the cells and label the useful ones
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
-    Cell* cell = &cells[cid];
+    Cell *cell = &cells[cid];
 
     // Check if the cell is useful
     if (cell->grid_points.size() > 0) {
@@ -559,7 +553,7 @@ void limitToUsefulCells(Simulation *sim) {
 
     // If we got here we have a useful cell, so we need to label the neighbours
     // as useful too
-    for (Cell* neighbour : cell->neighbours) {
+    for (Cell *neighbour : cell->neighbours) {
       neighbour->is_useful = true;
     }
   }
