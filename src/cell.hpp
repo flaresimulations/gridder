@@ -90,6 +90,27 @@ public:
   int ph_ind = -1;
 #endif
 
+  // Default constructor
+  Cell() {
+    // Initialize to safe default values
+    this->loc[0] = this->loc[1] = this->loc[2] = 0.0;
+    this->width[0] = this->width[1] = this->width[2] = 0.0;
+    this->parent = nullptr;
+    this->top = nullptr;
+    this->part_count = 0;
+    this->mass = 0.0;
+    this->depth = 0;
+    this->is_split = false;
+    this->is_useful = false;
+    for (int i = 0; i < OCTREE_CHILDREN; i++) {
+      this->children[i] = nullptr;
+    }
+#ifdef WITH_MPI
+    this->rank = 0;
+    this->recv_rank = -1;
+#endif
+  }
+
   // Constructor
   Cell(const double loc[3], const double width[3],
        Cell* parent = nullptr,

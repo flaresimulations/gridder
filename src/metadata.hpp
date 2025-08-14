@@ -41,7 +41,7 @@ public:
   int nsnap;
 
   // Tree properties
-  int max_leaf_count;
+  size_t max_leaf_count;
 
   //! Pointer to the simulation object (set after Simulation instantiation)
   Simulation *sim;

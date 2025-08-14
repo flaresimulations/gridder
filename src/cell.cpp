@@ -96,7 +96,7 @@ bool Cell::outsideKernel(const GridPoint* grid_point,
 #ifdef DEBUGGING_CHECKS
   // Ensure we aren't reporting we're outside when particles are inside
   if (r2 > kernel_rad2) {
-    for (int p = 0; p < this->part_count; p++) {
+    for (size_t p = 0; p < this->part_count; p++) {
       Particle* part = this->particles[p];
       const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
       const double p_dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
@@ -135,7 +135,7 @@ void Cell::split() {
 
 #ifdef DEBUGGING_CHECKS
   // Ensure all the particles within this cell are in the correct place
-  for (int p = 0; p < this->part_count; p++) {
+  for (size_t p = 0; p < this->part_count; p++) {
     if (this->particles[p]->pos[0] < this->loc[0] ||
         this->particles[p]->pos[0] >= this->loc[0] + this->width[0] ||
         this->particles[p]->pos[1] < this->loc[1] ||
@@ -146,7 +146,7 @@ void Cell::split() {
   }
 
   // Ensure all the grid points within this cell are in the correct place
-  for (int p = 0; p < this->grid_points.size(); p++) {
+  for (size_t p = 0; p < this->grid_points.size(); p++) {
     if (this->grid_points[p]->loc[0] < this->loc[0] ||
         this->grid_points[p]->loc[0] >= this->loc[0] + this->width[0] ||
         this->grid_points[p]->loc[1] < this->loc[1] ||
@@ -199,7 +199,7 @@ void Cell::split() {
 
         // Attach the particles to the child and count them while we're at
         // it
-        for (int p = 0; p < this->part_count; p++) {
+        for (size_t p = 0; p < this->part_count; p++) {
           if (this->particles[p]->pos[0] >= new_loc[0] &&
               this->particles[p]->pos[0] < new_loc[0] + new_width[0] &&
               this->particles[p]->pos[1] >= new_loc[1] &&
@@ -213,7 +213,7 @@ void Cell::split() {
         }
 
         // Attach the grid points to the child
-        for (int p = 0; p < this->grid_points.size(); p++) {
+        for (size_t p = 0; p < this->grid_points.size(); p++) {
           if (this->grid_points[p]->loc[0] >= new_loc[0] &&
               this->grid_points[p]->loc[0] < new_loc[0] + new_width[0] &&
               this->grid_points[p]->loc[1] >= new_loc[1] &&
@@ -360,7 +360,7 @@ void assignPartsToCells(Simulation *sim) {
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
     Cell* cell = &cells[cid];
@@ -439,7 +439,7 @@ void assignPartsToCells(Simulation *sim) {
 #ifdef DEBUGGING_CHECKS
   // Make sure we have attached all the particles
   size_t total_cell_part_count = 0;
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell* cell = &cells[cid];
     total_cell_part_count += cell->part_count;
   }
@@ -451,7 +451,7 @@ void assignPartsToCells(Simulation *sim) {
   }
 
   // Check particles are in the right cells
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell* cell = &cells[cid];
     for (Particle* part : cell->particles) {
       if (part->pos[0] < cell->loc[0] ||
@@ -513,7 +513,7 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 #ifdef DEBUGGING_CHECKS
 
   // Check grid points are in the right cells
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell* cell = &cells[cid];
     for (GridPoint* grid_point : cell->grid_points) {
       if (grid_point->loc[0] < cell->loc[0] ||
@@ -545,7 +545,7 @@ void limitToUsefulCells(Simulation *sim) {
   std::vector<Cell>& cells = sim->cells;
 
   // Loop over the cells and label the useful ones
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
     Cell* cell = &cells[cid];
@@ -566,8 +566,8 @@ void limitToUsefulCells(Simulation *sim) {
 
   // Count the number of useful cells
   int useful_count = 0;
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
-    if (cells[cid]->is_useful) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].is_useful) {
       useful_count++;
     }
   }

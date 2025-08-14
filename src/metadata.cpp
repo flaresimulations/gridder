@@ -21,7 +21,7 @@ void readMetadata(Parameters *params) {
 
   // Get the maximum leaf count
   metadata->max_leaf_count =
-      params->getParameter<int>("Tree/max_leaf_count", 200);
+      static_cast<size_t>(params->getParameter<int>("Tree/max_leaf_count", 200));
 
   // Get the input file path
   metadata->input_file = getInputFilePath(params, metadata->nsnap);

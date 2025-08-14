@@ -17,7 +17,7 @@
  * @param kernel_rad The kernel radius.
  * @param kernel_rad2 The squared kernel radius.
  */
-static void addPartsToGridPoint(Cell cell, GridPoint grid_point,
+static void addPartsToGridPoint(Cell* cell, GridPoint* grid_point,
                                 const double kernel_rad,
                                 const double kernel_rad2) {
 
@@ -26,8 +26,8 @@ static void addPartsToGridPoint(Cell cell, GridPoint grid_point,
   double *dim = metadata->sim->dim;
 
   // Loop over the particles in the cell and assign them to the grid point
-  for (int p = 0; p < cell->part_count; p++) {
-    Particle part = cell->particles[p];
+  for (size_t p = 0; p < cell->part_count; p++) {
+    Particle* part = cell->particles[p];
 
     // Get the distance between the particle and the grid point
     double dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
@@ -202,7 +202,7 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
 
   // Loop over the cells
 #pragma omp parallel for
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
     Cell* cell = &cells[cid];

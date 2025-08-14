@@ -25,7 +25,7 @@ public:
   void add_particle(Particle* part, double kernel_radius);
   void add_cell(const int cell_part_count, const double cell_mass,
                 double kernel_radius);
-  double getOverDensity(const double kernel_radius, Simulation *sim);
+  double getOverDensity(const double kernel_radius, Simulation *sim) const;
 
 private:
   //! The count of particles in each kernel radius

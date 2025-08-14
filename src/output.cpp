@@ -66,13 +66,13 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
 
   // Loop over cells and collect grid point counts
   std::vector<int> grid_point_counts(sim->nr_cells, 0);
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
-    grid_point_counts[cid] = static_cast<int>(cells[cid]->grid_points.size());
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    grid_point_counts[cid] = static_cast<int>(cells[cid].grid_points.size());
   }
 
   // Convert counts to start indices for cell lookup
   std::vector<int> grid_point_start(sim->nr_cells, 0);
-  for (int cid = 1; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 1; cid < sim->nr_cells; cid++) {
     grid_point_start[cid] =
         grid_point_start[cid - 1] + grid_point_counts[cid - 1];
   }
@@ -129,7 +129,7 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
     }
 
     // Process each cell
-    for (int cid = 0; cid < sim->nr_cells; cid++) {
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
       Cell* cell = &cells[cid];
 
       // Skip empty cells
@@ -218,8 +218,8 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
   // Calculate local cell range for this rank
   int nr_cells_before = 0;
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
-    if (cells[cid]->rank == metadata->rank) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].rank == metadata->rank) {
       break;
     }
     nr_cells_before++;
@@ -233,7 +233,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   std::vector<int> local_grid_point_counts(sim->nr_cells, 0);
   for (int cid = first_local_cell; cid < last_local_cell; cid++) {
     local_grid_point_counts[cid] =
-        static_cast<int>(cells[cid]->grid_points.size());
+        static_cast<int>(cells[cid].grid_points.size());
   }
 
   // Gather grid point counts from all ranks
@@ -243,7 +243,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
   // Convert counts to start indices
   std::vector<int> grid_point_start(sim->nr_cells, 0);
-  for (int cid = 1; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 1; cid < sim->nr_cells; cid++) {
     grid_point_start[cid] =
         grid_point_start[cid - 1] + grid_point_counts[cid - 1];
   }

@@ -46,12 +46,12 @@ void GridPoint::add_cell(const int cell_part_count, const double cell_mass,
 }
 
 // Method to get over density inside kernel radius
-double GridPoint::getOverDensity(const double kernel_radius, Simulation *sim) {
+double GridPoint::getOverDensity(const double kernel_radius, Simulation *sim) const {
   // Compute the volume of the kernel
   const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
 
   // Compute the density
-  const double density = this->mass_map[kernel_radius] / kernel_volume;
+  const double density = this->mass_map.at(kernel_radius) / kernel_volume;
 
   // Compute the over density
   return (density / sim->mean_density) - 1;
