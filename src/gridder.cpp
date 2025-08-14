@@ -34,13 +34,14 @@
  * @return CommandLineArgs structure with parsed arguments
  * @throws std::runtime_error if parsing fails
  */
-CommandLineArgs parseCmdArgs(int argc, char *argv[], int rank = 0, int size = 1) {
+CommandLineArgs parseCmdArgs(int argc, char *argv[], int rank = 0,
+                             int size = 1) {
   // Parse arguments with comprehensive validation
   CommandLineArgs args = CommandLineParser::parse(argc, argv, rank, size);
-  
+
   // Handle help request
   if (args.help_requested) {
-    if (rank == 0) {  // Only print from rank 0 in MPI
+    if (rank == 0) { // Only print from rank 0 in MPI
       CommandLineParser::printUsage(argv[0]);
     }
     // Return args with help flag set - caller should handle exit
@@ -104,13 +105,13 @@ int main(int argc, char *argv[]) {
   CommandLineArgs args;
   try {
     args = parseCmdArgs(argc, argv, rank, size);
-    
+
     // Handle help request
     if (args.help_requested) {
-      return 0;  // Exit cleanly after showing help
+      return 0; // Exit cleanly after showing help
     }
-  } catch (const std::exception& e) {
-    if (rank == 0) {  // Only print from rank 0 in MPI
+  } catch (const std::exception &e) {
+    if (rank == 0) { // Only print from rank 0 in MPI
       CommandLineParser::printError(e.what(), argv[0]);
     }
 #ifdef WITH_MPI
@@ -141,7 +142,8 @@ int main(int argc, char *argv[]) {
     params = parseParams(param_file);
   } catch (const std::exception &e) {
     if (rank == 0) {
-      error("Failed to parse parameter file '%s': %s", param_file.c_str(), e.what());
+      error("Failed to parse parameter file '%s': %s", param_file.c_str(),
+            e.what());
     }
 #ifdef WITH_MPI
     MPI_Finalize();
@@ -288,6 +290,7 @@ int main(int argc, char *argv[]) {
   // And before we can actually get going we need to split the cells into the
   // cell tree. Each top level cell will become the root of an octree that
   // we can walk as we search for particles to associate with grid points
+  message("Splitting cells into octrees...");
   tic();
   try {
     splitCells(sim);
