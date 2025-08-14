@@ -145,30 +145,29 @@ bool HDF5Helper::createGroup(const std::string &groupName) {
     return false;
   }
 
+  hid_t group_id = -1;
+  bool success = true;
+
 #ifdef WITH_MPI
   if (is_parallel) {
     // In parallel mode, only rank 0 creates the group, others wait
     if (mpi_rank == 0) {
-#endif
-      hid_t group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT,
-                                 H5P_DEFAULT, H5P_DEFAULT);
+      group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT,
+                           H5P_DEFAULT);
       if (group_id < 0) {
         error("Failed to create group '%s'", groupName.c_str());
-#ifdef WITH_MPI
-        MPI_Barrier(MPI_COMM_WORLD); // Sync with other ranks even on failure
-#endif
-        return false;
+        success = false;
+      } else {
+        H5Gclose(group_id);
       }
-      H5Gclose(group_id);
-#ifdef WITH_MPI
     }
     // All ranks wait for group creation to complete
     MPI_Barrier(MPI_COMM_WORLD);
-    return true;
+    return success;
   } else {
 #endif
-    hid_t group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT,
-                               H5P_DEFAULT, H5P_DEFAULT);
+    group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT,
+                         H5P_DEFAULT);
     if (group_id < 0) {
       error("Failed to create group '%s'", groupName.c_str());
       return false;
