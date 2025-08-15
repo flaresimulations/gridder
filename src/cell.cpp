@@ -188,6 +188,12 @@ void Cell::split() {
         Metadata *metadata = &Metadata::getInstance();
         Simulation *sim = metadata->sim;
 
+        // Check if we're approaching capacity (which would cause reallocation)
+        if (sim->sub_cells.size() >= sim->sub_cells.capacity() - 100) {
+          error("sub_cells vector approaching capacity (%zu/%zu). Risk of pointer invalidation!",
+                sim->sub_cells.size(), sim->sub_cells.capacity());
+        }
+        
         // Add child to sub_cells vector and get pointer
         sim->sub_cells.emplace_back(new_loc, new_width, this, this->top);
         Cell *child = &sim->sub_cells.back();

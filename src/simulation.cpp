@@ -20,7 +20,12 @@ Simulation::Simulation() {
   // Allocate the cells array
   this->cells.resize(this->nr_cells);
   
-  // Note: sub_cells is now a deque which grows dynamically without invalidating pointers
+  // Reserve space for dynamic storage to avoid reallocations
+  // For octrees: if every cell splits, we need 8x more cells at each level
+  // With reasonable depth limits (say ~15 levels max), we can have millions of cells
+  // Better to over-reserve than risk pointer invalidation during splitting
+  size_t estimated_max_subcells = this->nr_cells * 10000;  // Very conservative
+  this->sub_cells.reserve(estimated_max_subcells);
   
   // Estimate: particles should be around nr_dark_matter
   this->particles.reserve(this->nr_dark_matter);
