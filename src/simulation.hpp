@@ -9,6 +9,9 @@
 #ifndef SIMULATION_HPP
 #define SIMULATION_HPP
 
+// Standard includes
+#include <deque>
+
 // Local includes
 #include "cell.hpp"
 #include "hdf_io.hpp"
@@ -53,7 +56,7 @@ public:
   std::vector<Cell> cells;
 
   //! Storage for dynamically created child cells
-  std::vector<Cell> sub_cells;
+  std::deque<Cell> sub_cells;
 
   //! Storage for particles
   std::vector<Particle> particles;
