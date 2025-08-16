@@ -195,11 +195,15 @@ void packProxyComms(Simulation *sim, std::map<int, std::vector<double>>& rank_ma
                     std::map<int, std::vector<int>>& rank_cell_ids,
                     std::map<int, std::vector<int>>& rank_cell_counts) {
   
+  // Get the current rank
+  Metadata *metadata = &Metadata::getInstance();
+  const int rank = metadata->rank;
+  
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell* cell = &sim->cells[cid];
     
-    // Skip cells that don't need to be sent
-    if (cell->send_ranks.empty()) continue;
+    // Only send cells that we own and have send ranks
+    if (cell->rank != rank || cell->send_ranks.empty()) continue;
     
     int npart = cell->part_count;
     
@@ -270,20 +274,34 @@ void exchangeProxyCells(Simulation *sim) {
   const int rank = metadata->rank;
   const int size = metadata->size;
 
+  message("Rank %d: Starting proxy cell exchange", rank);
+
   // Pack data for each destination rank
   std::map<int, std::vector<double>> rank_masses, rank_positions;
   std::map<int, std::vector<int>> rank_cell_ids, rank_cell_counts;
   
   packProxyComms(sim, rank_masses, rank_positions, rank_cell_ids, rank_cell_counts);
+  
+  // Report packing statistics
+  int total_send_cells = 0, total_send_particles = 0;
+  for (const auto& pair : rank_cell_ids) {
+    total_send_cells += pair.second.size();
+    total_send_particles += rank_masses[pair.first].size();
+  }
+  message("Rank %d: Packed %d cells with %d particles for sending", rank, total_send_cells, total_send_particles);
 
   // Send packed data to each rank (non-blocking)
   std::vector<MPI_Request> requests;
+  int send_count = 0;
   
   for (int dest_rank = 0; dest_rank < size; dest_rank++) {
     if (dest_rank == rank || rank_masses[dest_rank].empty()) continue;
     
     // Send metadata first
     int num_cells = rank_cell_ids[dest_rank].size();
+    int num_particles = rank_masses[dest_rank].size();
+    message("Rank %d: Sending %d cells (%d particles) to rank %d", rank, num_cells, num_particles, dest_rank);
+    
     MPI_Request req1, req2, req3, req4;
     
     MPI_Isend(&num_cells, 1, MPI_INT, dest_rank, 0, MPI_COMM_WORLD, &req1);
@@ -300,9 +318,13 @@ void exchangeProxyCells(Simulation *sim) {
       MPI_Isend(rank_positions[dest_rank].data(), rank_positions[dest_rank].size(), MPI_DOUBLE, dest_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, &req5);
       requests.push_back(req5);
     }
+    send_count++;
   }
+  
+  message("Rank %d: Posted sends to %d ranks", rank, send_count);
 
   // Receive data from each rank
+  int recv_count = 0;
   for (int src_rank = 0; src_rank < size; src_rank++) {
     if (src_rank == rank) continue;
     
@@ -317,6 +339,8 @@ void exchangeProxyCells(Simulation *sim) {
     
     if (!expect_data) continue;
     
+    message("Rank %d: Expecting proxy data from rank %d", rank, src_rank);
+    
     // Receive metadata
     int num_cells;
     MPI_Recv(&num_cells, 1, MPI_INT, src_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -329,6 +353,8 @@ void exchangeProxyCells(Simulation *sim) {
     int total_particles = 0;
     for (int count : cell_counts) total_particles += count;
     
+    message("Rank %d: Receiving %d cells (%d particles) from rank %d", rank, num_cells, total_particles, src_rank);
+    
     // Receive particle data
     std::vector<double> masses(total_particles), positions(total_particles * 3);
     MPI_Recv(masses.data(), total_particles, MPI_DOUBLE, src_rank, MPI_TAG_MASS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -336,12 +362,18 @@ void exchangeProxyCells(Simulation *sim) {
     
     // Unpack received data
     unpackProxyComms(sim, masses, positions, cell_ids, cell_counts);
+    recv_count++;
   }
+  
+  message("Rank %d: Received data from %d ranks", rank, recv_count);
   
   // Wait for all sends to complete
   if (!requests.empty()) {
+    message("Rank %d: Waiting for %zu send operations to complete", rank, requests.size());
     MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
   }
+  
+  message("Rank %d: Proxy cell exchange completed", rank);
 }
 #endif
 
