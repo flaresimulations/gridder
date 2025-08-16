@@ -87,8 +87,8 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
 
 #ifdef WITH_MPI
     // Skip grid points that are in cells we don't own
-    Cell* cell = getCellContainingPoint(loc);
-    if (cell->rank != metadata->rank) {
+    Cell *cell = getCellContainingPoint(loc);
+    if (cell->rank != Metadata::getInstance().rank) {
       continue;
     }
 #endif
@@ -103,10 +103,10 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
   }
 
   message("Created %d grid points", n_grid_points);
-  
+
   // Initialize mass and count maps for all grid points
   message("Initializing grid point maps for %d kernel radii", grid->nkernels);
-  for (GridPoint& gp : grid->grid_points) {
+  for (GridPoint &gp : grid->grid_points) {
     gp.initializeMaps(grid->kernel_radii);
   }
 }
@@ -117,7 +117,8 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
  * @param sim The simulation object
  * @param grid The grid object
  */
-static void createGridPointsFromFile(Simulation * /* sim */, Grid * /* grid */) {
+static void createGridPointsFromFile(Simulation * /* sim */,
+                                     Grid * /* grid */) {
   error("%s is not implemented", __func__);
 }
 
