@@ -125,13 +125,9 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
  */
 void Cell::split() {
 
-  message("Starting split() for cell at depth %d with %zu particles", this->depth, this->part_count);
-
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
   Simulation *sim = metadata->sim;
-
-  message("Got metadata and simulation pointers in split()");
 
   // Update the max depth
   if (this->depth > sim->max_depth)
@@ -186,22 +182,14 @@ void Cell::split() {
         // Define the index of the child
         int iprogeny = k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
 
-        message("Creating child %d for cell at depth %d", iprogeny, this->depth);
-
         // Calculate the new location of the child
         double new_loc[3];
         new_loc[0] = this->loc[0] + i * new_width[0];
         new_loc[1] = this->loc[1] + j * new_width[1];
         new_loc[2] = this->loc[2] + k * new_width[2];
 
-        message("Child %d location: %f %f %f", iprogeny, new_loc[0], new_loc[1], new_loc[2]);
-
-        message("About to create child %d using raw pointer allocation", iprogeny);
-        
         // Create child cell using raw pointer allocation
         Cell *child = new Cell(new_loc, new_width, this, this->top);
-        
-        message("Successfully created child %d via raw pointer", iprogeny);
 
 #ifdef WITH_MPI
         // Set the rank of the child
@@ -418,16 +406,15 @@ void assignPartsToCells(Simulation *sim) {
           pos[1] < cell->loc[1] || pos[1] >= cell->loc[1] + cell->width[1] ||
           pos[2] < cell->loc[2] || pos[2] >= cell->loc[2] + cell->width[2]) {
         
-        // Particle doesn't belong in this cell - find the correct one
-        Cell *correct_cell = getCellContainingPoint(pos);
-        message("Reassigning particle from cell %zu to correct cell", cid);
-        correct_cell->particles.push_back(part);
-        correct_cell->part_count++;
-        correct_cell->mass += mass;
-      } else {
-        // Attach the particle to the cell
-        cell->particles.push_back(part);
+        error("Particle assigned to wrong cell in input file: particle pos=(%.6f,%.6f,%.6f) but cell bounds=[%.6f-%.6f, %.6f-%.6f, %.6f-%.6f]",
+              pos[0], pos[1], pos[2],
+              cell->loc[0], cell->loc[0] + cell->width[0],
+              cell->loc[1], cell->loc[1] + cell->width[1], 
+              cell->loc[2], cell->loc[2] + cell->width[2]);
       }
+      
+      // Attach the particle to the cell
+      cell->particles.push_back(part);
     }
   }
 
