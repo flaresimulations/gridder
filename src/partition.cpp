@@ -184,94 +184,158 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
  *
  * @param sim Pointer to the Simulation object containing cells and particles.
  */
-void exchangeProxyCells(Simulation *sim) {
-  // Get the metadata and MPI info
-  Metadata *metadata = &Metadata::getInstance();
-  const int rank = metadata->rank;
-
-  // Debug: Count and report communication expectations
-  int send_count = 0, recv_count = 0;
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell* cell = &sim->cells[cid];
-    if (!cell->send_ranks.empty()) send_count++;
-    if (cell->recv_rank != -1) recv_count++;
-  }
-  message("Rank %d: expecting to send %d cells, receive %d cells", rank, send_count, recv_count);
-
-  // First pass: Do all the sends (non-blocking to avoid deadlock)
-  std::vector<MPI_Request> requests;
-  std::vector<std::vector<double>> send_buffers_mass, send_buffers_pos;
+/**
+ * @brief Pack particles for all proxy cells destined for each rank
+ *
+ * @param sim Simulation object
+ * @param rank_data Map from destination rank to packed particle data
+ */
+void packProxyComms(Simulation *sim, std::map<int, std::vector<double>>& rank_masses,
+                    std::map<int, std::vector<double>>& rank_positions,
+                    std::map<int, std::vector<int>>& rank_cell_ids,
+                    std::map<int, std::vector<int>>& rank_cell_counts) {
   
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell* cell = &sim->cells[cid];
     
-    // Sending particles (this is a local cell that others need as proxy)
-    if (!cell->send_ranks.empty()) {
-      int npart_exchange = cell->part_count;
+    // Skip cells that don't need to be sent
+    if (cell->send_ranks.empty()) continue;
+    
+    int npart = cell->part_count;
+    
+    // For each rank that needs this cell as a proxy
+    for (int dest_rank : cell->send_ranks) {
+      // Add cell metadata
+      rank_cell_ids[dest_rank].push_back(cid);
+      rank_cell_counts[dest_rank].push_back(npart);
       
-      // Create buffers for this cell's data
-      send_buffers_mass.emplace_back(npart_exchange);
-      send_buffers_pos.emplace_back(3 * npart_exchange);
-      
-      auto& send_masses = send_buffers_mass.back();
-      auto& send_poss = send_buffers_pos.back();
-
-      // Populate send buffers with particle data from local cell
-      for (int p = 0; p < npart_exchange; p++) {
-        send_masses[p] = cell->particles[p]->mass;
-        send_poss[p * 3] = cell->particles[p]->pos[0];
-        send_poss[p * 3 + 1] = cell->particles[p]->pos[1];
-        send_poss[p * 3 + 2] = cell->particles[p]->pos[2];
-      }
-
-      // Send particle data to all ranks that need this cell as a proxy
-      for (int send_rank : cell->send_ranks) {
-        MPI_Request req_mass, req_pos;
-        MPI_Isend(send_masses.data(), npart_exchange, MPI_DOUBLE, send_rank, 
-                  MPI_TAG_MASS, MPI_COMM_WORLD, &req_mass);
-        MPI_Isend(send_poss.data(), 3 * npart_exchange, MPI_DOUBLE, send_rank, 
-                  MPI_TAG_POSITION, MPI_COMM_WORLD, &req_pos);
-        requests.push_back(req_mass);
-        requests.push_back(req_pos);
+      // Pack particle data for this cell
+      for (int p = 0; p < npart; p++) {
+        rank_masses[dest_rank].push_back(cell->particles[p]->mass);
+        rank_positions[dest_rank].push_back(cell->particles[p]->pos[0]);
+        rank_positions[dest_rank].push_back(cell->particles[p]->pos[1]);
+        rank_positions[dest_rank].push_back(cell->particles[p]->pos[2]);
       }
     }
   }
+}
 
-  // Second pass: Do all the receives
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+/**
+ * @brief Unpack received particles and assign to proxy cells
+ *
+ * @param sim Simulation object
+ * @param masses Received masses data
+ * @param positions Received positions data  
+ * @param cell_ids Received cell IDs
+ * @param cell_counts Received particle counts per cell
+ */
+void unpackProxyComms(Simulation *sim, const std::vector<double>& masses,
+                      const std::vector<double>& positions,
+                      const std::vector<int>& cell_ids,
+                      const std::vector<int>& cell_counts) {
+  
+  int mass_offset = 0;
+  int pos_offset = 0;
+  
+  for (size_t i = 0; i < cell_ids.size(); i++) {
+    int cid = cell_ids[i];
+    int npart = cell_counts[i];
     Cell* cell = &sim->cells[cid];
     
-    // Receiving particles (this is a proxy cell)
-    if (cell->recv_rank != -1) {
-      int npart_exchange = cell->part_count;
+    // Create particles for this proxy cell
+    for (int p = 0; p < npart; p++) {
+      const double mass = masses[mass_offset + p];
+      const double pos[3] = {positions[pos_offset + p * 3],
+                             positions[pos_offset + p * 3 + 1],
+                             positions[pos_offset + p * 3 + 2]};
       
-      // Create arrays to receive particle data (masses and positions)
-      std::vector<double> recv_masses(npart_exchange);
-      std::vector<double> recv_poss(3 * npart_exchange);
+      // Create the particle using raw pointer allocation
+      Particle* part = new Particle(pos, mass);
+      
+      // Update the cell's total mass and attach particle
+      cell->mass += mass;
+      cell->particles.push_back(part);
+    }
+    
+    // Update particle count and offsets
+    cell->part_count = npart;
+    mass_offset += npart;
+    pos_offset += npart * 3;
+  }
+}
 
-      // Receive masses and positions from the owning rank
-      MPI_Recv(recv_masses.data(), npart_exchange, MPI_DOUBLE, cell->recv_rank,
-               MPI_TAG_MASS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      MPI_Recv(recv_poss.data(), 3 * npart_exchange, MPI_DOUBLE,
-               cell->recv_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+void exchangeProxyCells(Simulation *sim) {
+  // Get the metadata and MPI info
+  Metadata *metadata = &Metadata::getInstance();
+  const int rank = metadata->rank;
+  const int size = metadata->size;
 
-      // Create particles for this proxy cell
-      for (int p = 0; p < npart_exchange; p++) {
-        // Extract the mass and position of each particle
-        const double mass = recv_masses[p];
-        const double pos[3] = {recv_poss[p * 3], recv_poss[p * 3 + 1],
-                               recv_poss[p * 3 + 2]};
+  // Pack data for each destination rank
+  std::map<int, std::vector<double>> rank_masses, rank_positions;
+  std::map<int, std::vector<int>> rank_cell_ids, rank_cell_counts;
+  
+  packProxyComms(sim, rank_masses, rank_positions, rank_cell_ids, rank_cell_counts);
 
-        // Create the particle using raw pointer allocation
-        Particle* part = new Particle(pos, mass);
+  // Send packed data to each rank (non-blocking)
+  std::vector<MPI_Request> requests;
+  
+  for (int dest_rank = 0; dest_rank < size; dest_rank++) {
+    if (dest_rank == rank || rank_masses[dest_rank].empty()) continue;
+    
+    // Send metadata first
+    int num_cells = rank_cell_ids[dest_rank].size();
+    MPI_Request req1, req2, req3, req4;
+    
+    MPI_Isend(&num_cells, 1, MPI_INT, dest_rank, 0, MPI_COMM_WORLD, &req1);
+    MPI_Isend(rank_cell_ids[dest_rank].data(), num_cells, MPI_INT, dest_rank, 1, MPI_COMM_WORLD, &req2);
+    MPI_Isend(rank_cell_counts[dest_rank].data(), num_cells, MPI_INT, dest_rank, 2, MPI_COMM_WORLD, &req3);
+    
+    // Send particle data
+    MPI_Isend(rank_masses[dest_rank].data(), rank_masses[dest_rank].size(), MPI_DOUBLE, dest_rank, MPI_TAG_MASS, MPI_COMM_WORLD, &req4);
+    
+    requests.insert(requests.end(), {req1, req2, req3, req4});
+    
+    if (!rank_positions[dest_rank].empty()) {
+      MPI_Request req5;
+      MPI_Isend(rank_positions[dest_rank].data(), rank_positions[dest_rank].size(), MPI_DOUBLE, dest_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, &req5);
+      requests.push_back(req5);
+    }
+  }
 
-        // Update the cell's total mass
-        cell->mass += mass;
-
-        // Attach the particle to the cell
-        cell->particles.push_back(part);
+  // Receive data from each rank
+  for (int src_rank = 0; src_rank < size; src_rank++) {
+    if (src_rank == rank) continue;
+    
+    // Check if we expect data from this rank
+    bool expect_data = false;
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+      if (sim->cells[cid].recv_rank == src_rank) {
+        expect_data = true;
+        break;
       }
     }
+    
+    if (!expect_data) continue;
+    
+    // Receive metadata
+    int num_cells;
+    MPI_Recv(&num_cells, 1, MPI_INT, src_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    std::vector<int> cell_ids(num_cells), cell_counts(num_cells);
+    MPI_Recv(cell_ids.data(), num_cells, MPI_INT, src_rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(cell_counts.data(), num_cells, MPI_INT, src_rank, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    // Calculate total particles
+    int total_particles = 0;
+    for (int count : cell_counts) total_particles += count;
+    
+    // Receive particle data
+    std::vector<double> masses(total_particles), positions(total_particles * 3);
+    MPI_Recv(masses.data(), total_particles, MPI_DOUBLE, src_rank, MPI_TAG_MASS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(positions.data(), total_particles * 3, MPI_DOUBLE, src_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    // Unpack received data
+    unpackProxyComms(sim, masses, positions, cell_ids, cell_counts);
   }
   
   // Wait for all sends to complete
