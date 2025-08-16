@@ -295,16 +295,19 @@ private:
  * message with multiple parts.
  */
 template <typename... Args>
-void error(const char *file, const char *func, int line, Args &&...args) {
+void error(const char *file, const char *func, int line, const char *format, Args... args) {
   std::ostringstream oss;
   oss << "[ERROR][" << getBaseFilename(file) << "." << func << "." << line
       << "]: ";
 
-  // Fold expression to append each argument in args to the output stream oss
-  (oss << ... << std::forward<Args>(args));
-
-  // Add a newline to the end of the message
-  oss << " " << std::endl;
+  // Format the message using printf-style formatting
+  char buffer[1024];
+  if constexpr (sizeof...(args) == 0) {
+    snprintf(buffer, sizeof(buffer), "%s", format);
+  } else {
+    snprintf(buffer, sizeof(buffer), format, args...);
+  }
+  oss << buffer << std::endl;
 
   throw std::runtime_error(oss.str());
 }
