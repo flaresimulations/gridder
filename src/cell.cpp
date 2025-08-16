@@ -439,11 +439,18 @@ void assignPartsToCells(Simulation *sim) {
   message("Mean comoving density: %e 10**10 Msun / cMpc^3", sim->mean_density);
 
 #ifdef DEBUGGING_CHECKS
-  // Make sure we have attached all the particles
+  // Make sure we have attached all the particles (only count local cells in MPI)
   size_t total_cell_part_count = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &cells[cid];
+#ifdef WITH_MPI
+    // Only count particles in local cells for this check
+    if (cell->rank == metadata->rank) {
+      total_cell_part_count += cell->part_count;
+    }
+#else
     total_cell_part_count += cell->part_count;
+#endif
   }
   if (total_part_count != total_cell_part_count) {
     error("Particle count mismatch (total_part_count = %d, "
