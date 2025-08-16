@@ -173,3 +173,93 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
 }
 #endif
 
+#ifdef WITH_MPI
+/**
+ * @brief Exchange the proxy cells between the MPI ranks.
+ *
+ * This function loops over all cells and exchanges particle data with
+ * the appropriate ranks. Local cells send their particle data to ranks that
+ * need them as proxies, and proxy cells receive particle data from the rank
+ * that owns them.
+ *
+ * @param sim Pointer to the Simulation object containing cells and particles.
+ */
+void exchangeProxyCells(Simulation *sim) {
+  // Get the metadata and MPI info
+  Metadata *metadata = &Metadata::getInstance();
+  const int rank = metadata->rank;
+
+  // Open the HDF5 file to read particle data for proxy cells
+  HDF5Helper hdf(metadata->input_file);
+
+  // Loop over all cells in the simulation
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    // Get the cell
+    Cell* cell = &sim->cells[cid];
+
+    // Skip cells that have no communication (no send or receive ranks)
+    if (cell->send_ranks.empty() && cell->recv_rank == -1) {
+      continue;
+    }
+
+    // Handle receiving proxy cells - read particle data from file
+    if (cell->recv_rank != -1) {
+      // This is a proxy cell - read its particles from the file
+      int offset = sim->cell_part_starts[cid];
+      int count = sim->cell_part_counts[cid];
+      
+      if (count > 0) {
+        // Read masses for this cell
+        std::vector<double> masses;
+        std::array<long unsigned int, 1> mass_dims = {static_cast<long unsigned int>(count)};
+        std::array<long unsigned int, 1> mass_start = {static_cast<long unsigned int>(offset)};
+        if (!hdf.readDatasetSlice<double>("PartType1/Masses", masses, mass_start, mass_dims)) {
+          error("Failed to read particle masses for proxy cell %zu", cid);
+        }
+
+        // Read positions for this cell
+        std::vector<double> poss;
+        std::array<long unsigned int, 2> pos_dims = {static_cast<long unsigned int>(count), 3};
+        std::array<long unsigned int, 2> pos_start = {static_cast<long unsigned int>(offset), 0};
+        if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss, pos_start, pos_dims)) {
+          error("Failed to read particle positions for proxy cell %zu", cid);
+        }
+
+        // Create particles for this proxy cell
+        for (int p = 0; p < count; p++) {
+          const double mass = masses[p];
+          const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
+
+          // Create the particle using raw pointer allocation
+          Particle *part = new Particle(pos, mass);
+
+          // Add the mass to the cell
+          cell->mass += mass;
+
+          // Validate that this particle actually belongs in this cell
+          if (pos[0] < cell->loc[0] || pos[0] >= cell->loc[0] + cell->width[0] ||
+              pos[1] < cell->loc[1] || pos[1] >= cell->loc[1] + cell->width[1] ||
+              pos[2] < cell->loc[2] || pos[2] >= cell->loc[2] + cell->width[2]) {
+            
+            error("Particle assigned to wrong cell in input file: particle pos=(%.6f,%.6f,%.6f) but cell bounds=[%.6f-%.6f, %.6f-%.6f, %.6f-%.6f]",
+                  pos[0], pos[1], pos[2],
+                  cell->loc[0], cell->loc[0] + cell->width[0],
+                  cell->loc[1], cell->loc[1] + cell->width[1], 
+                  cell->loc[2], cell->loc[2] + cell->width[2]);
+          }
+          
+          // Attach the particle to the cell
+          cell->particles.push_back(part);
+        }
+        
+        // Update particle count
+        cell->part_count = count;
+      }
+    }
+    // Local cells don't need to do anything here - their particles were already read
+  }
+  
+  hdf.close();
+}
+#endif
+

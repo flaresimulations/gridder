@@ -369,8 +369,8 @@ void assignPartsToCells(Simulation *sim) {
       continue;
 
 #ifdef WITH_MPI
-    // Skip if this cell isn't on this rank and isn't a proxy
-    if (cell->rank != metadata->rank && cell->recv_rank == -1)
+    // Skip if this cell isn't on this rank (proxy cells handled separately)
+    if (cell->rank != metadata->rank)
       continue;
 #endif
 
