@@ -26,11 +26,26 @@ Simulation::Simulation() {
   // Better to over-reserve than risk pointer invalidation during splitting
   size_t estimated_max_subcells = this->nr_cells * 10000;  // Very conservative
   this->sub_cells.reserve(estimated_max_subcells);
-  
-  // Estimate: particles should be around nr_dark_matter
-  this->particles.reserve(this->nr_dark_matter);
 }
 
+/**
+ * @brief Destructor - clean up dynamically allocated particles.
+ */
+Simulation::~Simulation() {
+  // Delete all particles allocated with raw pointers
+  for (Cell& cell : this->cells) {
+    for (Particle* part : cell.particles) {
+      delete part;
+    }
+  }
+  
+  // Also clean up any particles in sub_cells
+  for (Cell& cell : this->sub_cells) {
+    for (Particle* part : cell.particles) {
+      delete part;
+    }
+  }
+}
 
 /**
  * @brief Read the simulation data from the input file.

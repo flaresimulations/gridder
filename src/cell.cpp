@@ -423,17 +423,8 @@ void assignPartsToCells(Simulation *sim) {
       const double mass = masses[p];
       const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
 
-      // Create the particle in the particles vector
-      Metadata *metadata = &Metadata::getInstance();
-      Simulation *sim = metadata->sim;
-
-      Particle *part = nullptr;
-      try {
-        sim->particles.emplace_back(pos, mass);
-        part = &sim->particles.back();
-      } catch (const std::exception &e) {
-        error("Failed to create particle: %s", e.what());
-      }
+      // Create the particle using raw pointer allocation
+      Particle *part = new Particle(pos, mass);
 
       // Add the mass to the cell
       cell->mass += mass;

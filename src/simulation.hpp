@@ -55,8 +55,6 @@ public:
   //! Storage for dynamically created child cells
   std::vector<Cell> sub_cells;
 
-  //! Storage for particles
-  std::vector<Particle> particles;
 
   //! The number of particles in each cell
   std::vector<int> cell_part_counts;
@@ -66,6 +64,9 @@ public:
 
   // Constructor prototype
   Simulation();
+  
+  // Destructor prototype
+  ~Simulation();
 
   // Prototype for reader function (defined in simulation.cpp)
   void readSimulationData();
