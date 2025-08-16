@@ -197,6 +197,11 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
   // Get the cells
   std::vector<Cell>& cells = sim->cells;
 
+#ifdef WITH_MPI
+  // Get the metadata instance for MPI rank checking
+  Metadata *metadata = &Metadata::getInstance();
+#endif
+
   // Loop over the cells
 #pragma omp parallel for
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
@@ -210,7 +215,7 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
 
 #ifdef WITH_MPI
     // Skip cells that aren't on this rank
-    if (cell->rank != metadata.rank)
+    if (cell->rank != metadata->rank)
       continue;
 #endif
 
