@@ -19,6 +19,22 @@ GridPoint::GridPoint(double loc[3]) {
   this->loc[0] = loc[0];
   this->loc[1] = loc[1];
   this->loc[2] = loc[2];
+  
+  // Initialize mass_map and count_map with 0.0 for all kernel radii
+  // Note: This will be called during grid point creation, so we need access to kernel radii
+  // We'll handle this initialization after grid points are created
+}
+
+/**
+ * @brief Initialize mass_map and count_map with 0.0 for all kernel radii
+ *
+ * @param kernel_radii The vector of kernel radii to initialize
+ */
+void GridPoint::initializeMaps(const std::vector<double>& kernel_radii) {
+  for (double kernel_rad : kernel_radii) {
+    this->mass_map[kernel_rad] = 0.0;
+    this->count_map[kernel_rad] = 0.0;
+  }
 }
 
 /**

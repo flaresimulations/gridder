@@ -22,6 +22,7 @@ public:
 
   // Prototypes for member functions (defined in grid_point.cpp)
   GridPoint(double loc[3]);
+  void initializeMaps(const std::vector<double>& kernel_radii);
   void add_particle(Particle* part, double kernel_radius);
   void add_cell(const int cell_part_count, const double cell_mass,
                 double kernel_radius);

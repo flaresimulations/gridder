@@ -103,6 +103,12 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
   }
 
   message("Created %d grid points", n_grid_points);
+  
+  // Initialize mass and count maps for all grid points
+  message("Initializing grid point maps for %d kernel radii", grid->nkernels);
+  for (GridPoint& gp : grid->grid_points) {
+    gp.initializeMaps(grid->kernel_radii);
+  }
 }
 
 /**
