@@ -125,9 +125,13 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
  */
 void Cell::split() {
 
+  message("Starting split() for cell at depth %d with %zu particles", this->depth, this->part_count);
+
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
   Simulation *sim = metadata->sim;
+
+  message("Got metadata and simulation pointers in split()");
 
   // Update the max depth
   if (this->depth > sim->max_depth)
@@ -178,15 +182,21 @@ void Cell::split() {
         // Define the index of the child
         int iprogeny = k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
 
+        message("Creating child %d for cell at depth %d", iprogeny, this->depth);
+
         // Calculate the new location of the child
         double new_loc[3];
         new_loc[0] = this->loc[0] + i * new_width[0];
         new_loc[1] = this->loc[1] + j * new_width[1];
         new_loc[2] = this->loc[2] + k * new_width[2];
 
+        message("Child %d location: %f %f %f", iprogeny, new_loc[0], new_loc[1], new_loc[2]);
+
         // Create the child in the sub_cells vector
         Metadata *metadata = &Metadata::getInstance();
         Simulation *sim = metadata->sim;
+
+        message("Got metadata and sim pointer for child %d", iprogeny);
 
         // Check if we're approaching capacity (which would cause reallocation)
         if (sim->sub_cells.size() >= sim->sub_cells.capacity() - 100) {
@@ -194,9 +204,16 @@ void Cell::split() {
                 sim->sub_cells.size(), sim->sub_cells.capacity());
         }
         
+        message("About to emplace_back child %d (current sub_cells size: %zu)", iprogeny, sim->sub_cells.size());
+        
         // Add child to sub_cells vector and get pointer
         sim->sub_cells.emplace_back(new_loc, new_width, this, this->top);
+        
+        message("Successfully created child %d via emplace_back", iprogeny);
+        
         Cell *child = &sim->sub_cells.back();
+        
+        message("Got pointer to child %d", iprogeny);
 
 #ifdef WITH_MPI
         // Set the rank of the child
