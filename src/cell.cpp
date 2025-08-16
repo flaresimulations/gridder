@@ -438,8 +438,21 @@ void assignPartsToCells(Simulation *sim) {
       // Add the mass to the cell
       cell->mass += mass;
 
-      // Attach the particle to the cell
-      cell->particles.push_back(part);
+      // Validate that this particle actually belongs in this cell
+      if (pos[0] < cell->loc[0] || pos[0] >= cell->loc[0] + cell->width[0] ||
+          pos[1] < cell->loc[1] || pos[1] >= cell->loc[1] + cell->width[1] ||
+          pos[2] < cell->loc[2] || pos[2] >= cell->loc[2] + cell->width[2]) {
+        
+        // Particle doesn't belong in this cell - find the correct one
+        Cell *correct_cell = getCellContainingPoint(pos);
+        message("Reassigning particle from cell %zu to correct cell", cid);
+        correct_cell->particles.push_back(part);
+        correct_cell->part_count++;
+        correct_cell->mass += mass;
+      } else {
+        // Attach the particle to the cell
+        cell->particles.push_back(part);
+      }
     }
   }
 
