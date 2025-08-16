@@ -20,16 +20,10 @@ Simulation::Simulation() {
   // Allocate the cells array
   this->cells.resize(this->nr_cells);
   
-  // Reserve space for dynamic storage to avoid reallocations
-  // For octrees: if every cell splits, we need 8x more cells at each level
-  // With reasonable depth limits (say ~15 levels max), we can have millions of cells
-  // Better to over-reserve than risk pointer invalidation during splitting
-  size_t estimated_max_subcells = this->nr_cells * 10000;  // Very conservative
-  this->sub_cells.reserve(estimated_max_subcells);
 }
 
 /**
- * @brief Destructor - clean up dynamically allocated particles.
+ * @brief Destructor - clean up dynamically allocated particles and cells.
  */
 Simulation::~Simulation() {
   // Delete all particles allocated with raw pointers
@@ -37,12 +31,22 @@ Simulation::~Simulation() {
     for (Particle* part : cell.particles) {
       delete part;
     }
+    // Recursively delete child cells (they will handle their own particles)
+    deleteChildCells(&cell);
   }
-  
-  // Also clean up any particles in sub_cells
-  for (Cell& cell : this->sub_cells) {
-    for (Particle* part : cell.particles) {
-      delete part;
+}
+
+/**
+ * @brief Recursively delete all child cells.
+ */
+void Simulation::deleteChildCells(Cell* cell) {
+  if (cell->is_split) {
+    for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
+      if (cell->children[i] != nullptr) {
+        deleteChildCells(cell->children[i]);
+        delete cell->children[i];
+        cell->children[i] = nullptr;
+      }
     }
   }
 }

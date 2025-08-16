@@ -196,28 +196,12 @@ void Cell::split() {
 
         message("Child %d location: %f %f %f", iprogeny, new_loc[0], new_loc[1], new_loc[2]);
 
-        // Create the child in the sub_cells vector
-        Metadata *metadata = &Metadata::getInstance();
-        Simulation *sim = metadata->sim;
-
-        message("Got metadata and sim pointer for child %d", iprogeny);
-
-        // Check if we're approaching capacity (which would cause reallocation)
-        if (sim->sub_cells.size() >= sim->sub_cells.capacity() - 100) {
-          error("sub_cells vector approaching capacity (%zu/%zu). Risk of pointer invalidation!",
-                sim->sub_cells.size(), sim->sub_cells.capacity());
-        }
+        message("About to create child %d using raw pointer allocation", iprogeny);
         
-        message("About to emplace_back child %d (current sub_cells size: %zu)", iprogeny, sim->sub_cells.size());
+        // Create child cell using raw pointer allocation
+        Cell *child = new Cell(new_loc, new_width, this, this->top);
         
-        // Add child to sub_cells vector and get pointer
-        sim->sub_cells.emplace_back(new_loc, new_width, this, this->top);
-        
-        message("Successfully created child %d via emplace_back", iprogeny);
-        
-        Cell *child = &sim->sub_cells.back();
-        
-        message("Got pointer to child %d", iprogeny);
+        message("Successfully created child %d via raw pointer", iprogeny);
 
 #ifdef WITH_MPI
         // Set the rank of the child
@@ -251,11 +235,11 @@ void Cell::split() {
           }
         }
 
-        // Split this child
-        child->split();
-
         // Attach the child to this cell
         this->children[iprogeny] = child;
+
+        // Split this child
+        child->split();
       }
     }
   }

@@ -52,8 +52,6 @@ public:
   //! An array of the cells
   std::vector<Cell> cells;
 
-  //! Storage for dynamically created child cells
-  std::vector<Cell> sub_cells;
 
 
   //! The number of particles in each cell
@@ -70,6 +68,10 @@ public:
 
   // Prototype for reader function (defined in simulation.cpp)
   void readSimulationData();
+  
+private:
+  // Helper function for cleanup
+  void deleteChildCells(Cell* cell);
 };
 
 #endif // SIMULATION_HPP
