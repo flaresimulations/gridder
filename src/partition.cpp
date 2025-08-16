@@ -189,21 +189,62 @@ void exchangeProxyCells(Simulation *sim) {
   Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
 
-  // Loop over all cells in the simulation
+  // Debug: Count and report communication expectations
+  int send_count = 0, recv_count = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    // Get the cell
     Cell* cell = &sim->cells[cid];
+    if (!cell->send_ranks.empty()) send_count++;
+    if (cell->recv_rank != -1) recv_count++;
+  }
+  message("Rank %d: expecting to send %d cells, receive %d cells", rank, send_count, recv_count);
 
-    // Skip cells that have no communication (no send or receive ranks)
-    if (cell->send_ranks.empty() && cell->recv_rank == -1) {
-      continue;
+  // First pass: Do all the sends (non-blocking to avoid deadlock)
+  std::vector<MPI_Request> requests;
+  std::vector<std::vector<double>> send_buffers_mass, send_buffers_pos;
+  
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell* cell = &sim->cells[cid];
+    
+    // Sending particles (this is a local cell that others need as proxy)
+    if (!cell->send_ranks.empty()) {
+      int npart_exchange = cell->part_count;
+      
+      // Create buffers for this cell's data
+      send_buffers_mass.emplace_back(npart_exchange);
+      send_buffers_pos.emplace_back(3 * npart_exchange);
+      
+      auto& send_masses = send_buffers_mass.back();
+      auto& send_poss = send_buffers_pos.back();
+
+      // Populate send buffers with particle data from local cell
+      for (int p = 0; p < npart_exchange; p++) {
+        send_masses[p] = cell->particles[p]->mass;
+        send_poss[p * 3] = cell->particles[p]->pos[0];
+        send_poss[p * 3 + 1] = cell->particles[p]->pos[1];
+        send_poss[p * 3 + 2] = cell->particles[p]->pos[2];
+      }
+
+      // Send particle data to all ranks that need this cell as a proxy
+      for (int send_rank : cell->send_ranks) {
+        MPI_Request req_mass, req_pos;
+        MPI_Isend(send_masses.data(), npart_exchange, MPI_DOUBLE, send_rank, 
+                  MPI_TAG_MASS, MPI_COMM_WORLD, &req_mass);
+        MPI_Isend(send_poss.data(), 3 * npart_exchange, MPI_DOUBLE, send_rank, 
+                  MPI_TAG_POSITION, MPI_COMM_WORLD, &req_pos);
+        requests.push_back(req_mass);
+        requests.push_back(req_pos);
+      }
     }
+  }
 
-    // Determine how many particles will be exchanged
-    int npart_exchange = cell->part_count;
-
+  // Second pass: Do all the receives
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell* cell = &sim->cells[cid];
+    
     // Receiving particles (this is a proxy cell)
     if (cell->recv_rank != -1) {
+      int npart_exchange = cell->part_count;
+      
       // Create arrays to receive particle data (masses and positions)
       std::vector<double> recv_masses(npart_exchange);
       std::vector<double> recv_poss(3 * npart_exchange);
@@ -231,28 +272,11 @@ void exchangeProxyCells(Simulation *sim) {
         cell->particles.push_back(part);
       }
     }
-    // Sending particles (this is a local cell that others need as proxy)
-    else if (!cell->send_ranks.empty()) {
-      // Create arrays to hold particle data (masses and positions)
-      std::vector<double> send_masses(npart_exchange);
-      std::vector<double> send_poss(3 * npart_exchange);
-
-      // Populate send buffers with particle data from local cell
-      for (int p = 0; p < npart_exchange; p++) {
-        send_masses[p] = cell->particles[p]->mass;
-        send_poss[p * 3] = cell->particles[p]->pos[0];
-        send_poss[p * 3 + 1] = cell->particles[p]->pos[1];
-        send_poss[p * 3 + 2] = cell->particles[p]->pos[2];
-      }
-
-      // Send particle data to all ranks that need this cell as a proxy
-      for (int send_rank : cell->send_ranks) {
-        MPI_Send(send_masses.data(), npart_exchange, MPI_DOUBLE, send_rank, 
-                 MPI_TAG_MASS, MPI_COMM_WORLD);
-        MPI_Send(send_poss.data(), 3 * npart_exchange, MPI_DOUBLE, send_rank, 
-                 MPI_TAG_POSITION, MPI_COMM_WORLD);
-      }
-    }
+  }
+  
+  // Wait for all sends to complete
+  if (!requests.empty()) {
+    MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
   }
 }
 #endif
