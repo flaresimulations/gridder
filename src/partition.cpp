@@ -1,6 +1,8 @@
 // Standard includes
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <set>
 
 // Local includes
 #include "cell.hpp"
