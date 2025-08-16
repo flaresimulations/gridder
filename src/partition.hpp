@@ -13,6 +13,5 @@ void partitionCells(Simulation *sim, Grid *grid);
 
 // Proxy prototypes
 void flagProxyCells(Simulation *sim, Grid *grid);
-void exchangeProxyCells(Simulation *sim);
 
 #endif // PARTITION_HPP

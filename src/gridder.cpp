@@ -275,17 +275,6 @@ int main(int argc, char *argv[]) {
   }
   toc("Assigning particles to cells");
 
-  // Communicate the proxies
-#ifdef WITH_MPI
-  tic();
-  try {
-    exchangeProxyCells(sim);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-  toc("Exchanging proxy cells");
-#endif
 
   // And before we can actually get going we need to split the cells into the
   // cell tree. Each top level cell will become the root of an octree that

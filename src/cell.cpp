@@ -495,7 +495,7 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 #ifdef WITH_MPI
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
-    if (cell->rank != metadata->rank && cell->recv_rank == -1)
+    if (cell->rank != metadata->rank)
       continue;
 #endif
 
