@@ -96,78 +96,120 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
 
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
-
-  // Get MPI rank and size
   const int rank = metadata->rank;
+  const int size = metadata->size;
 
-  // How many cells do we need to walk out from the boundary of the partition
-  // to get all the cells that are within the kernel radius of the boundary
-  // cells?
   const double max_kernel_radius = grid->max_kernel_radius;
   const double cell_size = sim->width[0];
   const int delta = std::ceil(max_kernel_radius / cell_size) + 1;
+  
+  message("Rank %d: Using delta = %d (kernel_radius = %f, cell_size = %f)", 
+          rank, delta, max_kernel_radius, cell_size);
 
-  // Loop over cells and find all local
-  for (int i = 0; i < sim->cdim[0]; i++) {
-    for (int j = 0; j < sim->cdim[1]; j++) {
-      for (int k = 0; k < sim->cdim[2]; k++) {
-        // Get the cell index
-        int cid = i * sim->cdim[1] * sim->cdim[2] + j * sim->cdim[2] + k;
+  // Clear any existing proxy information
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    sim->cells[cid].send_ranks.clear();
+    sim->cells[cid].recv_rank = -1;
+  }
 
-        // Get the cell
-        Cell* ci = &sim->cells[cid];
-
-        // Skip useless cells
-        if (!ci->is_useful) {
-          continue;
+  // Step 1: Find which proxy cells we need from each other rank
+  std::map<int, std::set<int>> proxies_we_need; // rank -> set of cell IDs we need from that rank
+  
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell* local_cell = &sim->cells[cid];
+    
+    // Skip if not our cell or not useful
+    if (local_cell->rank != rank || !local_cell->is_useful) continue;
+    
+    // Get cell coordinates
+    int i = cid / (sim->cdim[1] * sim->cdim[2]);
+    int j = (cid / sim->cdim[2]) % sim->cdim[1];
+    int k = cid % sim->cdim[2];
+    
+    // Check neighbors within kernel range
+    for (int ii = i - delta; ii <= i + delta; ii++) {
+      for (int jj = j - delta; jj <= j + delta; jj++) {
+        for (int kk = k - delta; kk <= k + delta; kk++) {
+          // Wrap for periodicity
+          int iii = (ii + sim->cdim[0]) % sim->cdim[0];
+          int jjj = (jj + sim->cdim[1]) % sim->cdim[1];
+          int kkk = (kk + sim->cdim[2]) % sim->cdim[2];
+          
+          int neighbor_cid = iii * sim->cdim[1] * sim->cdim[2] + jjj * sim->cdim[2] + kkk;
+          Cell* neighbor_cell = &sim->cells[neighbor_cid];
+          
+          // If neighbor is on different rank and useful, we need it as proxy
+          if (neighbor_cell->rank != rank && neighbor_cell->is_useful) {
+            proxies_we_need[neighbor_cell->rank].insert(neighbor_cid);
+          }
         }
+      }
+    }
+  }
 
-        // Loop over the cells in the delta region around this cell
-        for (int ii = i - delta; ii <= i + delta; ii++) {
-          for (int jj = j - delta; jj <= j + delta; jj++) {
-            for (int kk = k - delta; kk <= k + delta; kk++) {
-              // Wrap at the boundaries to account for periodicity
-              int iii = (ii + sim->cdim[0]) % sim->cdim[0];
-              int jjj = (jj + sim->cdim[1]) % sim->cdim[1];
-              int kkk = (kk + sim->cdim[2]) % sim->cdim[2];
-
-              // Get the cj possible proxy
-              const int cjd =
-                  iii * sim->cdim[1] * sim->cdim[2] + jjj * sim->cdim[2] + kkk;
-              Cell* cj = &sim->cells[cjd];
-
-              // Ensure no double counts
-              if (cjd < cid) {
-                continue;
-              }
-
-              // Skip useless cells
-              if (!cj->is_useful) {
-                continue;
-              }
-
-              // If ci and cj are both on the same rank there's nothing to do
-              if (ci->rank == cj->rank) {
-                continue;
-              }
-
-              // If both ci and cj are foreign we also don't care
-              if (ci->rank != rank && cj->rank != rank) {
-                continue;
-              }
-
-              // Handle the two cases (either sending ci -> cj, or cj -> ci)
-              if (ci->rank == rank) {
-                ci->send_ranks.push_back(cj->rank);
-                cj->recv_rank = ci->rank;
-              } else {
-                cj->send_ranks.push_back(ci->rank);
-                ci->recv_rank = cj->rank;
-              }
+  // Step 2: Find which of our local cells other ranks need as proxies
+  std::map<int, std::set<int>> proxies_we_send; // rank -> set of our cell IDs that rank needs
+  
+  for (int other_rank = 0; other_rank < size; other_rank++) {
+    if (other_rank == rank) continue;
+    
+    // For each cell owned by other_rank, check if they need any of our cells
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+      Cell* their_cell = &sim->cells[cid];
+      
+      // Skip if not their cell or not useful
+      if (their_cell->rank != other_rank || !their_cell->is_useful) continue;
+      
+      // Get cell coordinates
+      int i = cid / (sim->cdim[1] * sim->cdim[2]);
+      int j = (cid / sim->cdim[2]) % sim->cdim[1];
+      int k = cid % sim->cdim[2];
+      
+      // Check if they need any of our cells as neighbors
+      for (int ii = i - delta; ii <= i + delta; ii++) {
+        for (int jj = j - delta; jj <= j + delta; jj++) {
+          for (int kk = k - delta; kk <= k + delta; kk++) {
+            // Wrap for periodicity
+            int iii = (ii + sim->cdim[0]) % sim->cdim[0];
+            int jjj = (jj + sim->cdim[1]) % sim->cdim[1];
+            int kkk = (kk + sim->cdim[2]) % sim->cdim[2];
+            
+            int neighbor_cid = iii * sim->cdim[1] * sim->cdim[2] + jjj * sim->cdim[2] + kkk;
+            Cell* neighbor_cell = &sim->cells[neighbor_cid];
+            
+            // If neighbor is our cell and useful, other_rank needs it as proxy
+            if (neighbor_cell->rank == rank && neighbor_cell->is_useful) {
+              proxies_we_send[other_rank].insert(neighbor_cid);
             }
           }
         }
       }
+    }
+  }
+
+  // Step 3: Set send_ranks and recv_rank based on final analysis
+  for (const auto& pair : proxies_we_send) {
+    int dest_rank = pair.first;
+    for (int cell_id : pair.second) {
+      sim->cells[cell_id].send_ranks.push_back(dest_rank);
+    }
+  }
+  
+  for (const auto& pair : proxies_we_need) {
+    int src_rank = pair.first;
+    for (int cell_id : pair.second) {
+      sim->cells[cell_id].recv_rank = src_rank;
+    }
+  }
+
+  // Report statistics
+  for (int other_rank = 0; other_rank < size; other_rank++) {
+    if (other_rank == rank) continue;
+    int need_count = proxies_we_need[other_rank].size();
+    int send_count = proxies_we_send[other_rank].size();
+    if (need_count > 0 || send_count > 0) {
+      message("Rank %d: Need %d proxies from rank %d, Send %d proxies to rank %d", 
+              rank, need_count, other_rank, send_count, other_rank);
     }
   }
 }
