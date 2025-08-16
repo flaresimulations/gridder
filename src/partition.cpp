@@ -41,7 +41,7 @@ void partitionCells(Simulation *sim, Grid *grid) {
   // particles_per_rank are on rank 0, the next particles_per_rank on rank 1,
   // etc.
   int select = 0;
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     // Get the cell
     Cell* cell = &sim->cells[cid];
 
@@ -99,7 +99,6 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
 
   // Get MPI rank and size
   const int rank = metadata->rank;
-  const int size = metadata->size;
 
   // How many cells do we need to walk out from the boundary of the partition
   // to get all the cells that are within the kernel radius of the boundary
@@ -188,10 +187,9 @@ void exchangeProxyCells(Simulation *sim) {
   // Get the metadata and MPI info
   Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
-  const int size = metadata->size;
 
   // Loop over all cells in the simulation
-  for (int cid = 0; cid < sim->nr_cells; cid++) {
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     // Get the cell
     Cell* cell = &sim->cells[cid];
 
@@ -222,14 +220,9 @@ void exchangeProxyCells(Simulation *sim) {
         const double pos[3] = {send_poss[p * 3], send_poss[p * 3 + 1],
                                send_poss[p * 3 + 2]};
 
-        // Create a new particle and handle any exceptions
+        // Create a new particle using raw pointer allocation
         try {
-          // Get the simulation instance to access particles vector
-          Metadata *metadata = &Metadata::getInstance();
-          Simulation *sim = metadata->sim;
-          
-          sim->particles.emplace_back(pos, mass);
-          Particle* part = &sim->particles.back();
+          Particle* part = new Particle(pos, mass);
 
           // Update the cell's total mass
           cell->mass += mass;
