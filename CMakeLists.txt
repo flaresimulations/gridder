@@ -28,25 +28,14 @@ set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -Wall -Wextra -Wpedantic")
 # ========== Dependencies ==========
 find_package(OpenMP REQUIRED)
 
-# HDF5 with proper parallel detection
+# HDF5 (always serial - we use per-rank files instead of parallel HDF5)
+find_package(HDF5 REQUIRED COMPONENTS C HL)
+
+# MPI (if enabled, only for communication - not for HDF5)
 if(ENABLE_MPI)
-  # Find MPI first
   find_package(MPI REQUIRED)
-  
-  # Find HDF5 and check for parallel support
-  find_package(HDF5 REQUIRED COMPONENTS C HL)
-  
-  # More robust check for parallel HDF5
-  if(NOT HDF5_IS_PARALLEL)
-    message(FATAL_ERROR "MPI enabled but HDF5 was not built with parallel support. "
-                        "Please install HDF5 with --enable-parallel or set ENABLE_MPI=OFF")
-  endif()
-  
   message(STATUS "MPI C compiler: ${MPI_C_COMPILER}")
   message(STATUS "MPI CXX compiler: ${MPI_CXX_COMPILER}")
-else()
-  # Serial HDF5
-  find_package(HDF5 REQUIRED COMPONENTS C HL)
 endif()
 
 # Detect HDF5 version with multiple fallback methods
@@ -87,11 +76,7 @@ else()
 endif()
 
 message(STATUS "Found HDF5 version: ${HDF5_VERSION}")
-if(ENABLE_MPI)
-  message(STATUS "HDF5 parallel support: YES")
-else()
-  message(STATUS "HDF5 parallel support: NO")
-endif()
+message(STATUS "HDF5 usage: Serial (per-rank files + virtual combination)")
 
 # ========== Metadata ==========
 execute_process(
@@ -210,9 +195,7 @@ message(STATUS "MPI enabled: ${ENABLE_MPI}")
 if(ENABLE_MPI)
   message(STATUS "  - MPI version: ${MPI_CXX_VERSION}")
   message(STATUS "  - MPI include dirs: ${MPI_CXX_INCLUDE_DIRS}")
-  message(STATUS "  - Parallel HDF5: YES")
-else()
-  message(STATUS "  - Parallel HDF5: NO")
+  message(STATUS "  - HDF5 strategy: Per-rank files + virtual combination")
 endif()
 message(STATUS "HDF5 version: ${HDF5_VERSION}")
 message(STATUS "OpenMP enabled: ${OpenMP_CXX_FOUND}")
