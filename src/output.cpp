@@ -299,7 +299,9 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
       // Create groups
       message("Rank 0: About to create Grids group");
-      if (!hdf5.createGroup("Grids")) {
+      bool grids_success = hdf5.createGroup("Grids");
+      message("Rank 0: createGroup(Grids) returned %s", grids_success ? "true" : "false");
+      if (!grids_success) {
         error("Rank 0: Failed to create Grids group");
         return;
       }
