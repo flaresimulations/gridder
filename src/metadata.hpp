@@ -24,11 +24,9 @@ public:
     return instance;
   }
 
-#ifdef WITH_MPI
   // MPI information (set in main.parseCmdArgs)
-  int rank;
-  int size;
-#endif
+  int rank = 0;
+  int size = 1;
 
   // Parameter file path (set in main.parseCmdArgs)
   std::string param_file;

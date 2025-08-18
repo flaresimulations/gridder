@@ -47,7 +47,6 @@ public:
   //! Flag for whether the cell has been split (i.e. has children)
   bool is_split;
 
-#ifdef WITH_MPI
   //! What rank is this cell on?
   int rank = 0;
 
@@ -58,7 +57,6 @@ public:
   //! If we are sending particles to another rank where are they going? (Can be
   //! multiple ranks)
   std::vector<int> send_ranks;
-#endif
 
   //! Flag for whether the cell is "useful" (i.e. contains grid points or
   // is a neighbour of a useful cell)
