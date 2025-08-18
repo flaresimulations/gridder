@@ -83,15 +83,35 @@ run_test() {
     
     echo -e "${YELLOW}Step 2: Running gridder on test data...${NC}"
     
-    # Check if gridder executable exists
-    if [ ! -f "$ROOT_DIR/parent_gridder" ]; then
+    # Check if gridder executable exists (try multiple possible locations)
+    GRIDDER_EXEC=""
+    POSSIBLE_LOCATIONS=(
+        "$ROOT_DIR/build/parent_gridder"
+        "$ROOT_DIR/parent_gridder"
+        "$ROOT_DIR/cmake-build-debug/parent_gridder"
+        "$ROOT_DIR/cmake-build-release/parent_gridder"
+    )
+    
+    for location in "${POSSIBLE_LOCATIONS[@]}"; do
+        if [ -f "$location" ]; then
+            GRIDDER_EXEC="$location"
+            echo -e "${GREEN}Found executable: $GRIDDER_EXEC${NC}"
+            break
+        fi
+    done
+    
+    if [ -z "$GRIDDER_EXEC" ]; then
         echo -e "${RED}ERROR: parent_gridder executable not found${NC}"
+        echo "Searched in the following locations:"
+        for location in "${POSSIBLE_LOCATIONS[@]}"; do
+            echo "  - $location"
+        done
         echo "Please build the project first with 'make' or 'cmake --build .'"
         exit 1
     fi
     
     # Run the gridder
-    "$ROOT_DIR/parent_gridder" "$TEST_PARAMS" 0
+    "$GRIDDER_EXEC" "$TEST_PARAMS" 0
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Gridder completed successfully${NC}"
