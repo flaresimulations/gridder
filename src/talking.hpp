@@ -1,5 +1,4 @@
 /*******************************************************************************
- * This file is part of MEGA++.
  * Copyright (c) 2023 Will Roper (w.roper@sussex.ac.uk)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -55,81 +54,88 @@ void say_hello() {
 
 #ifdef WITH_MPI
   // In MPI land only rank 0 should print
-  if (Metadata::getInstance().rank != 0) {
-    return;
-  }
+  if (Metadata::getInstance().rank == 0) {
 #endif
 
-  string string1 = R"( ██████╗  █████╗ ██████╗ ███████╗███╗   ██╗████████╗)";
-  string string2 = R"( ██╔══██╗██╔══██╗██╔══██╗██╔════╝████╗  ██║╚══██╔══╝)";
-  string string3 = R"( ██████╔╝███████║██████╔╝█████╗  ██╔██╗ ██║   ██║   )";
-  string string4 =
-      R"( ██╔═══╝ ██╔══██║██╔══██╗██╔══╝  ██║╚██╗██║   ██║        ┌─────┬─────┬─────┐)";
-  string string5 =
-      R"( ██║     ██║  ██║██║  ██║███████╗██║ ╚████║   ██║        │  •  │  •  │  •  │)";
-  string string6 =
-      R"( ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝        ├─────┼─────┼─────┤)";
-  string string7 =
-      R"(                                                         │  •  │  •  │  •  │)";
-  string string8 =
-      R"(  ██████╗ ██████╗ ██╗██████╗ ██████╗ ███████╗██████╗     ├─────┼─────┼─────┤)";
-  string string9 =
-      R"( ██╔════╝ ██╔══██╗██║██╔══██╗██╔══██╗██╔════╝██╔══██╗    │  •  │  •  │  •  │)";
-  string string10 =
-      R"( ██║  ███╗██████╔╝██║██║  ██║██║  ██║█████╗  ██████╔╝    └─────┴─────┴─────┘)";
-  string string11 = R"( ██║   ██║██╔══██╗██║██║  ██║██║  ██║██╔══╝  ██╔══██╗)";
-  string string12 = R"( ╚██████╔╝██║  ██║██║██████╔╝██████╔╝███████╗██║  ██║)";
-  string string13 = R"(  ╚═════╝ ╚═╝  ╚═╝╚═╝╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝)";
+    string string1 = R"( ██████╗  █████╗ ██████╗ ███████╗███╗   ██╗████████╗)";
+    string string2 = R"( ██╔══██╗██╔══██╗██╔══██╗██╔════╝████╗  ██║╚══██╔══╝)";
+    string string3 = R"( ██████╔╝███████║██████╔╝█████╗  ██╔██╗ ██║   ██║   )";
+    string string4 =
+        R"( ██╔═══╝ ██╔══██║██╔══██╗██╔══╝  ██║╚██╗██║   ██║        ┌─────┬─────┬─────┐)";
+    string string5 =
+        R"( ██║     ██║  ██║██║  ██║███████╗██║ ╚████║   ██║        │  •  │  •  │  •  │)";
+    string string6 =
+        R"( ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝        ├─────┼─────┼─────┤)";
+    string string7 =
+        R"(                                                         │  •  │  •  │  •  │)";
+    string string8 =
+        R"(  ██████╗ ██████╗ ██╗██████╗ ██████╗ ███████╗██████╗     ├─────┼─────┼─────┤)";
+    string string9 =
+        R"( ██╔════╝ ██╔══██╗██║██╔══██╗██╔══██╗██╔════╝██╔══██╗    │  •  │  •  │  •  │)";
+    string string10 =
+        R"( ██║  ███╗██████╔╝██║██║  ██║██║  ██║█████╗  ██████╔╝    └─────┴─────┴─────┘)";
+    string string11 =
+        R"( ██║   ██║██╔══██╗██║██║  ██║██║  ██║██╔══╝  ██╔══██╗)";
+    string string12 =
+        R"( ╚██████╔╝██║  ██║██║██████╔╝██████╔╝███████╗██║  ██║)";
+    string string13 =
+        R"(  ╚═════╝ ╚═╝  ╚═╝╚═╝╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝)";
 
-  cout << endl;
-  cout << string1 << endl;
-  cout << string2 << endl;
-  cout << string3 << endl;
-  cout << string4 << endl;
-  cout << string5 << endl;
-  cout << string6 << endl;
-  cout << string7 << endl;
-  cout << string8 << endl;
-  cout << string9 << endl;
-  cout << string10 << endl;
-  cout << string11 << endl;
-  cout << string12 << endl;
-  cout << string13 << endl;
-  cout << endl;
+    cout << endl;
+    cout << string1 << endl;
+    cout << string2 << endl;
+    cout << string3 << endl;
+    cout << string4 << endl;
+    cout << string5 << endl;
+    cout << string6 << endl;
+    cout << string7 << endl;
+    cout << string8 << endl;
+    cout << string9 << endl;
+    cout << string10 << endl;
+    cout << string11 << endl;
+    cout << string12 << endl;
+    cout << string13 << endl;
+    cout << endl;
 
-  /* Report some information about the MEGA version being run. */
-  int nPad = 30;
-  cout << padString(string(" Version : "), nPad) << PROJECT_VERSION_MAJOR << "."
-       << PROJECT_VERSION_MINOR << "." << PROJECT_VERSION_PATCH << endl;
+    /* Report some information about the MEGA version being run. */
+    int nPad = 30;
+    cout << padString(string(" Version : "), nPad) << PROJECT_VERSION_MAJOR
+         << "." << PROJECT_VERSION_MINOR << "." << PROJECT_VERSION_PATCH
+         << endl;
 
-  cout << endl;
+    cout << endl;
 
-  cout << " Git:" << endl
-       << padString(string(" On branch: "), nPad) << GIT_BRANCH << endl
-       << padString(string(" Using revision: "), nPad) << GIT_REVISION << endl
-       << padString(string(" Last updated: "), nPad) << GIT_DATE << endl;
-  // printf(" Webpage : %s\n\n", PACKAGE_URL);
-  // printf(" Config. options: %s\n\n", configuration_options());
+    cout << " Git:" << endl
+         << padString(string(" On branch: "), nPad) << GIT_BRANCH << endl
+         << padString(string(" Using revision: "), nPad) << GIT_REVISION << endl
+         << padString(string(" Last updated: "), nPad) << GIT_DATE << endl;
+    // printf(" Webpage : %s\n\n", PACKAGE_URL);
+    // printf(" Config. options: %s\n\n", configuration_options());
 
-  cout << endl;
+    cout << endl;
 
-  cout << padString(string(" Compiler: "), nPad) << COMPILER_INFO << endl;
-  cout << padString(string(" CFLAGS: "), nPad) << CFLAGS_INFO << endl;
+    cout << padString(string(" Compiler: "), nPad) << COMPILER_INFO << endl;
+    cout << padString(string(" CFLAGS: "), nPad) << CFLAGS_INFO << endl;
 
-  cout << endl;
+    cout << endl;
 
-  cout << padString(string(" HDF5 library version: "), nPad) << HDF5_VERSION
-       << endl;
-  // #ifdef HAVE_FFTW
-  //     printf(" FFTW library version     : %s\n", fftw3_version());
-  // #endif
-  // #ifdef HAVE_LIBGSL
-  //     printf(" GSL library version      : %s\n", libgsl_version());
-  // #endif
-  // #ifdef WITH_MPI
-  //     printf(" MPI library version      : %s\n", mpi_version());
-  // #endif
-  printf("\n");
+    cout << padString(string(" HDF5 library version: "), nPad) << HDF5_VERSION
+         << endl;
+    // #ifdef HAVE_FFTW
+    //     printf(" FFTW library version     : %s\n", fftw3_version());
+    // #endif
+    // #ifdef HAVE_LIBGSL
+    //     printf(" GSL library version      : %s\n", libgsl_version());
+    // #endif
+    // #ifdef WITH_MPI
+    //     printf(" MPI library version      : %s\n", mpi_version());
+    // #endif
+    printf("\n");
+
+#ifdef WITH_MPI
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 }
 
 #endif // TALKING_H_
