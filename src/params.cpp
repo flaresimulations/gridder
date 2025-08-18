@@ -105,18 +105,20 @@ bool Parameters::exists(const std::string &key) {
  * @brief Function to print all key-value pairs stored in the map.
  */
 void Parameters::printAllParameters() {
-  std::cout << "Key-Value Pairs:" << std::endl;
+
+  message("Key-Value Pairs:");
   for (const auto &pair : parameters) {
-    std::cout << "Key: " << pair.first << " - Value: ";
     const Param &value = pair.second;
 
     // Print the value based on its type
     if (std::holds_alternative<int>(value)) {
-      std::cout << std::get<int>(value);
+      message("Key: %s - Value: %d", pair.first.c_str(), std::get<int>(value));
     } else if (std::holds_alternative<double>(value)) {
-      std::cout << std::get<double>(value);
+      message("Key: %s - Value: %f", pair.first.c_str(),
+              std::get<double>(value));
     } else if (std::holds_alternative<std::string>(value)) {
-      std::cout << std::get<std::string>(value);
+      message("Key: %s - Value: %s", pair.first.c_str(),
+              std::get<std::string>(value).c_str());
     }
 
     std::cout << std::endl;
