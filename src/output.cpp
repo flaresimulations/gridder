@@ -393,7 +393,9 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   }
 
   // Synchronize all ranks after setup
+  message("Rank %d: Waiting at barrier for dataset creation to complete", metadata->rank);
   MPI_Barrier(MPI_COMM_WORLD);
+  message("Rank %d: Passed barrier, datasets should be ready", metadata->rank);
 
   // Prepare local data for writing
   if (total_local_grid_points > 0) {
