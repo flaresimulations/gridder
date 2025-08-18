@@ -33,7 +33,7 @@ void readMetadata(Parameters *params) {
 
   // Should we write out masses?
   metadata->write_masses =
-      params->getParameter<bool>("Output/write_masses", false);
+      static_cast<bool>(params->getParameter<int>("Output/write_masses", 0));
 
   message("Reading data from: %s", metadata->input_file.c_str());
 
