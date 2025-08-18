@@ -211,23 +211,19 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
-  message("Rank %d: Starting writeGridFileParallel", metadata->rank);
-
   // Get the base output filepath
   const std::string base_filename = metadata->output_file;
-  
+
   // Create rank-specific filename
   std::string rank_filename = base_filename;
   size_t ext_pos = rank_filename.find_last_of(".");
   if (ext_pos != std::string::npos) {
-    rank_filename = rank_filename.substr(0, ext_pos) + "_rank" + 
-                    std::to_string(metadata->rank) + 
+    rank_filename = rank_filename.substr(0, ext_pos) + "_rank" +
+                    std::to_string(metadata->rank) +
                     rank_filename.substr(ext_pos);
   } else {
     rank_filename += "_rank" + std::to_string(metadata->rank);
   }
-
-  message("Rank %d: Writing grid data to %s", metadata->rank, rank_filename.c_str());
 
   // Unpack the cells
   std::vector<Cell> &cells = sim->cells;
@@ -262,29 +258,25 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     total_local_grid_points += count;
   }
 
-  message("Rank %d: Found %d local grid points in %zu cells", 
-          metadata->rank, total_local_grid_points, local_cell_ids.size());
-
   // Create rank-specific HDF5 file (always serial mode)
-  message("Rank %d: Creating HDF5 file %s", metadata->rank, rank_filename.c_str());
   HDF5Helper hdf5(rank_filename, H5F_ACC_TRUNC);
   if (!hdf5.isOpen()) {
-    error("Rank %d: Failed to create HDF5 file: %s", metadata->rank, rank_filename.c_str());
+    error("Rank %d: Failed to create HDF5 file: %s", metadata->rank,
+          rank_filename.c_str());
     return;
   }
-  message("Rank %d: Successfully opened HDF5 file", metadata->rank);
 
   // Create groups
   if (!hdf5.createGroup("Header")) {
     error("Rank %d: Failed to create Header group", metadata->rank);
     return;
   }
-  
+
   if (!hdf5.createGroup("Grids")) {
     error("Rank %d: Failed to create Grids group", metadata->rank);
     return;
   }
-  
+
   if (!hdf5.createGroup("Cells")) {
     error("Rank %d: Failed to create Cells group", metadata->rank);
     return;
@@ -293,21 +285,27 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   // Write header attributes (each rank writes its own copy)
   hdf5.writeAttribute<int>("Header", "MPI_Rank", metadata->rank);
   hdf5.writeAttribute<int>("Header", "MPI_Size", metadata->size);
-  hdf5.writeAttribute<int>("Header", "LocalGridPoints", total_local_grid_points);
+  hdf5.writeAttribute<int>("Header", "LocalGridPoints",
+                           total_local_grid_points);
   hdf5.writeAttribute<int>("Header", "LocalCells", nr_local_cells);
-  hdf5.writeAttribute<double>("Header", "MaxKernelRadius", grid->max_kernel_radius);
+  hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
+                              grid->max_kernel_radius);
 
   // Write local cell information
   if (!local_cell_ids.empty()) {
-    std::array<hsize_t, 1> local_cell_dims = {static_cast<hsize_t>(local_cell_ids.size())};
-    
-    if (!hdf5.writeDataset<int, 1>("Cells/LocalCellIDs", local_cell_ids, local_cell_dims)) {
+    std::array<hsize_t, 1> local_cell_dims = {
+        static_cast<hsize_t>(local_cell_ids.size())};
+
+    if (!hdf5.writeDataset<int, 1>("Cells/LocalCellIDs", local_cell_ids,
+                                   local_cell_dims)) {
       error("Rank %d: Failed to write LocalCellIDs dataset", metadata->rank);
       return;
     }
-    
-    if (!hdf5.writeDataset<int, 1>("Cells/LocalGridPointCounts", local_grid_point_counts, local_cell_dims)) {
-      error("Rank %d: Failed to write LocalGridPointCounts dataset", metadata->rank);
+
+    if (!hdf5.writeDataset<int, 1>("Cells/LocalGridPointCounts",
+                                   local_grid_point_counts, local_cell_dims)) {
+      error("Rank %d: Failed to write LocalGridPointCounts dataset",
+            metadata->rank);
       return;
     }
   }
@@ -342,9 +340,12 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     }
 
     // Write position data
-    std::array<hsize_t, 2> pos_dims = {static_cast<hsize_t>(total_local_grid_points), 3};
-    if (!hdf5.writeDataset<double, 2>("Grids/GridPointPositions", local_positions, pos_dims)) {
-      error("Rank %d: Failed to write GridPointPositions dataset", metadata->rank);
+    std::array<hsize_t, 2> pos_dims = {
+        static_cast<hsize_t>(total_local_grid_points), 3};
+    if (!hdf5.writeDataset<double, 2>("Grids/GridPointPositions",
+                                      local_positions, pos_dims)) {
+      error("Rank %d: Failed to write GridPointPositions dataset",
+            metadata->rank);
       return;
     }
 
@@ -352,39 +353,35 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
       double kernel_rad = grid->kernel_radii[k];
       std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-      
+
       if (!hdf5.createGroup("Grids/" + kernel_name)) {
-        error("Rank %d: Failed to create kernel group: %s", metadata->rank, kernel_name.c_str());
+        error("Rank %d: Failed to create kernel group: %s", metadata->rank,
+              kernel_name.c_str());
         continue;
       }
 
-      std::array<hsize_t, 1> overdens_dims = {static_cast<hsize_t>(total_local_grid_points)};
-      if (!hdf5.writeDataset<double, 1>("Grids/" + kernel_name + "/GridPointOverDensities",
-                                       local_overdens[k], overdens_dims)) {
-        error("Rank %d: Failed to write overdensity dataset for kernel %f", metadata->rank, kernel_rad);
+      std::array<hsize_t, 1> overdens_dims = {
+          static_cast<hsize_t>(total_local_grid_points)};
+      if (!hdf5.writeDataset<double, 1>("Grids/" + kernel_name +
+                                            "/GridPointOverDensities",
+                                        local_overdens[k], overdens_dims)) {
+        error("Rank %d: Failed to write overdensity dataset for kernel %f",
+              metadata->rank, kernel_rad);
       }
     }
   }
 
   // Close the rank file
   hdf5.close();
-  
-  message("Rank %d: Successfully wrote %d grid points to rank file", 
-          metadata->rank, total_local_grid_points);
 
   // Synchronize all ranks before creating virtual file
-  message("Rank %d: Waiting at barrier before virtual file creation", metadata->rank);
   MPI_Barrier(MPI_COMM_WORLD);
-  message("Rank %d: Passed barrier", metadata->rank);
 
   // Only rank 0 creates the virtual file
   if (metadata->rank == 0) {
-    message("Rank 0: Creating virtual file");
     createVirtualFile(base_filename, metadata->size, sim, grid);
-    message("Rank 0: Finished creating virtual file");
   }
 
-  message("Rank %d: Finished writeGridFileParallel", metadata->rank);
   toc("Writing output (in parallel)");
 }
 
@@ -396,11 +393,11 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
  * @param sim Pointer to the simulation object
  * @param grid Pointer to the grid object
  */
-void createVirtualFile(const std::string &base_filename, int num_ranks, 
-                      Simulation *sim, Grid *grid) {
-  
+void createVirtualFile(const std::string &base_filename, int num_ranks,
+                       Simulation *sim, Grid *grid) {
+
   message("Creating virtual HDF5 file: %s", base_filename.c_str());
-  
+
   // Create the virtual file
   HDF5Helper hdf5(base_filename, H5F_ACC_TRUNC);
   if (!hdf5.isOpen()) {
@@ -417,7 +414,7 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
     std::string rank_filename = base_filename;
     size_t ext_pos = rank_filename.find_last_of(".");
     if (ext_pos != std::string::npos) {
-      rank_filename = rank_filename.substr(0, ext_pos) + "_rank" + 
+      rank_filename = rank_filename.substr(0, ext_pos) + "_rank" +
                       std::to_string(rank) + rank_filename.substr(ext_pos);
     } else {
       rank_filename += "_rank" + std::to_string(rank);
@@ -441,12 +438,12 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
     error("Failed to create Header group in virtual file");
     return;
   }
-  
+
   if (!hdf5.createGroup("Grids")) {
     error("Failed to create Grids group in virtual file");
     return;
   }
-  
+
   if (!hdf5.createGroup("Cells")) {
     error("Failed to create Cells group in virtual file");
     return;
@@ -456,13 +453,16 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   hdf5.writeAttribute<int>("Header", "NGridPoint", total_grid_points);
   hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", sim->cdim);
   hdf5.writeAttribute<double[3]>("Header", "BoxSize", sim->dim);
-  hdf5.writeAttribute<double>("Header", "MaxKernelRadius", grid->max_kernel_radius);
+  hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
+                              grid->max_kernel_radius);
   hdf5.writeAttribute<double>("Header", "Redshift", sim->redshift);
   hdf5.writeAttribute<int>("Header", "MPI_Size", num_ranks);
 
   // Create virtual datasets for positions
-  std::array<hsize_t, 2> global_pos_dims = {static_cast<hsize_t>(total_grid_points), 3};
-  if (!hdf5.createDataset<double, 2>("Grids/GridPointPositions", global_pos_dims)) {
+  std::array<hsize_t, 2> global_pos_dims = {
+      static_cast<hsize_t>(total_grid_points), 3};
+  if (!hdf5.createDataset<double, 2>("Grids/GridPointPositions",
+                                     global_pos_dims)) {
     error("Failed to create virtual GridPointPositions dataset");
     return;
   }
@@ -471,27 +471,31 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
     double kernel_rad = grid->kernel_radii[k];
     std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-    
+
     if (!hdf5.createGroup("Grids/" + kernel_name)) {
       error("Failed to create virtual kernel group: %s", kernel_name.c_str());
       continue;
     }
 
-    std::array<hsize_t, 1> global_overdens_dims = {static_cast<hsize_t>(total_grid_points)};
-    if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name + "/GridPointOverDensities",
-                                      global_overdens_dims)) {
-      error("Failed to create virtual overdensity dataset for kernel %f", kernel_rad);
+    std::array<hsize_t, 1> global_overdens_dims = {
+        static_cast<hsize_t>(total_grid_points)};
+    if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                           "/GridPointOverDensities",
+                                       global_overdens_dims)) {
+      error("Failed to create virtual overdensity dataset for kernel %f",
+            kernel_rad);
     }
   }
 
   // Now populate the virtual datasets by copying data from rank files
   for (int rank = 0; rank < num_ranks; rank++) {
-    if (rank_grid_points[rank] == 0) continue; // Skip ranks with no data
+    if (rank_grid_points[rank] == 0)
+      continue; // Skip ranks with no data
 
     std::string rank_filename = base_filename;
     size_t ext_pos = rank_filename.find_last_of(".");
     if (ext_pos != std::string::npos) {
-      rank_filename = rank_filename.substr(0, ext_pos) + "_rank" + 
+      rank_filename = rank_filename.substr(0, ext_pos) + "_rank" +
                       std::to_string(rank) + rank_filename.substr(ext_pos);
     } else {
       rank_filename += "_rank" + std::to_string(rank);
@@ -506,9 +510,10 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
     // Read and write position data
     std::vector<double> rank_positions;
     if (rank_file.readDataset("Grids/GridPointPositions", rank_positions)) {
-      if (!hdf5.writeDatasetSlice<double, 2>("Grids/GridPointPositions", rank_positions,
-                                            {static_cast<hsize_t>(rank_offsets[rank]), 0},
-                                            {static_cast<hsize_t>(rank_grid_points[rank]), 3})) {
+      if (!hdf5.writeDatasetSlice<double, 2>(
+              "Grids/GridPointPositions", rank_positions,
+              {static_cast<hsize_t>(rank_offsets[rank]), 0},
+              {static_cast<hsize_t>(rank_grid_points[rank]), 3})) {
         error("Failed to write position slice for rank %d", rank);
       }
     }
@@ -517,14 +522,17 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
     for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
       double kernel_rad = grid->kernel_radii[k];
       std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-      
+
       std::vector<double> rank_overdens;
-      if (rank_file.readDataset("Grids/" + kernel_name + "/GridPointOverDensities", rank_overdens)) {
-        if (!hdf5.writeDatasetSlice<double, 1>("Grids/" + kernel_name + "/GridPointOverDensities",
-                                              rank_overdens,
-                                              {static_cast<hsize_t>(rank_offsets[rank])},
-                                              {static_cast<hsize_t>(rank_grid_points[rank])})) {
-          error("Failed to write overdensity slice for rank %d, kernel %f", rank, kernel_rad);
+      if (rank_file.readDataset("Grids/" + kernel_name +
+                                    "/GridPointOverDensities",
+                                rank_overdens)) {
+        if (!hdf5.writeDatasetSlice<double, 1>(
+                "Grids/" + kernel_name + "/GridPointOverDensities",
+                rank_overdens, {static_cast<hsize_t>(rank_offsets[rank])},
+                {static_cast<hsize_t>(rank_grid_points[rank])})) {
+          error("Failed to write overdensity slice for rank %d, kernel %f",
+                rank, kernel_rad);
         }
       }
     }
@@ -535,21 +543,25 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   // Create cell lookup information for the combined data
   std::vector<int> global_grid_point_counts(sim->nr_cells, 0);
   std::vector<int> global_grid_point_start(sim->nr_cells, 0);
-  
+
   // Build global cell information from all ranks
   int current_offset = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     global_grid_point_start[cid] = current_offset;
-    global_grid_point_counts[cid] = static_cast<int>(sim->cells[cid].grid_points.size());
+    global_grid_point_counts[cid] =
+        static_cast<int>(sim->cells[cid].grid_points.size());
     current_offset += global_grid_point_counts[cid];
   }
 
   // Write global cell datasets
   std::array<hsize_t, 1> cell_dims = {static_cast<hsize_t>(sim->nr_cells)};
-  hdf5.writeDataset<int, 1>("Cells/GridPointStart", global_grid_point_start, cell_dims);
-  hdf5.writeDataset<int, 1>("Cells/GridPointCounts", global_grid_point_counts, cell_dims);
+  hdf5.writeDataset<int, 1>("Cells/GridPointStart", global_grid_point_start,
+                            cell_dims);
+  hdf5.writeDataset<int, 1>("Cells/GridPointCounts", global_grid_point_counts,
+                            cell_dims);
 
   hdf5.close();
-  message("Successfully created virtual HDF5 file with %d total grid points", total_grid_points);
+  message("Successfully created virtual HDF5 file with %d total grid points",
+          total_grid_points);
 }
 #endif
