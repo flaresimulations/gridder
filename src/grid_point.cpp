@@ -124,7 +124,7 @@ Grid::Grid(Parameters *params) {
 
   // Determine how we are creating the grid points
   std::string grid_type =
-      params->getParameter<std::string>("Grid/grid_type", "uniform");
+      params->getParameter<std::string>("Grid/type", "uniform");
   if (grid_type == "file") {
     this->grid_from_file = true;
     this->grid_uniform = false;
