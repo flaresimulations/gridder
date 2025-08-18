@@ -39,6 +39,93 @@ def get_cell_index(x, y, z, cell_size, cdim):
     return k + j * cdim + i * cdim * cdim
 
 
+def make_simple_test(filepath, cdim, boxsize, doner_path):
+    """Create a simple test with one particle for predictable results.
+    
+    Parameters
+    ----------
+    filepath : str
+        The path to the output file.
+    cdim : int
+        The number of cells in each dimension.
+    boxsize : float
+        The size of the box.
+    doner_path : str
+        Path to donor file for units/cosmology.
+    """
+    print("Creating simple test case with 1 particle at center")
+    
+    # Single particle at the center of the box
+    pos = np.array([[boxsize/2, boxsize/2, boxsize/2]])
+    mass = np.array([1.0])  # Exactly 1 unit of mass
+    
+    # Cell structure
+    cell_size = boxsize / cdim
+    cell_count = np.zeros(cdim**3, dtype=np.int32)
+    
+    # Particle is in the center cell
+    center_cell_i = cdim // 2
+    center_cell_j = cdim // 2  
+    center_cell_k = cdim // 2
+    center_cell_idx = center_cell_k + center_cell_j * cdim + center_cell_i * cdim * cdim
+    cell_count[center_cell_idx] = 1
+    
+    # Cell offsets
+    cell_offset = np.cumsum(cell_count)
+    cell_offset = np.insert(cell_offset, 0, 0)
+    
+    print(f"Particle at ({boxsize/2:.1f}, {boxsize/2:.1f}, {boxsize/2:.1f}) with mass {mass[0]}")
+    print(f"In cell {center_cell_idx}, cell size = {cell_size}")
+    
+    # Write the snapshot
+    with h5py.File(filepath, "w") as hdf:
+        # Write the particles
+        part_type_1 = hdf.create_group("PartType1")
+        part_type_1.create_dataset("Coordinates", data=pos)
+        part_type_1.create_dataset("ParticleIDs", data=np.array([0]))
+        part_type_1.create_dataset("Masses", data=mass)
+        
+        # Write the cell structure
+        cell_struct = hdf.create_group("Cells")
+        cell_struct.create_dataset("Counts/PartType1", data=cell_count)
+        cell_struct.create_dataset("OffsetsInFile/PartType1", data=cell_offset)
+        
+        # Write the header
+        header = hdf.create_group("Header")
+        header.attrs["NumPart_ThisFile"] = np.array([0, 1, 0, 0, 0, 0])
+        header.attrs["NumPart_Total"] = np.array([0, 1, 0, 0, 0, 0])
+        header.attrs["NumPart_Total_HighWord"] = np.array([0, 0, 0, 0, 0, 0])
+        header.attrs["MassTable"] = np.array([0, 0, 0, 0, 0, 0])  # Use individual masses
+        header.attrs["Time"] = 0.0
+        header.attrs["Redshift"] = 0.0
+        header.attrs["BoxSize"] = np.array([boxsize, boxsize, boxsize])
+        
+        # Write the cells metadata
+        cell_meta = cell_struct.create_group("Meta-data")
+        cell_meta.attrs["dimension"] = np.array([cdim, cdim, cdim], dtype=np.int32)
+        cell_meta.attrs["size"] = np.array([cell_size, cell_size, cell_size])
+        
+        # Copy units from doner file
+        with h5py.File(doner_path, "r") as doner:
+            units = doner["Units"]
+            unit_mass = units.attrs["Unit mass in cgs (U_M)"]
+            unit_length = units.attrs["Unit length in cgs (U_L)"]
+            hdf.create_group("Units")
+            hdf["Units"].attrs["Unit mass in cgs (U_M)"] = unit_mass
+            hdf["Units"].attrs["Unit length in cgs (U_L)"] = unit_length
+            
+            # Copy cosmology
+            cosmology = doner["Cosmology"]
+            mean_density = cosmology.attrs["Critical density [internal units]"]
+            hdf.create_group("Cosmology")
+            hdf["Cosmology"].attrs["Critical density [internal units]"] = mean_density
+    
+    print(f"Expected results for grid point at center:")
+    print(f"  - Kernel radius 0.5: mass = 0.0 (particle outside sphere)")
+    print(f"  - Kernel radius 1.0: mass = 1.0 (particle inside sphere)")
+    print(f"  - Kernel radius 2.0+: mass = 1.0 (particle inside sphere)")
+
+
 def make_ics(filepath, cdim, gdim, boxsize, doner_path):
     """Create a snapshot with a uniform grid of particles.
 
@@ -48,10 +135,12 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
         The path to the output file.
     cdim : int
         The number of cells in each dimension.
-    grid_sep : float
+    gdim : int
         The number of grid particles in each dimension.
     boxsize : float
         The size of the box.
+    doner_path : str
+        Path to donor file for units/cosmology.
     """
     # Get the number of grid points from the boxsize and grid separation
     grid_sep = boxsize / gdim
@@ -184,8 +273,16 @@ if __name__ == "__main__":
         type=str,
         help="The path to the donor snapshot.",
     )
+    parser.add_argument(
+        "--simple",
+        action="store_true",
+        help="Create simple test case with 1 particle (instead of uniform grid).",
+    )
 
     args = parser.parse_args()
 
     # Create the snapshot
-    make_ics(args.output, args.cdim, args.grid_dim, args.boxsize, args.doner)
+    if args.simple:
+        make_simple_test(args.output, args.cdim, args.boxsize, args.doner)
+    else:
+        make_ics(args.output, args.cdim, args.grid_dim, args.boxsize, args.doner)
