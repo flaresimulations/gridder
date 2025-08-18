@@ -85,8 +85,8 @@ void partitionCells(Simulation *sim, Grid *grid) {
     Cell *cell = &sim->cells[cid];
     if (cell->rank < 0 || cell->rank >= size) {
       error("Cell %zu has invalid rank %d", cid, cell->rank);
-      cell_ranks[cid] = cell->rank;
     }
+    cell_ranks[cid] = cell->rank;
   }
 
   // Ensure all ranks have the same cell ranks
