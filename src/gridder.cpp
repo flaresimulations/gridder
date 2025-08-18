@@ -168,6 +168,10 @@ int main(int argc, char *argv[]) {
   }
   toc("Reading metadata");
 
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
   // Get all the simulation data (this will also allocate the cells array)
   // NOTE: the cell array is automatically freed when the sim object is
   // destroyed (leaves scope)
@@ -182,6 +186,10 @@ int main(int argc, char *argv[]) {
   }
   toc("Reading simulation data");
 
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
   // Get the grid object (this doesn't initialise the grid points yet, just the
   // object)
   Grid *grid;
@@ -195,6 +203,10 @@ int main(int argc, char *argv[]) {
   }
   toc("Creating grid object");
 
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
   // Define the top level cells (this will initialise the top level with their
   // location, geometry and particle counts)
   tic();
@@ -205,6 +217,10 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   toc("Creating top level cells");
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
   message("Number of top level cells: %d", sim->nr_cells);
 
@@ -230,6 +246,10 @@ int main(int argc, char *argv[]) {
   }
   toc("Creating grid points");
 
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
   // Assign the grid points to the cells
   tic();
   try {
@@ -239,6 +259,10 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   toc("Assigning grid points to cells");
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
   // Now that we know what grid points go where flag which cells we care about
   // (i.e. those that contain grid points or are neighbours of cells that
@@ -253,6 +277,8 @@ int main(int argc, char *argv[]) {
   toc("Flagging useful cells");
 
 #ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
   // Find and flag the proxy cells at the edges of the partition
   tic();
   try {
@@ -275,8 +301,10 @@ int main(int argc, char *argv[]) {
   }
   toc("Assigning particles to cells");
 
-  // Communicate the proxy cell particles
 #ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Communicate the proxy cell particles
   tic();
   try {
     exchangeProxyCells(sim);
@@ -301,6 +329,10 @@ int main(int argc, char *argv[]) {
   toc("Splitting cells");
   message("Maximum depth in the tree: %d", sim->max_depth);
 
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
   // Now we can start the actual work... Associate particles with the grid
   // points within the maximum kernel radius
   tic();
@@ -313,6 +345,8 @@ int main(int argc, char *argv[]) {
   toc("Computing kernel masses");
 
 #ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
   // We're done write the output in parallel
   tic();
   try {

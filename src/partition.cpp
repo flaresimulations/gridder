@@ -211,6 +211,7 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
     message("Sending %d cells to rank %d", send_counts[r], r);
     message("Receiving %d cells from rank %d", recv_counts[r], r);
   }
+#endif
 }
 #endif
 
