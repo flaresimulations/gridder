@@ -298,30 +298,40 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
       message("Rank 0: Successfully wrote Header attributes");
 
       // Create groups
+      message("Rank 0: About to create Grids group");
       if (!hdf5.createGroup("Grids")) {
         error("Rank 0: Failed to create Grids group");
         return;
       }
+      message("Rank 0: Successfully created Grids group");
+      
+      message("Rank 0: About to create Cells group");
       if (!hdf5.createGroup("Cells")) {
         error("Rank 0: Failed to create Cells group");
         return;
       }
-      message("Rank 0: Successfully created Grids and Cells groups");
+      message("Rank 0: Successfully created Cells group");
 
       // Write cell lookup tables
+      message("Rank 0: About to write cell lookup tables");
       std::array<hsize_t, 1> sim_cell_dims = {
           static_cast<hsize_t>(sim->nr_cells)};
+      
+      message("Rank 0: About to write GridPointStart dataset");
       if (!hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
                                      sim_cell_dims)) {
         error("Rank 0: Failed to write GridPointStart dataset");
         return;
       }
+      message("Rank 0: Successfully wrote GridPointStart dataset");
+      
+      message("Rank 0: About to write GridPointCounts dataset");
       if (!hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
                                      sim_cell_dims)) {
         error("Rank 0: Failed to write GridPointCounts dataset");
         return;
       }
-      message("Rank 0: Successfully wrote cell lookup tables");
+      message("Rank 0: Successfully wrote GridPointCounts dataset");
 
       // Create grid position dataset
       std::array<hsize_t, 2> grid_point_positions_dims = {
@@ -332,6 +342,16 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         return;
       }
       message("Rank 0: Successfully created GridPointPositions dataset");
+      
+      // Verify the dataset can be opened
+      hid_t test_dataset = H5Dopen2(hdf5.file_id, "Grids/GridPointPositions", H5P_DEFAULT);
+      if (test_dataset < 0) {
+        error("Rank 0: Cannot open GridPointPositions dataset after creation!");
+        return;
+      } else {
+        message("Rank 0: Verified GridPointPositions dataset can be opened");
+        H5Dclose(test_dataset);
+      }
       
       // Flush to ensure dataset is committed
       H5Fflush(hdf5.file_id, H5F_SCOPE_GLOBAL);
