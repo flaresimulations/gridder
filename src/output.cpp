@@ -332,6 +332,9 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         return;
       }
       message("Rank 0: Successfully created GridPointPositions dataset");
+      
+      // Flush to ensure dataset is committed
+      H5Fflush(hdf5.file_id, H5F_SCOPE_GLOBAL);
 
       // Create datasets for each kernel
       for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
@@ -355,6 +358,9 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         message("Rank 0: Successfully created kernel %zu/%zu: %s", 
                 k + 1, grid->kernel_radii.size(), kernel_name.c_str());
       }
+      
+      // Final flush to ensure all datasets are committed
+      H5Fflush(hdf5.file_id, H5F_SCOPE_GLOBAL);
       message("Rank 0: Successfully created all datasets");
       
     } catch (const std::exception &e) {
