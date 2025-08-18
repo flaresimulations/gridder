@@ -9,6 +9,10 @@
 #include <string>
 #include <variant>
 
+#ifdef WITH_MPI
+#include <mpi.h>
+#endif
+
 // Local includes
 #include "logger.hpp"
 #include "metadata.hpp"
