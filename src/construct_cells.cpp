@@ -120,7 +120,7 @@ void splitCells(Simulation *sim) {
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
     // Skip cells that aren't on this rank and aren't proxies
-    if (cells[cid].rank != metadata->rank || !cell->is_proxy)
+    if (cells[cid].rank != metadata->rank || !cells[cid].is_proxy)
       continue;
 #endif
 
