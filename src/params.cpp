@@ -128,9 +128,11 @@ void Parameters::printAllParameters() {
       message("Key: %s - Value: %s", pair.first.c_str(),
               std::get<std::string>(value).c_str());
     }
-
-    std::cout << std::endl;
   }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 }
 
 /**
