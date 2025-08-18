@@ -17,6 +17,27 @@
 enum LogLevel { ERROR, LOG, VERBOSE };
 
 /**
+ * @brief Get the base filename from a given file path.
+ *
+ * @param filePath The full path to the file.
+ * @return The base filename without the path and extension.
+ */
+static std::string getBaseFilename(const std::string &filePath) {
+  size_t lastSlash = filePath.find_last_of("/");
+  size_t lastDot = filePath.find_last_of(".");
+
+  // Extract the filename between the last slash and the last dot
+  if (lastSlash != std::string::npos && lastDot != std::string::npos &&
+      lastDot > lastSlash) {
+    return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
+  }
+
+  // If no slash or dot found, or dot appears before slash, return the
+  // original path
+  return filePath;
+}
+
+/**
  * @brief The Logging class provides a simple mechanism for logging messages
  * to the standard output.
  *
@@ -51,12 +72,6 @@ private:
   std::chrono::high_resolution_clock::time_point _toc;
   std::chrono::high_resolution_clock::time_point _start;
 
-  // Error variables (used for throwing exceptions and reporting their location
-  // at the top of the call stack)
-  std::string error_message_;
-  char *error_file_;
-  char *error_func_;
-  int error_line_;
 
   // The current snapshot being processed
   std::string _snapshot;
@@ -148,45 +163,6 @@ public:
     }
   }
 
-  template <typename... Args>
-  void throw_error(const char *file, const char *func, int line,
-                   const char *format, Args &&...args) {
-    // Conditional compilation based on the number of arguments
-    if constexpr (sizeof...(args) > 0) {
-      // If there are arguments, process them with the format
-      char buffer[512];
-      std::snprintf(buffer, sizeof(buffer), format,
-                    std::forward<Args>(args)...);
-      this->error_message_ = buffer;
-    } else {
-      // If there are no arguments, use the format directly as the message
-      this->error_message_ = format;
-    }
-    // Common handling for file, func, and line
-    this->error_file_ = const_cast<char *>(file);
-    this->error_func_ = const_cast<char *>(func);
-    this->error_line_ = line;
-
-    // Throw the error
-    throw std::runtime_error(this->error_message_);
-  }
-
-  /**
-   * @brief Log an error message and throw a runtime error.
-   *
-   * @param msg The error message format string.
-   * @param args The arguments for message formatting.
-   *
-   * @throw std::runtime_error Thrown with the formatted error message.
-   */
-  void report_error() {
-    std::ostringstream oss;
-    oss << "[ERROR][" << getBaseFilename(this->error_file_) << "."
-        << this->error_func_ << "." << this->error_line_
-        << "]: " << this->error_message_;
-    std::cerr << oss.str() << std::endl;
-  }
-
   /**
    * @brief Start measuring time.
    */
@@ -249,27 +225,6 @@ public:
 
 private:
   /**
-   * @brief Get the base filename from a given file path.
-   *
-   * @param filePath The full path to the file.
-   * @return The base filename without the path and extension.
-   */
-  static std::string getBaseFilename(const std::string &filePath) {
-    size_t lastSlash = filePath.find_last_of("/");
-    size_t lastDot = filePath.find_last_of(".");
-
-    // Extract the filename between the last slash and the last dot
-    if (lastSlash != std::string::npos && lastDot != std::string::npos &&
-        lastDot > lastSlash) {
-      return filePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
-    }
-
-    // If no slash or dot found, or dot appears before slash, return the
-    // original path
-    return filePath;
-  }
-
-  /**
    * @brief Log a formatted message.
    *
    * @tparam Args Variadic template for message formatting.
@@ -290,7 +245,11 @@ private:
 
     // Format the message
     char buffer[256];
-    snprintf(buffer, sizeof(buffer), format, args...);
+    if constexpr (sizeof...(args) == 0) {
+      snprintf(buffer, sizeof(buffer), "%s", format);
+    } else {
+      snprintf(buffer, sizeof(buffer), format, args...);
+    }
 
     // Include the message
     oss << buffer << std::endl;
@@ -307,6 +266,52 @@ private:
   std::string getSnapshot() { return _snapshot; }
 };
 
+/**
+ * @brief Log an error message with file, function, and line details, then throw
+ * a runtime exception.
+ *
+ * This function generates a formatted error message that includes the file,
+ * function, and line where the error occurred, followed by any additional
+ * message or details provided through variadic arguments. The message is
+ * constructed with a fold expression that appends each argument to the output
+ * stream sequentially.
+ *
+ * @tparam Args Variadic template allowing any number of arguments for message
+ * content.
+ *
+ * @param file The name of the file where the error occurred, provided by
+ * __FILE__.
+ * @param func The name of the function where the error occurred, provided by
+ * __func__.
+ * @param line The line number where the error occurred, provided by __LINE__.
+ * @param args Additional arguments that form the error message. Each argument
+ * is appended to the error message sequentially.
+ *
+ * @throws std::runtime_error containing the formatted error message.
+ *
+ * Usage:
+ * - `error("An error occurred")` logs a simple message.
+ * - `error("Failed to read file ", filename, " at position ", position)` logs a
+ * message with multiple parts.
+ */
+template <typename... Args>
+void error(const char *file, const char *func, int line, const char *format, Args... args) {
+  std::ostringstream oss;
+  oss << "[ERROR][" << getBaseFilename(file) << "." << func << "." << line
+      << "]: ";
+
+  // Format the message using printf-style formatting
+  char buffer[1024];
+  if constexpr (sizeof...(args) == 0) {
+    snprintf(buffer, sizeof(buffer), "%s", format);
+  } else {
+    snprintf(buffer, sizeof(buffer), format, args...);
+  }
+  oss << buffer << std::endl;
+
+  throw std::runtime_error(oss.str());
+}
+
 // Define friendly macros for logging
 #define message(...)                                                           \
   Logging::getInstance()->message(__FILE__, __func__, __VA_ARGS__)
@@ -316,8 +321,6 @@ private:
 #define tic() Logging::getInstance()->tic()
 #define toc(message) Logging::getInstance()->toc(__FILE__, __func__, message)
 #define finish() Logging::getInstance()->finish(__FILE__, __func__)
-#define error(...)                                                             \
-  Logging::getInstance()->throw_error(__FILE__, __func__, __LINE__, __VA_ARGS__)
-#define report_error() Logging::getInstance()->report_error()
+#define error(...) error(__FILE__, __func__, __LINE__, __VA_ARGS__)
 
 #endif // LOGGING_H

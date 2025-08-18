@@ -4,17 +4,11 @@
 #ifndef PARTICLE_HPP
 #define PARTICLE_HPP
 
-// C++ includes
-#include <mutex>
-
 class Particle {
 public:
   // Particle metadata members
   double pos[3];
   double mass;
-
-  // Mutex for thread safety
-  std::mutex mtx;
 
   // Constructor
   Particle(const double pos[3], const double mass) {

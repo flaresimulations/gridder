@@ -5,87 +5,71 @@
 #define GRID_POINT_HPP
 
 // Standard includes
-#include <cmath>
-#include <map>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 // Local includes
-#include "metadata.hpp"
+#include "cell.hpp"
+#include "params.hpp"
 #include "particle.hpp"
-
-/**
- * @brief Find the smallest distance dx along one axis within a box of size
- * box_size
- *
- * This macro evaluates its arguments exactly once.
- *
- * Only wraps once. If dx > 2b, the returned value will be larger than b.
- * Similarly for dx < -b.
- *
- */
-double nearest(const double dx, const double box_size) {
-
-  return ((dx > 0.5 * box_size)
-              ? (dx - box_size)
-              : ((dx < -0.5 * box_size) ? (dx + box_size) : dx));
-}
+#include "simulation.hpp"
 
 class GridPoint {
 public:
-  // Grid point metadata members
+  //! The location of the grid point
   double loc[3];
-  int index[3];
-  int count = 0;
 
-  // Define a map to accumulate the mass of particles within each kernel
-  // radius
-  std::map<double, double> mass_map;
-
-  // Constructor
-  GridPoint(double loc[3], int index[3]) {
-    this->loc[0] = loc[0];
-    this->loc[1] = loc[1];
-    this->loc[2] = loc[2];
-    this->index[0] = index[0];
-    this->index[1] = index[1];
-    this->index[2] = index[2];
-
-    // Zero the mass maps
-    Metadata &metadata = Metadata::getInstance();
-    for (int i = 0; i < metadata.kernel_radii.size(); i++) {
-      this->mass_map[metadata.kernel_radii[i]] = 0.0;
-    }
-  }
-
-  // Method to add a particle to the grid point
-  void add_particle(std::shared_ptr<Particle> part, double kernel_radius) {
-    // Count that we've added a particle
-    this->count++;
-
-    this->mass_map[kernel_radius] += part->mass;
-  }
-
-  // Method to add a whole cell to the grid point
+  // Prototypes for member functions (defined in grid_point.cpp)
+  GridPoint(double loc[3]);
+  void initializeMaps(const std::vector<double> &kernel_radii);
+  void add_particle(Particle *part, double kernel_radius);
   void add_cell(const int cell_part_count, const double cell_mass,
-                double kernel_radius) {
-    // Count that we've added a particle
-    this->count += cell_part_count;
+                double kernel_radius);
+  double getOverDensity(const double kernel_radius, Simulation *sim) const;
+  double getMass(const double kernel_radius) const;
 
-    this->mass_map[kernel_radius] += cell_mass;
-  }
+private:
+  //! The count of particles in each kernel radius
+  std::unordered_map<double, double> count_map;
 
-  // Method to get over density inside kernel radius
-  double getOverDensity(const double kernel_radius) {
-    // Compute the volume of the kernel
-    const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
-
-    // Compute the density
-    const double density = this->mass_map[kernel_radius] / kernel_volume;
-
-    // Compute the over density
-    return (density / Metadata::getInstance().mean_density) - 1;
-  }
+  //! The mass of particles in each kernel radius
+  std::unordered_map<double, double> mass_map;
 };
 
+class Grid {
+public:
+  //! How many kernels are we using?
+  int nkernels;
+
+  //! The kernel radii
+  std::vector<double> kernel_radii;
+
+  //! The maximum kernel radius
+  double max_kernel_radius;
+
+  //! The maximum kernel radius squared
+  double max_kernel_radius2;
+
+  //! Are we using a file of grid points?
+  bool grid_from_file;
+
+  //! The number of grid points
+  int n_grid_points;
+
+  //! The number of grid points along a side (only used if we're creating grid)
+  int grid_cdim;
+
+  //! The grid points
+  std::vector<GridPoint> grid_points;
+
+  // Prototypes for member functions (defined in grid_point.cpp)
+  Grid(Parameters *params);
+  ~Grid();
+};
+
+// Prototypes for grid construction (used in construct_grid_points.cpp)
+double nearest(const double dx, const double box_size);
+Grid *createGrid(Parameters *params);
+void createGridPoints(Simulation *sim, Grid *grid);
 #endif // GRID_POINT_HPP

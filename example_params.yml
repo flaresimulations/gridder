@@ -8,6 +8,7 @@ Kernels:
 
 Grid:
   cdim: 100
+  type: uniform # uniform, random, or file
 
 Tree:
   max_leaf_count: 200
@@ -19,3 +20,4 @@ Input:
 Output:
   filepath: data/
   basename: test_grid_0000.hdf5
+  write_masses: 0 # whether to write mass associated to kernels as well as overdensity

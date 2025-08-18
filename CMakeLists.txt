@@ -1,157 +1,206 @@
-# Define the minimum cmake version
 cmake_minimum_required(VERSION 3.12)
-
-# Set the C++ standard
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Project metadata
-set(TARGET parent_gridder)
 project(ZoomParentGridder CXX)
 
-# Set the version
+# ========== Version Macros ==========
 set(PROJECT_VERSION_MAJOR 0)
 set(PROJECT_VERSION_MINOR 1)
 set(PROJECT_VERSION_PATCH 0)
 
-# ================= BUILD MODE =================
+# ========== C++ Standard ==========
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Set default build type to Release if not specified
+# ========== Options ==========
+option(ENABLE_MPI "Enable MPI support" OFF)
+
+# ========== Build Type ==========
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose build type" FORCE)
 endif()
-
-# Define possible build types
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# ================= DEFINE OPTIONS =================
-option(DISABLE_OPTIMIZATIONS "Disable optimizations" OFF)
-option(ENABLE_DEBUG "Enable debugging symbols" OFF)
-option(ENABLE_MPI "Enable MPI support" OFF)
+set(CMAKE_CXX_FLAGS_DEBUG          "-g -O0 -Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_RELEASE        "-O3 -march=native -Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -Wall -Wextra -Wpedantic")
 
-# ================= DEPENDANCIES =================
-
-# Find HDF5 with parallel support if available
-find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
-
-# Check for OpenMP support
+# ========== Dependencies ==========
 find_package(OpenMP REQUIRED)
 
-# MPI
+# HDF5 (always serial - we use per-rank files instead of parallel HDF5)
+find_package(HDF5 REQUIRED COMPONENTS C HL)
+
+# MPI (if enabled, only for communication - not for HDF5)
 if(ENABLE_MPI)
   find_package(MPI REQUIRED)
+  message(STATUS "MPI C compiler: ${MPI_C_COMPILER}")
+  message(STATUS "MPI CXX compiler: ${MPI_CXX_COMPILER}")
 endif()
 
-# ================= COMPILER FLAGS =================
-
-# Set the compiler flags
-# -Wall: Enable all warnings
-# -Wextra: Enable extra warnings
-# -Wpedantic: Enable pedantic warnings
-# -Werror: Treat warnings as errors
-# -O3: Optimize for speed
-if(DISABLE_OPTIMIZATIONS)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+# Detect HDF5 version with multiple fallback methods
+set(HDF5_VERSION "unknown")
+if(HDF5_VERSION_STRING)
+  set(HDF5_VERSION "${HDF5_VERSION_STRING}")
+elseif(HDF5_VERSION_MAJOR AND HDF5_VERSION_MINOR)
+  if(HDF5_VERSION_PATCH)
+    set(HDF5_VERSION "${HDF5_VERSION_MAJOR}.${HDF5_VERSION_MINOR}.${HDF5_VERSION_PATCH}")
+  else()
+    set(HDF5_VERSION "${HDF5_VERSION_MAJOR}.${HDF5_VERSION_MINOR}")
+  endif()
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+  # Try to extract version from h5cc or pkg-config
+  find_program(H5CC_EXECUTABLE h5cc)
+  if(H5CC_EXECUTABLE)
+    execute_process(
+      COMMAND ${H5CC_EXECUTABLE} -showconfig
+      OUTPUT_VARIABLE H5CC_OUTPUT
+      ERROR_QUIET
+    )
+    string(REGEX MATCH "HDF5 Version: ([0-9]+\\.[0-9]+\\.[0-9]+)" HDF5_VERSION_MATCH "${H5CC_OUTPUT}")
+    if(HDF5_VERSION_MATCH)
+      set(HDF5_VERSION "${CMAKE_MATCH_1}")
+    endif()
+  endif()
+  
+  # Last resort: try pkg-config
+  if(HDF5_VERSION STREQUAL "unknown")
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+      pkg_check_modules(HDF5_PC QUIET hdf5)
+      if(HDF5_PC_VERSION)
+        set(HDF5_VERSION "${HDF5_PC_VERSION}")
+      endif()
+    endif()
+  endif()
 endif()
-# -g: Generate debug information
-if(ENABLE_DEBUG)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+
+message(STATUS "Found HDF5 version: ${HDF5_VERSION}")
+message(STATUS "HDF5 usage: Serial (per-rank files + virtual combination)")
+
+# ========== Metadata ==========
+execute_process(
+  COMMAND git rev-parse --short HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_REVISION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
+)
+
+execute_process(
+  COMMAND git rev-parse --abbrev-ref HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_BRANCH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
+)
+
+execute_process(
+  COMMAND git log -1 --format=%cd --date=short HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_DATE
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
+)
+
+# Handle case where git commands fail (e.g., not a git repo)
+if(NOT GIT_REVISION)
+  set(GIT_REVISION "unknown")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+if(NOT GIT_BRANCH)
+  set(GIT_BRANCH "unknown")
+endif()
+if(NOT GIT_DATE)
+  set(GIT_DATE "unknown")
+endif()
 
-# ================= METADATA COLLECTION =================
-
-# Execute Git commands to get revision and branch
-execute_process(
-    COMMAND git rev-parse --short HEAD
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_REVISION
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-execute_process(
-    COMMAND git rev-parse --abbrev-ref HEAD
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_BRANCH
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-execute_process(
-    COMMAND git log -1 --format=%cd --date=short HEAD
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_DATE
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-# Get compiler information including version
-if (CMAKE_CXX_COMPILER_VERSION AND CMAKE_CXX_COMPILER_ID)
+if(CMAKE_CXX_COMPILER_VERSION AND CMAKE_CXX_COMPILER_ID)
   set(COMPILER_INFO "${CMAKE_CXX_COMPILER_ID}@${CMAKE_CXX_COMPILER_VERSION}")
-elseif (NOT CMAKE_CXX_COMPILER_VERSION AND CMAKE_CXX_COMPILER_ID)
-  set(COMPILER_INFO "${CMAKE_CXX_COMPILER_ID}")
 else()
   set(COMPILER_INFO "Unknown Compiler")
 endif()
 
-# Get compiler flags (CFLAGS)
 string(REPLACE ";" " " CFLAGS_INFO "${CMAKE_CXX_FLAGS}")
+# Note: HDF5_VERSION is now set above after HDF5 detection
 
-# Add the necessary version paths
+# ========== Version Header ==========
 configure_file(
-    "${CMAKE_SOURCE_DIR}/src/config/version.h.in"
-    "${CMAKE_SOURCE_DIR}/src/version.h"
+  ${CMAKE_SOURCE_DIR}/src/config/version.h.in
+  ${CMAKE_SOURCE_DIR}/src/version.h
 )
 
-# ================= SOURCE FILES =================
-
-# Create a list of source files
+# ========== Sources ==========
 set(SOURCE_FILES
-    src/gridder.cpp
+  src/gridder.cpp
+  src/cell.cpp
+  src/cell_search.cpp
+  src/construct_grid_points.cpp
+  src/construct_cells.cpp
+  src/grid_point.cpp
+  src/hdf_io.cpp
+  src/metadata.cpp
+  src/output.cpp
+  src/partition.cpp
+  src/params.cpp
+  src/simulation.cpp
 )
 
-# ================= COMPILATION =================
+# ========== Target ==========
+add_executable(parent_gridder ${SOURCE_FILES})
 
-# Create the executable using the source files
-add_executable(${TARGET} ${SOURCE_FILES})
+# Base include directories
+target_include_directories(parent_gridder PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${HDF5_INCLUDE_DIRS}
+)
 
+# Base libraries
+target_link_libraries(parent_gridder PRIVATE
+  ${HDF5_LIBRARIES}  # Use HDF5_LIBRARIES instead of HDF5::HDF5 for broader compatibility
+  OpenMP::OpenMP_CXX
+)
 
-# ================= DEFINE PREPROCESSOR DIRECTIVES =================
-
-# Define DEBUGGING_CHECKS if the build type is Debug
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  target_compile_definitions(${TARGET} PRIVATE DEBUGGING_CHECKS)
-endif()
-
-# Are we using MPI? 
+# MPI-specific configuration
 if(ENABLE_MPI)
-target_compile_definitions(${TARGET} PRIVATE WITH_MPI)
+  target_include_directories(parent_gridder PRIVATE ${MPI_CXX_INCLUDE_DIRS})
+  target_link_libraries(parent_gridder PRIVATE ${MPI_CXX_LIBRARIES})
+  target_compile_definitions(parent_gridder PRIVATE WITH_MPI)
+  
+  # Add MPI compile flags if needed
+  if(MPI_CXX_COMPILE_FLAGS)
+    set_target_properties(parent_gridder PROPERTIES
+      COMPILE_FLAGS "${MPI_CXX_COMPILE_FLAGS}")
+  endif()
+  
+  # Add MPI link flags if needed  
+  if(MPI_CXX_LINK_FLAGS)
+    set_target_properties(parent_gridder PROPERTIES
+      LINK_FLAGS "${MPI_CXX_LINK_FLAGS}")
+  endif()
 endif()
 
+# Debug-specific definitions
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_definitions(parent_gridder PRIVATE DEBUGGING_CHECKS)
+endif()
 
-# ================= LIBRARY INCLUSION =================
-
-# HDF5
-target_link_libraries(${TARGET} PRIVATE HDF5::HDF5)
-
-# MPI
+# ========== Status Messages ==========
+message(STATUS "=== Configuration Summary ===")
+message(STATUS "Project: ${PROJECT_NAME}")
+message(STATUS "Version: ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "Compiler: ${COMPILER_INFO}")
+message(STATUS "MPI enabled: ${ENABLE_MPI}")
 if(ENABLE_MPI)
-  target_link_libraries(${TARGET} PRIVATE MPI::MPI_CXX)
-  target_include_directories(${TARGET} PRIVATE ${MPI_CXX_INCLUDE_PATH})
+  message(STATUS "  - MPI version: ${MPI_CXX_VERSION}")
+  message(STATUS "  - MPI include dirs: ${MPI_CXX_INCLUDE_DIRS}")
+  message(STATUS "  - HDF5 strategy: Per-rank files + virtual combination")
 endif()
+message(STATUS "HDF5 version: ${HDF5_VERSION}")
+message(STATUS "OpenMP enabled: ${OpenMP_CXX_FOUND}")
+message(STATUS "Git revision: ${GIT_REVISION}")
+message(STATUS "Git branch: ${GIT_BRANCH}")
+message(STATUS "Git date: ${GIT_DATE}")
+message(STATUS "===============================")
 
-# OpenMP
-target_link_libraries(${TARGET} PRIVATE OpenMP::OpenMP_CXX)
-
-# Display compiler flags being used.
-message(STATUS "CXXFLAGS: ${CMAKE_CXX_FLAGS}")
-message(STATUS "CXXFLAGS for ${CMAKE_BUILD_TYPE}:")
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  message(STATUS "  ${CMAKE_CXX_FLAGS_DEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
-  message(STATUS "  ${CMAKE_CXX_FLAGS_RELEASE}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "MinSizeRel")
-  message(STATUS "  ${CMAKE_CXX_FLAGS_MINSIZEREL}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-  message(STATUS "  ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-endif()

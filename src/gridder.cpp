@@ -3,177 +3,346 @@
 // overdensity.
 
 // Standard includes
-#include <cmath>
 #include <iostream>
-#include <regex>
-#include <sstream>
-#include <vector>
 
 // MPI includes
-// #include <mpi.h>
+#ifdef WITH_MPI
+#include <mpi.h>
+#endif
 
 // Local includes
 #include "cell.hpp"
+#include "cmd_parser.hpp"
 #include "grid_point.hpp"
+#include "hdf_io.hpp"
 #include "logger.hpp"
 #include "metadata.hpp"
 #include "params.hpp"
-#include "partition.hpp"
-#include "serial_io.hpp"
+#include "simulation.hpp"
 #include "talking.hpp"
+#ifdef WITH_MPI
+#include "partition.hpp"
+#endif
 
-int main(int argc, char *argv[]) {
+/**
+ * @brief Function to handle the command line arguments using robust parser
+ *
+ * @param argc The number of command line arguments
+ * @param argv The command line arguments
+ * @param rank MPI rank for error reporting
+ * @param size MPI size for validation
+ * @return CommandLineArgs structure with parsed arguments
+ * @throws std::runtime_error if parsing fails
+ */
+CommandLineArgs parseCmdArgs(int argc, char *argv[], int rank = 0,
+                             int size = 1) {
+  // Parse arguments with comprehensive validation
+  CommandLineArgs args = CommandLineParser::parse(argc, argv, rank, size);
 
-  // Get the parameter file from the command line arguments
-  if (argc > 4 || argc == 1) {
-    std::cerr << "Usage: " << argv[0]
-              << " <parameter_file> <nthreads> (optional <nsnap>)" << std::endl;
-    return 1;
+  // Handle help request
+  if (args.help_requested) {
+    if (rank == 0) { // Only print from rank 0 in MPI
+      CommandLineParser::printUsage(argv[0]);
+    }
+    // Return args with help flag set - caller should handle exit
+    return args;
   }
-  const std::string param_file = argv[1];
-  const int nthreads = std::stoi(argv[2]);
-  const int nsnap = (argc == 4) ? std::stoi(argv[3]) : 0;
+
+  // Get a metadata instance and configure it
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Set parsed values on metadata
+  metadata->nsnap = args.nsnap;
+  metadata->param_file = args.parameter_file;
 
   // Set the number of threads (this is a global setting)
-  omp_set_num_threads(nthreads);
+  omp_set_num_threads(args.nthreads);
 
-  // Set up the MPI environment
-  // MPI_Init(&argc, &argv);
-  // int rank, size;
-  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  // MPI_Comm_size(MPI_COMM_WORLD, &size);
+#ifdef WITH_MPI
+  // Set the MPI rank on the logger and metadata
+  metadata->rank = rank;
+  metadata->size = size;
+  Logging::getInstance()->setRank(metadata->rank);
+#else
+  // Set the rank to 0 (there is only one rank)
+  Logging::getInstance()->setRank(0);
+#endif
 
-  // TODO: Remove this when we have MPI
-  int rank = 0;
-  int size = 1;
+  return args;
+}
 
-  if (rank == 0) {
-    say_hello();
+/**
+ * @brief Main function
+ *
+ * @param argc The number of command line arguments
+ * @param argv The command line arguments
+ * @return int The exit status
+ */
+int main(int argc, char *argv[]) {
+
+  // Handle MPI setup if we need it
+  int rank, size;
+#ifdef WITH_MPI
+  int mpi_initialized = 0;
+  MPI_Initialized(&mpi_initialized);
+  if (!mpi_initialized) {
+    int ierr = MPI_Init(&argc, &argv);
+    if (ierr != MPI_SUCCESS) {
+      std::cerr << "MPI_Init failed!" << std::endl;
+      MPI_Abort(MPI_COMM_WORLD, ierr);
+    }
   }
 
-  // Set the MPI rank of the logger
-  Logging::getInstance()->setRank(rank);
-  Metadata::getInstance().rank = rank;
-  Metadata::getInstance().size = size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+#else
+  // If we're not using MPI, set the rank and size to 0
+  rank = 0;
+  size = 1;
+#endif
 
-  // Set the snapshot number
-  Metadata::getInstance().nsnap = nsnap;
+  // Parse the command line arguments with robust validation
+  CommandLineArgs args;
+  try {
+    args = parseCmdArgs(argc, argv, rank, size);
+
+    // Handle help request
+    if (args.help_requested) {
+      return 0; // Exit cleanly after showing help
+    }
+  } catch (const std::exception &e) {
+    if (rank == 0) { // Only print from rank 0 in MPI
+      CommandLineParser::printError(e.what(), argv[0]);
+    }
+#ifdef WITH_MPI
+    MPI_Finalize();
+#endif
+    return 1;
+  }
+
+  // Howdy
+  say_hello();
 
   // Start the timer for the whole shebang
   start();
 
+  // Get a local pointer to the metadata and unpack local variables we'll need
+  Metadata *metadata = &Metadata::getInstance();
+  std::string param_file = metadata->param_file;
+#ifdef WITH_MPI
   if (rank == 0) {
-    message("Running on %d MPI ranks", size);
+    message("Running on %d MPI ranks", metadata->size);
   }
+#endif
 
   // Read the parameters from the parameter file
-  Parameters params;
-  tic();
+  Parameters *params;
   try {
-    parseParams(params, param_file);
+    params = parseParams(param_file);
+  } catch (const std::exception &e) {
+    if (rank == 0) {
+      error("Failed to parse parameter file '%s': %s", param_file.c_str(),
+            e.what());
+    }
+#ifdef WITH_MPI
+    MPI_Finalize();
+#endif
+    return 1;
+  }
+
+#ifdef DEBUGGING_CHECKS
+  // Print the parameters
+  params->printAllParameters();
+#endif
+
+  // Setup the metadata we need to carry around (some has already been set,
+  // during command line argument parsing)
+  try {
+    readMetadata(params);
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
   }
-  toc("Reading parameters");
 
-  // Get the metadata instance
-  Metadata &metadata = Metadata::getInstance();
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
-  // Read the rest of the metadata from the input file
+  // Get all the simulation data (this will also allocate the cells array)
+  // NOTE: the cell array is automatically freed when the sim object is
+  // destroyed (leaves scope)
+  Simulation *sim;
   tic();
   try {
-    readMetadata(metadata.input_file);
+    sim = new Simulation();
+    metadata->sim = sim;
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
   }
-  toc("Reading metadata (including mean density calculation)");
+  toc("Reading simulation data");
 
-  // Get the cell array itself
-  tic();
-  std::shared_ptr<Cell> *cells = new std::shared_ptr<Cell>[metadata.nr_cells];
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // Get the grid object (this doesn't initialise the grid points yet, just the
+  // object)
+  Grid *grid;
   try {
-    getTopCells(cells);
+    grid = createGrid(params);
+    metadata->grid = grid;
   } catch (const std::exception &e) {
-    report_error();
+    error(e.what());
     return 1;
   }
-  toc("Creating top level cells");
 
-  message("Number of top level cells: %d", metadata.nr_cells);
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
-  // Decomose the cells over the MPI ranks (if we need to)
-  if (size > 1) {
-    tic();
-    try {
-      decomposeCells(cells);
-    } catch (const std::exception &e) {
-      report_error();
-      return 1;
-    }
-    toc("Decomposing cells");
-  } else {
-    tic();
-    // Set all cells to rank 0
-    for (int cid = 0; cid < metadata.nr_cells; cid++) {
-      cells[cid]->rank = 0;
-    }
-    toc("Setting all cells to rank 0");
+  // Define the top level cells (this will initialise the top level with their
+  // location, geometry and particle counts)
+  try {
+    getTopCells(sim, grid);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
   }
 
-  // TODO: Need to create and communicate proxies
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  message("Number of top level cells: %d", sim->nr_cells);
+
+#ifdef WITH_MPI
+  // Decomose the cells over the MPI ranks
+  try {
+    partitionCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+#endif
+
+  // Create the grid points (either from a file or tesselating the volume)
+  try {
+    createGridPoints(sim, grid);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // Assign the grid points to the cells
+  try {
+    assignGridPointsToCells(sim, grid);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // Now that we know what grid points go where flag which cells we care about
+  // (i.e. those that contain grid points or are neighbours of cells that
+  // contain grid points)
+  try {
+    limitToUsefulCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Find and flag the proxy cells at the edges of the partition
+  try {
+    flagProxyCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+#endif
 
   // Now we know which cells are where we can make the grid points, and assign
   // them and the particles to the cells
-  tic();
   try {
-    assignPartsAndPointsToCells(cells);
+    assignPartsToCells(sim);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Assigning particles and grid points to cells");
 
-  // And before we can actually get going we need to split the cells
-  tic();
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Communicate the proxy cell particles
   try {
-    splitCells(cells);
+    exchangeProxyCells(sim);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Splitting cells");
-  message("Maximum depth in the tree: %d", metadata.max_depth);
+#endif
+
+  // And before we can actually get going we need to split the cells into the
+  // cell tree. Each top level cell will become the root of an octree that
+  // we can walk as we search for particles to associate with grid points
+  try {
+    splitCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
   // Now we can start the actual work... Associate particles with the grid
   // points within the maximum kernel radius
-  tic();
   try {
-    getKernelMasses(cells);
+    getKernelMasses(sim, grid);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Computing kernel masses");
 
-  // We're done write the output
-  tic();
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // We're done write the output in parallel
   try {
-    writeGridFile(cells);
+    writeGridFileParallel(sim, grid);
   } catch (const std::exception &e) {
-    report_error();
+    std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Writing output");
-
-  // Clean everything up, we're tidy people
-  delete[] cells;
+#else
+  // We're done write the output in serial
+  try {
+    writeGridFileSerial(sim, grid);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+#endif
 
   // Stop the timer for the whole shebang
   finish();
 
+#ifdef WITH_MPI
   // Exit properly in MPI land
-  // MPI_Finalize();
+  MPI_Finalize();
+#endif
+
   return 0;
 }
