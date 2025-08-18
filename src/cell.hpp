@@ -28,7 +28,7 @@ class Cell {
 public:
   //! Constants for octree structure
   static constexpr int OCTREE_CHILDREN = 8;
-  static constexpr int OCTREE_DIM = 2;  // 2x2x2 = 8 children
+  static constexpr int OCTREE_DIM = 2; // 2x2x2 = 8 children
   static constexpr int SPATIAL_DIMS = 3;
   //! Cell location
   double loc[3];
@@ -51,9 +51,9 @@ public:
   //! What rank is this cell on?
   int rank = 0;
 
-  //! If we are receiving particles from another rank where are they coming
-  // from? (Otherwise -1)
-  int recv_rank = -1;
+  //! Is this cell a proxy for another rank? (i.e. does it receive particles
+  //! from another rank)
+  bool is_proxy = false;
 
   //! If we are sending particles to another rank where are they going? (Can be
   //! multiple ranks)
@@ -65,13 +65,13 @@ public:
   bool is_useful = false;
 
   //! Particles within the cell
-  std::vector<Particle*> particles;
+  std::vector<Particle *> particles;
 
   //! Grid points within the cell
-  std::vector<GridPoint*> grid_points;
+  std::vector<GridPoint *> grid_points;
 
   //! Child cells
-  std::array<Cell*, OCTREE_CHILDREN> children;
+  std::array<Cell *, OCTREE_CHILDREN> children;
 
   //! Parent cell
   Cell *parent;
@@ -80,7 +80,7 @@ public:
   Cell *top;
 
   //! Store the neighbouring cells
-  std::vector<Cell*> neighbours;
+  std::vector<Cell *> neighbours;
 
   //! Depth in the tree
   int depth;
@@ -112,9 +112,8 @@ public:
   }
 
   // Constructor
-  Cell(const double loc[3], const double width[3],
-       Cell* parent = nullptr,
-       Cell* top = nullptr) {
+  Cell(const double loc[3], const double width[3], Cell *parent = nullptr,
+       Cell *top = nullptr) {
 
     // Set the location and width of the cell
     this->loc[0] = loc[0];
@@ -161,9 +160,8 @@ public:
   }
 
   // Prototypes for member functions (defined in cell.cpp)
-  bool inKernel(const GridPoint* grid_point,
-                const double kernel_rad2) const;
-  bool outsideKernel(const GridPoint* grid_point,
+  bool inKernel(const GridPoint *grid_point, const double kernel_rad2) const;
+  bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
   void split();
 };
@@ -173,7 +171,7 @@ void getTopCells(Simulation *sim, Grid *grid);
 void splitCells(Simulation *sim);
 
 // Prototypes for functions defined in cell.cpp
-Cell* getCellContainingPoint(const double pos[3]);
+Cell *getCellContainingPoint(const double pos[3]);
 int getCellIndexContainingPoint(const double pos[3]);
 void assignPartsToCells(Simulation *sim);
 void assignGridPointsToCells(Simulation *sim, Grid *grid);
