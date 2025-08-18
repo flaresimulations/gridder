@@ -19,7 +19,6 @@ Simulation::Simulation() {
 
   // Allocate the cells array
   this->cells.resize(this->nr_cells);
-  
 }
 
 /**
@@ -27,8 +26,8 @@ Simulation::Simulation() {
  */
 Simulation::~Simulation() {
   // Delete all particles allocated with raw pointers
-  for (Cell& cell : this->cells) {
-    for (Particle* part : cell.particles) {
+  for (Cell &cell : this->cells) {
+    for (Particle *part : cell.particles) {
       delete part;
     }
     // Recursively delete child cells (they will handle their own particles)
@@ -39,7 +38,7 @@ Simulation::~Simulation() {
 /**
  * @brief Recursively delete all child cells.
  */
-void Simulation::deleteChildCells(Cell* cell) {
+void Simulation::deleteChildCells(Cell *cell) {
   if (cell->is_split) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
       if (cell->children[i] != nullptr) {
@@ -77,14 +76,16 @@ void Simulation::readSimulationData() {
   // Count the cells
   this->nr_cells = this->cdim[0] * this->cdim[1] * this->cdim[2];
 
-  // Report interesting things
-  message("Redshift: %f", this->redshift);
-  message("Running with %d dark matter particles", this->nr_dark_matter);
-  message("Running with %d cells", this->nr_cells);
-  message("Cdim: %d %d %d", this->cdim[0], this->cdim[1], this->cdim[2]);
-  message("Box size: %f %f %f", this->dim[0], this->dim[1], this->dim[2]);
-  message("Cell size: %f %f %f", this->width[0], this->width[1],
-          this->width[2]);
+  // Report interesting things but only on rank 0
+  if (metadata->rank == 0) {
+    message("Redshift: %f", this->redshift);
+    message("Running with %d dark matter particles", this->nr_dark_matter);
+    message("Running with %d cells", this->nr_cells);
+    message("Cdim: %d %d %d", this->cdim[0], this->cdim[1], this->cdim[2]);
+    message("Box size: %f %f %f", this->dim[0], this->dim[1], this->dim[2]);
+    message("Cell size: %f %f %f", this->width[0], this->width[1],
+            this->width[2]);
+  }
 
   // Read the number of particles in each cell
   hdf.readDataset<int>(std::string("Cells/Counts/PartType1"),

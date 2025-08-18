@@ -106,6 +106,13 @@ bool Parameters::exists(const std::string &key) {
  */
 void Parameters::printAllParameters() {
 
+  // Only rank 0 prints the parameters
+#ifdef WITH_MPI
+  if (Metadata::getInstance().rank != 0) {
+    return;
+  }
+#endif
+
   message("Key-Value Pairs:");
   for (const auto &pair : parameters) {
     const Param &value = pair.second;
