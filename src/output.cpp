@@ -442,6 +442,8 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     createVirtualFile(base_filename, metadata->size, sim, grid);
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
+
   toc("Writing output (in parallel)");
 }
 
