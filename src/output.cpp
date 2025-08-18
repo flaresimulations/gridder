@@ -282,65 +282,56 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     global_offset += local_totals[r];
   }
 
-  // Create HDF5 file with parallel access using collective helper
-  HDF5ParallelHelper hdf5(filename, H5F_ACC_TRUNC);
+  // Create HDF5 file with parallel access
+  HDF5Helper hdf5(filename, H5F_ACC_TRUNC, true);
   if (!hdf5.isOpen()) {
     error("Rank %d: Failed to create HDF5 file for parallel output",
           metadata->rank);
     return;
   }
 
-  // All ranks collectively create groups and datasets
-  hdf5.createGroupCollective("Header");
-  hdf5.createGroupCollective("Grids");
-  hdf5.createGroupCollective("Cells");
-
-  // Only rank 0 writes attributes (attributes are typically not collective)
+  // Only rank 0 creates structure, others wait
   if (metadata->rank == 0) {
+    hdf5.createGroup("Header");
+    hdf5.createGroup("Grids");
+    hdf5.createGroup("Cells");
+
     hdf5.writeAttribute<int>("Header", "NGridPoint", grid->n_grid_points);
     hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", sim->cdim);
     hdf5.writeAttribute<double[3]>("Header", "BoxSize", sim->dim);
     hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
                                 grid->max_kernel_radius);
     hdf5.writeAttribute<double>("Header", "Redshift", sim->redshift);
-  }
 
-  // All ranks collectively create datasets
-  std::array<hsize_t, 1> sim_cell_dims = {static_cast<hsize_t>(sim->nr_cells)};
-  hdf5.createDatasetCollective<int, 1>("Cells/GridPointStart", sim_cell_dims);
-  hdf5.createDatasetCollective<int, 1>("Cells/GridPointCounts", sim_cell_dims);
-
-  std::array<hsize_t, 2> grid_point_positions_dims = {
-      static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
-  hdf5.createDatasetCollective<double, 2>("Grids/GridPointPositions",
-                                          grid_point_positions_dims);
-
-  // Create kernel groups and datasets collectively
-  for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-    double kernel_rad = grid->kernel_radii[k];
-    std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-    hdf5.createGroupCollective("Grids/" + kernel_name);
-
-    std::array<hsize_t, 1> grid_point_overdens_dims = {
-        static_cast<hsize_t>(grid->n_grid_points)};
-    hdf5.createDatasetCollective<double, 1>("Grids/" + kernel_name +
-                                            "/GridPointOverDensities",
-                                            grid_point_overdens_dims);
-  }
-
-  // Write cell lookup tables collectively
-  if (metadata->rank == 0) {
+    std::array<hsize_t, 1> sim_cell_dims = {
+        static_cast<hsize_t>(sim->nr_cells)};
+    hdf5.createDataset<int, 1>("Cells/GridPointStart", sim_cell_dims);
+    hdf5.createDataset<int, 1>("Cells/GridPointCounts", sim_cell_dims);
     hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
                               sim_cell_dims);
     hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
                               sim_cell_dims);
-  } else {
-    // Other ranks participate with empty data
-    std::vector<int> empty_start(sim->nr_cells, 0);
-    std::vector<int> empty_counts(sim->nr_cells, 0);
-    hdf5.writeDataset<int, 1>("Cells/GridPointStart", empty_start, sim_cell_dims);
-    hdf5.writeDataset<int, 1>("Cells/GridPointCounts", empty_counts, sim_cell_dims);
+
+    std::array<hsize_t, 2> grid_point_positions_dims = {
+        static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
+    hdf5.createDataset<double, 2>("Grids/GridPointPositions",
+                                  grid_point_positions_dims);
+
+    for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
+      double kernel_rad = grid->kernel_radii[k];
+      std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+      hdf5.createGroup("Grids/" + kernel_name);
+
+      std::array<hsize_t, 1> grid_point_overdens_dims = {
+          static_cast<hsize_t>(grid->n_grid_points)};
+      hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                        "/GridPointOverDensities",
+                                    grid_point_overdens_dims);
+    }
   }
+
+  // Barrier ensures rank 0 completes all setup before others proceed
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Prepare local data for writing
   if (total_local_grid_points > 0) {
