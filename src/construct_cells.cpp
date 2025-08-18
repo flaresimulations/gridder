@@ -11,7 +11,7 @@
 
 void getTopCells(Simulation *sim, Grid *grid) {
   // Unpack the simulation information we need
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
   const double width[3] = {sim->width[0], sim->width[1], sim->width[2]};
   const size_t nr_cells = sim->nr_cells;
   const int cdim[3] = {sim->cdim[0], sim->cdim[1], sim->cdim[2]};
@@ -59,7 +59,9 @@ void getTopCells(Simulation *sim, Grid *grid) {
   message("Looking for neighbours within %d cells", nwalk);
 
   // Calculate maximum neighbors and reserve space
-  const int max_neighbors = (2 * nwalk + 1) * (2 * nwalk + 1) * (2 * nwalk + 1) - 1;  // -1 excludes self
+  const int max_neighbors =
+      (2 * nwalk + 1) * (2 * nwalk + 1) * (2 * nwalk + 1) -
+      1; // -1 excludes self
 
   // Loop over the cells attaching the pointers the neighbouring cells (taking
   // into account periodic boundary conditions)
@@ -72,8 +74,8 @@ void getTopCells(Simulation *sim, Grid *grid) {
     int k = cid % cdim[2];
 
     // Get the cell
-    Cell* cell = &cells[cid];
-    
+    Cell *cell = &cells[cid];
+
     // Reserve space for neighbors
     cell->neighbours.reserve(max_neighbors);
 
@@ -108,7 +110,7 @@ void getTopCells(Simulation *sim, Grid *grid) {
 void splitCells(Simulation *sim) {
   // Unpack the cells
   const size_t nr_cells = sim->nr_cells;
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
 
   // Loop over the cells and split them
 #pragma omp parallel for
@@ -118,7 +120,7 @@ void splitCells(Simulation *sim) {
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
     // Skip cells that aren't on this rank and aren't proxies
-    if (cells[cid].rank != metadata->rank && cells[cid].recv_rank == -1)
+    if (cells[cid].rank != metadata->rank || !cell->is_proxy)
       continue;
 #endif
 

@@ -104,7 +104,6 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
   // Clear any existing proxy information
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     sim->cells[cid].send_ranks.clear();
-    sim->cells[cid].recv_rank = -1;
   }
 
   // Loop over all cells
