@@ -149,7 +149,7 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
       // If the neighbour is not local we need to recieve from it and send to it
 
       // Flag this cell as a proxy cell
-      cell->is_proxy = true;
+      neighbour->is_proxy = true;
 
       // Add this rank to the send ranks if its not already there
       bool already_sent = false;
@@ -199,8 +199,7 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &sim->cells[cid];
     if (cell->is_proxy && cell->rank == rank) {
-      error("Proxy cell %zu on rank %d should not be sending to itself", cid,
-            rank);
+      error("Found a local proxy cell! (cell %zu)", cid);
     }
     if (cell->is_proxy) {
       recv_counts[cell->rank]++;
