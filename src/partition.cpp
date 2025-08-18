@@ -260,10 +260,11 @@ void exchangeProxyCells(Simulation *sim) {
     requests.push_back(req);
   }
 
-  message("Posted %d operations", rank, (int)requests.size());
+  message("Posted %d operations", (int)requests.size());
 
   // Wait for all operations to complete
   if (!requests.empty()) {
+    message("Waiting for %zu requests", requests.size());
     MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
   }
 
