@@ -117,6 +117,18 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
 }
 
 /**
+ * @brief Create randomly distributed grid points.
+ *
+ * @param sim The simulation object
+ * @param grid The grid object
+ */
+static void createGridPointsRandom(Simulation *sim, Grid *grid) {
+  // Get the grid size and simulation box size
+  int nr_grid_points = grid->n_grid_points;
+  double *dim = sim->dim;
+}
+
+/**
  * @brief Create grid points from a file
  *
  * @param sim The simulation object
@@ -146,8 +158,12 @@ void createGridPoints(Simulation *sim, Grid *grid) {
   // Call the appropriate function to create the grid points
   if (grid->grid_from_file) {
     createGridPointsFromFile(sim, grid);
-  } else {
+  } else if (grid->grid_uniform) {
     createGridPointsEverywhere(sim, grid);
+  } else if (grid->grid_random) {
+    createGridPointsRandom(sim, grid);
+  } else {
+    error("Unknown grid type");
   }
 
   toc("Creating grid points");
