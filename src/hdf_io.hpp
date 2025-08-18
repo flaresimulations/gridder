@@ -324,6 +324,8 @@ bool HDF5ParallelHelper::writeDatasetCollective(const std::string &datasetName,
 void writeGridFileSerial(Simulation *sim, Grid *grid);
 #ifdef WITH_MPI
 void writeGridFileParallel(Simulation *sim, Grid *grid);
+void createVirtualFile(const std::string &base_filename, int num_ranks, 
+                      Simulation *sim, Grid *grid);
 #endif
 
 // Template implementations
