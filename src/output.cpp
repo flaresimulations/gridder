@@ -282,8 +282,8 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     global_offset += local_totals[r];
   }
 
-  // Create HDF5 file with parallel access
-  HDF5Helper hdf5(filename, H5F_ACC_TRUNC, true); // Use collective I/O
+  // Create HDF5 file with parallel access using collective helper
+  HDF5ParallelHelper hdf5(filename, H5F_ACC_TRUNC);
   if (!hdf5.isOpen()) {
     error("Rank %d: Failed to create HDF5 file for parallel output",
           metadata->rank);
@@ -291,9 +291,9 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   }
 
   // All ranks collectively create groups and datasets
-  hdf5.createGroup("Header");
-  hdf5.createGroup("Grids");
-  hdf5.createGroup("Cells");
+  hdf5.createGroupCollective("Header");
+  hdf5.createGroupCollective("Grids");
+  hdf5.createGroupCollective("Cells");
 
   // Only rank 0 writes attributes (attributes are typically not collective)
   if (metadata->rank == 0) {
@@ -307,25 +307,25 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
   // All ranks collectively create datasets
   std::array<hsize_t, 1> sim_cell_dims = {static_cast<hsize_t>(sim->nr_cells)};
-  hdf5.createDataset<int, 1>("Cells/GridPointStart", sim_cell_dims);
-  hdf5.createDataset<int, 1>("Cells/GridPointCounts", sim_cell_dims);
+  hdf5.createDatasetCollective<int, 1>("Cells/GridPointStart", sim_cell_dims);
+  hdf5.createDatasetCollective<int, 1>("Cells/GridPointCounts", sim_cell_dims);
 
   std::array<hsize_t, 2> grid_point_positions_dims = {
       static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
-  hdf5.createDataset<double, 2>("Grids/GridPointPositions",
-                                grid_point_positions_dims);
+  hdf5.createDatasetCollective<double, 2>("Grids/GridPointPositions",
+                                          grid_point_positions_dims);
 
   // Create kernel groups and datasets collectively
   for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
     double kernel_rad = grid->kernel_radii[k];
     std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-    hdf5.createGroup("Grids/" + kernel_name);
+    hdf5.createGroupCollective("Grids/" + kernel_name);
 
     std::array<hsize_t, 1> grid_point_overdens_dims = {
         static_cast<hsize_t>(grid->n_grid_points)};
-    hdf5.createDataset<double, 1>("Grids/" + kernel_name +
-                                  "/GridPointOverDensities",
-                                  grid_point_overdens_dims);
+    hdf5.createDatasetCollective<double, 1>("Grids/" + kernel_name +
+                                            "/GridPointOverDensities",
+                                            grid_point_overdens_dims);
   }
 
   // Write cell lookup tables collectively

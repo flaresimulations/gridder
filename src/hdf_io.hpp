@@ -26,10 +26,9 @@ class Simulation;
 class Grid;
 
 /**
- * @brief HDF5 helper class for both serial and parallel I/O operations
+ * @brief Base HDF5 helper class for serial I/O operations
  *
- * This class automatically detects whether MPI is available and configures
- * itself for either serial or parallel HDF5 operations accordingly.
+ * This class handles basic HDF5 operations without MPI dependencies.
  */
 class HDF5Helper {
 public:
@@ -232,6 +231,96 @@ private:
                            const std::array<hsize_t, Rank> &start,
                            const std::array<hsize_t, Rank> &count);
 };
+
+#ifdef WITH_MPI
+/**
+ * @brief Parallel HDF5 helper class for collective I/O operations
+ *
+ * This class extends the base helper with MPI-aware collective operations
+ * where all ranks participate in dataset creation and writing.
+ */
+class HDF5ParallelHelper : public HDF5Helper {
+public:
+  /**
+   * @brief Constructor for parallel HDF5 helper
+   */
+  HDF5ParallelHelper(const std::string &filename, 
+                     unsigned int accessMode = H5F_ACC_RDONLY);
+
+  /**
+   * @brief Create group collectively (all ranks participate)
+   */
+  bool createGroupCollective(const std::string &groupName);
+
+  /**
+   * @brief Create dataset collectively (all ranks participate)
+   */
+  template <typename T, std::size_t Rank>
+  bool createDatasetCollective(const std::string &datasetName,
+                              const std::array<hsize_t, Rank> &dims);
+
+  /**
+   * @brief Write dataset collectively with each rank contributing data
+   */
+  template <typename T, std::size_t Rank>
+  bool writeDatasetCollective(const std::string &datasetName,
+                             const std::vector<T> &data,
+                             const std::array<hsize_t, Rank> &dims,
+                             const std::array<hsize_t, Rank> &offset,
+                             const std::array<hsize_t, Rank> &count);
+};
+
+// Template implementations for parallel helper
+template <typename T, std::size_t Rank>
+bool HDF5ParallelHelper::createDatasetCollective(const std::string &datasetName,
+                                                 const std::array<hsize_t, Rank> &dims) {
+  if (!file_open) return false;
+  
+  // All ranks participate in dataset creation
+  hid_t dataspace_id = H5Screate_simple(Rank, dims.data(), nullptr);
+  if (dataspace_id < 0) return false;
+  
+  hid_t dataset_id = H5Dcreate2(file_id, datasetName.c_str(), getHDF5Type<T>(),
+                               dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  
+  H5Sclose(dataspace_id);
+  if (dataset_id < 0) return false;
+  
+  H5Dclose(dataset_id);
+  return true;
+}
+
+template <typename T, std::size_t Rank>
+bool HDF5ParallelHelper::writeDatasetCollective(const std::string &datasetName,
+                                               const std::vector<T> &data,
+                                               const std::array<hsize_t, Rank> &dims,
+                                               const std::array<hsize_t, Rank> &offset,
+                                               const std::array<hsize_t, Rank> &count) {
+  if (!file_open) return false;
+  
+  hid_t dataset_id = H5Dopen2(file_id, datasetName.c_str(), H5P_DEFAULT);
+  if (dataset_id < 0) return false;
+  
+  // Set up collective transfer
+  hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+  H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+  
+  // Set up hyperslab selection
+  hid_t filespace = H5Dget_space(dataset_id);
+  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset.data(), NULL, count.data(), NULL);
+  
+  hid_t memspace = H5Screate_simple(Rank, count.data(), NULL);
+  
+  herr_t status = H5Dwrite(dataset_id, getHDF5Type<T>(), memspace, filespace, plist_id, data.data());
+  
+  H5Sclose(memspace);
+  H5Sclose(filespace);
+  H5Pclose(plist_id);
+  H5Dclose(dataset_id);
+  
+  return status >= 0;
+}
+#endif
 
 // Function prototypes for grid output (implemented in output.cpp)
 void writeGridFileSerial(Simulation *sim, Grid *grid);

@@ -353,3 +353,33 @@ template <> hid_t HDF5Helper::getHDF5Type<size_t>() { return H5T_NATIVE_HSIZE; }
 template <> hid_t HDF5Helper::getHDF5Type<size_t[6]>() {
   return H5T_NATIVE_HSIZE;
 }
+
+#ifdef WITH_MPI
+/**
+ * @brief Constructor for parallel HDF5 helper
+ */
+HDF5ParallelHelper::HDF5ParallelHelper(const std::string &filename, unsigned int accessMode)
+  : HDF5Helper(filename, accessMode, true) {
+  // Base constructor handles parallel file opening
+}
+
+/**
+ * @brief Create group collectively - all ranks participate
+ */
+bool HDF5ParallelHelper::createGroupCollective(const std::string &groupName) {
+  if (!file_open) {
+    error("Cannot create group: file is not open");
+    return false;
+  }
+  
+  // All ranks create the group simultaneously
+  hid_t group_id = H5Gcreate2(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  if (group_id < 0) {
+    error("Failed to create group '%s'", groupName.c_str());
+    return false;
+  }
+  
+  H5Gclose(group_id);
+  return true;
+}
+#endif
