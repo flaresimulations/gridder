@@ -142,11 +142,13 @@ void Cell::split() {
         this->particles[p]->pos[1] >= this->loc[1] + this->width[1] ||
         this->particles[p]->pos[2] < this->loc[2] ||
         this->particles[p]->pos[2] >= this->loc[2] + this->width[2])
-      error("Particle not in correct cell: particle pos=(%f,%f,%f) but cell bounds=[%f-%f, %f-%f, %f-%f]",
-            this->particles[p]->pos[0], this->particles[p]->pos[1], this->particles[p]->pos[2],
-            this->loc[0], this->loc[0] + this->width[0],
-            this->loc[1], this->loc[1] + this->width[1], 
-            this->loc[2], this->loc[2] + this->width[2]);
+      error("Particle not in correct cell: particle pos=(%f,%f,%f) but cell "
+            "bounds=[%f-%f, %f-%f, %f-%f]",
+            this->particles[p]->pos[0], this->particles[p]->pos[1],
+            this->particles[p]->pos[2], this->loc[0],
+            this->loc[0] + this->width[0], this->loc[1],
+            this->loc[1] + this->width[1], this->loc[2],
+            this->loc[2] + this->width[2]);
   }
 
   // Ensure all the grid points within this cell are in the correct place
@@ -405,14 +407,16 @@ void assignPartsToCells(Simulation *sim) {
       if (pos[0] < cell->loc[0] || pos[0] >= cell->loc[0] + cell->width[0] ||
           pos[1] < cell->loc[1] || pos[1] >= cell->loc[1] + cell->width[1] ||
           pos[2] < cell->loc[2] || pos[2] >= cell->loc[2] + cell->width[2]) {
-        
-        error("Particle assigned to wrong cell in input file: particle pos=(%.6f,%.6f,%.6f) but cell bounds=[%.6f-%.6f, %.6f-%.6f, %.6f-%.6f]",
-              pos[0], pos[1], pos[2],
-              cell->loc[0], cell->loc[0] + cell->width[0],
-              cell->loc[1], cell->loc[1] + cell->width[1], 
-              cell->loc[2], cell->loc[2] + cell->width[2]);
+
+        error("Particle assigned to wrong cell in input file: particle "
+              "pos=(%.6f,%.6f,%.6f) but cell bounds=[%.6f-%.6f, %.6f-%.6f, "
+              "%.6f-%.6f]",
+              pos[0], pos[1], pos[2], cell->loc[0],
+              cell->loc[0] + cell->width[0], cell->loc[1],
+              cell->loc[1] + cell->width[1], cell->loc[2],
+              cell->loc[2] + cell->width[2]);
       }
-      
+
       // Attach the particle to the cell
       cell->particles.push_back(part);
     }
@@ -439,7 +443,8 @@ void assignPartsToCells(Simulation *sim) {
   message("Mean comoving density: %e 10**10 Msun / cMpc^3", sim->mean_density);
 
 #ifdef DEBUGGING_CHECKS
-  // Make sure we have attached all the particles (only count local cells in MPI)
+  // Make sure we have attached all the particles (only count local cells in
+  // MPI)
   size_t total_cell_part_count = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &cells[cid];
@@ -503,7 +508,8 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
     if (cell->rank != metadata->rank)
-      continue;
+      error("Grid point %d is in cell %zu which is not local to this rank %d",
+            gid, getCellIndexContainingPoint(grid_point->loc), metadata->rank);
 #endif
 
 #pragma omp critical
