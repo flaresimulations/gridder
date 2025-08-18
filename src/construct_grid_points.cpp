@@ -1,4 +1,8 @@
 // Standard includes
+#include <cmath>
+#include <memory>
+#include <random>
+#include <vector>
 
 // Local includes
 #include "cell.hpp"
@@ -126,6 +130,132 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
   // Get the grid size and simulation box size
   int nr_grid_points = grid->n_grid_points;
   double *dim = sim->dim;
+
+#ifdef WITH_MPI
+  Metadata *metadata = &Metadata::getInstance();
+
+  message("Generating random grid points with parallel redistribution",
+          metadata->rank);
+
+  // Each rank generates its portion of points
+  int points_per_rank = nr_grid_points / metadata->size;
+  int remainder = nr_grid_points % metadata->size;
+
+  // Distribute remainder points among first few ranks
+  int my_points = points_per_rank + (metadata->rank < remainder ? 1 : 0);
+
+  // Use same seed but different starting index for each rank to ensure
+  // reproducibility
+  std::mt19937 rng(42); // Fixed seed for reproducible results
+
+  // Calculate how many random numbers to skip for this rank
+  int skip_count = 0;
+  for (int r = 0; r < metadata->rank; r++) {
+    skip_count += (points_per_rank + (r < remainder ? 1 : 0)) * 3;
+  }
+  rng.discard(skip_count);
+
+  std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
+  std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
+  std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
+
+  // Generate my portion of random points
+  std::vector<std::vector<double>> send_buffers(metadata->size);
+  std::vector<int> send_counts(metadata->size, 0);
+
+  for (int i = 0; i < my_points; i++) {
+    double loc[3] = {dist_x(rng), dist_y(rng), dist_z(rng)};
+
+    // Determine which rank should own this point based on cell ownership
+    Cell *cell = getCellContainingPoint(loc);
+    int target_rank = cell->rank;
+
+    // Add to appropriate send buffer
+    send_buffers[target_rank].push_back(loc[0]);
+    send_buffers[target_rank].push_back(loc[1]);
+    send_buffers[target_rank].push_back(loc[2]);
+    send_counts[target_rank]++;
+  }
+
+  message("Generated %d points, redistributing...", metadata->rank, my_points);
+
+  // Communicate how many points each rank will send to each other rank
+  std::vector<int> recv_counts(metadata->size);
+  MPI_Alltoall(send_counts.data(), 1, MPI_INT, recv_counts.data(), 1, MPI_INT,
+               MPI_COMM_WORLD);
+
+  // Calculate send/receive displacements and total data sizes
+  std::vector<int> send_displs(metadata->size, 0);
+  std::vector<int> recv_displs(metadata->size, 0);
+  std::vector<int> send_data_counts(metadata->size);
+  std::vector<int> recv_data_counts(metadata->size);
+
+  for (int r = 0; r < metadata->size; r++) {
+    send_data_counts[r] = send_counts[r] * 3; // 3 coordinates per point
+    recv_data_counts[r] = recv_counts[r] * 3;
+
+    if (r > 0) {
+      send_displs[r] = send_displs[r - 1] + send_data_counts[r - 1];
+      recv_displs[r] = recv_displs[r - 1] + recv_data_counts[r - 1];
+    }
+  }
+
+  // Flatten send data
+  std::vector<double> send_data;
+  for (int r = 0; r < metadata->size; r++) {
+    send_data.insert(send_data.end(), send_buffers[r].begin(),
+                     send_buffers[r].end());
+  }
+
+  // Calculate total receive size
+  int total_recv_size =
+      recv_displs[metadata->size - 1] + recv_data_counts[metadata->size - 1];
+  std::vector<double> recv_data(total_recv_size);
+
+  // Perform the all-to-all exchange
+  MPI_Alltoallv(send_data.data(), send_data_counts.data(), send_displs.data(),
+                MPI_DOUBLE, recv_data.data(), recv_data_counts.data(),
+                recv_displs.data(), MPI_DOUBLE, MPI_COMM_WORLD);
+
+  // Create grid points from received data
+  int total_local_points = 0;
+  for (int r = 0; r < metadata->size; r++) {
+    total_local_points += recv_counts[r];
+  }
+
+  grid->grid_points.reserve(total_local_points);
+
+  for (int i = 0; i < total_local_points; i++) {
+    double loc[3] = {recv_data[i * 3], recv_data[i * 3 + 1],
+                     recv_data[i * 3 + 2]};
+    grid->grid_points.emplace_back(loc);
+  }
+
+#else
+  // Serial mode - generate all points directly
+  message("Generating %d random grid points", nr_grid_points);
+
+  // Use a fixed seed for reproducible results
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
+  std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
+  std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
+
+  grid->grid_points.reserve(nr_grid_points);
+
+  for (int gid = 0; gid < nr_grid_points; gid++) {
+    double loc[3] = {dist_x(rng), dist_y(rng), dist_z(rng)};
+    grid->grid_points.emplace_back(loc);
+  }
+#endif
+
+  message("Created %zu random grid points", grid->grid_points.size());
+
+  // Initialize mass and count maps for all grid points
+  message("Initializing grid point maps for %d kernel radii", grid->nkernels);
+  for (GridPoint &gp : grid->grid_points) {
+    gp.initializeMaps(grid->kernel_radii);
+  }
 }
 
 /**
