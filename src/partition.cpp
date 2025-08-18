@@ -195,15 +195,18 @@ void exchangeProxyCells(Simulation *sim) {
   Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
 
-  // Set up a vector to hold MPI requests
+  // Set up vectors to hold MPI requests and receive buffers
   std::vector<MPI_Request> requests;
+  std::vector<std::vector<double>> send_buffers;
+  std::vector<std::vector<double>> recv_buffers;
+  std::vector<size_t> recv_cell_ids;
 
   // Post non-blocking sends for all local cells that need to be sent
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &sim->cells[cid];
 
-    // Skip if foreign or not a proxy cell
-    if (cell->rank != rank || !cell->is_proxy)
+    // Skip if not our cell or no sends needed
+    if (cell->rank != rank || cell->send_ranks.empty())
       continue;
 
     // Loop over the ranks we are sending to
@@ -211,7 +214,8 @@ void exchangeProxyCells(Simulation *sim) {
       MPI_Request req;
 
       // Send particle data (mass + positions for each particle)
-      std::vector<double> particle_data;
+      send_buffers.emplace_back();
+      std::vector<double> &particle_data = send_buffers.back();
       for (int p = 0; p < cell->part_count; p++) {
         particle_data.push_back(cell->particles[p]->mass);
         particle_data.push_back(cell->particles[p]->pos[0]);
@@ -240,10 +244,12 @@ void exchangeProxyCells(Simulation *sim) {
     MPI_Request req;
 
     // Prepare to receive particle data (mass + positions for each particle)
-    std::vector<double> recv_particle_data(
-        cell->part_count * 4); // mass + 3 positions per particle
-    MPI_Irecv(recv_particle_data.data(), recv_particle_data.size(), MPI_DOUBLE,
-              src_rank, cid, MPI_COMM_WORLD, &req);
+    recv_buffers.emplace_back(cell->part_count *
+                              4); // mass + 3 positions per particle
+    recv_cell_ids.push_back(cid);
+
+    MPI_Irecv(recv_buffers.back().data(), recv_buffers.back().size(),
+              MPI_DOUBLE, src_rank, cid, MPI_COMM_WORLD, &req);
 
     requests.push_back(req);
   }
@@ -255,17 +261,13 @@ void exchangeProxyCells(Simulation *sim) {
     MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
   }
 
-  // Create particles for proxy cells
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+  // Create particles for proxy cells using the received data
+  for (size_t i = 0; i < recv_buffers.size(); i++) {
+    size_t cid = recv_cell_ids[i];
     Cell *cell = &sim->cells[cid];
+    const std::vector<double> &recv_particle_data = recv_buffers[i];
 
-    if (!cell->is_proxy)
-      continue;
-
-    // Extract received particle data and create particles
-    std::vector<double> recv_particle_data(cell->part_count * 4);
-
-    // Data was received in the order we posted receives
+    // Data was received in the order: mass, pos[0], pos[1], pos[2] per particle
     for (int p = 0; p < cell->part_count; p++) {
       double mass = recv_particle_data[p * 4];
       double pos[3] = {recv_particle_data[p * 4 + 1],
