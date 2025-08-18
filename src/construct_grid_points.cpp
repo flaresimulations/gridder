@@ -136,10 +136,14 @@ static void createGridPointsFromFile(Simulation * /* sim */,
  */
 void createGridPoints(Simulation *sim, Grid *grid) {
 
+  tic();
+
   // Call the appropriate function to create the grid points
   if (grid->grid_from_file) {
     createGridPointsFromFile(sim, grid);
   } else {
     createGridPointsEverywhere(sim, grid);
   }
+
+  toc("Creating grid points");
 }

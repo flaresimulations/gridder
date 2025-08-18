@@ -237,14 +237,12 @@ int main(int argc, char *argv[]) {
 #endif
 
   // Create the grid points (either from a file or tesselating the volume)
-  tic();
   try {
     createGridPoints(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Creating grid points");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -318,16 +316,12 @@ int main(int argc, char *argv[]) {
   // And before we can actually get going we need to split the cells into the
   // cell tree. Each top level cell will become the root of an octree that
   // we can walk as we search for particles to associate with grid points
-  message("Splitting cells into octrees...");
-  tic();
   try {
     splitCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Splitting cells");
-  message("Maximum depth in the tree: %d", sim->max_depth);
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);

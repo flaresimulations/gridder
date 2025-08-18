@@ -108,6 +108,9 @@ void getTopCells(Simulation *sim, Grid *grid) {
  * @param cells The top level cells
  */
 void splitCells(Simulation *sim) {
+
+  tic();
+
   // Unpack the cells
   const size_t nr_cells = sim->nr_cells;
   std::vector<Cell> &cells = sim->cells;
@@ -120,10 +123,14 @@ void splitCells(Simulation *sim) {
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
     // Skip cells that aren't on this rank and aren't proxies
-    if (cells[cid].rank != metadata->rank || !cells[cid].is_proxy)
+    if (cells[cid].rank != metadata->rank && !cells[cid].is_proxy)
       continue;
 #endif
 
     cells[cid].split();
   }
+
+  message("Maximum depth in the tree: %d", sim->max_depth);
+
+  toc("Splitting cells");
 }
