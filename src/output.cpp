@@ -290,56 +290,57 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     return;
   }
 
-  MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks are synchronized
+  // All ranks collectively create groups and datasets
+  hdf5.createGroup("Header");
+  hdf5.createGroup("Grids");
+  hdf5.createGroup("Cells");
 
-  // Only rank 0 creates groups and writes metadata
+  // Only rank 0 writes attributes (attributes are typically not collective)
   if (metadata->rank == 0) {
-    // Create header group and write metadata
-    hdf5.createGroup("Header");
     hdf5.writeAttribute<int>("Header", "NGridPoint", grid->n_grid_points);
     hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", sim->cdim);
     hdf5.writeAttribute<double[3]>("Header", "BoxSize", sim->dim);
     hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
                                 grid->max_kernel_radius);
     hdf5.writeAttribute<double>("Header", "Redshift", sim->redshift);
+  }
 
-    // Create groups
-    hdf5.createGroup("Grids");
-    hdf5.createGroup("Cells");
+  // All ranks collectively create datasets
+  std::array<hsize_t, 1> sim_cell_dims = {static_cast<hsize_t>(sim->nr_cells)};
+  hdf5.createDataset<int, 1>("Cells/GridPointStart", sim_cell_dims);
+  hdf5.createDataset<int, 1>("Cells/GridPointCounts", sim_cell_dims);
 
-    // Write cell lookup tables
-    std::array<hsize_t, 1> sim_cell_dims = {
-        static_cast<hsize_t>(sim->nr_cells)};
+  std::array<hsize_t, 2> grid_point_positions_dims = {
+      static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
+  hdf5.createDataset<double, 2>("Grids/GridPointPositions",
+                                grid_point_positions_dims);
+
+  // Create kernel groups and datasets collectively
+  for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
+    double kernel_rad = grid->kernel_radii[k];
+    std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+    hdf5.createGroup("Grids/" + kernel_name);
+
+    std::array<hsize_t, 1> grid_point_overdens_dims = {
+        static_cast<hsize_t>(grid->n_grid_points)};
+    hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                  "/GridPointOverDensities",
+                                  grid_point_overdens_dims);
+  }
+
+  // Write cell lookup tables collectively
+  if (metadata->rank == 0) {
     hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
                               sim_cell_dims);
     hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
                               sim_cell_dims);
-
-    // Create grid position dataset
-    std::array<hsize_t, 2> grid_point_positions_dims = {
-        static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
-    hdf5.createDataset<double, 2>("Grids/GridPointPositions",
-                                  grid_point_positions_dims);
-
-    // Create datasets for each kernel
-    for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-      double kernel_rad = grid->kernel_radii[k];
-      std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-      hdf5.createGroup("Grids/" + kernel_name);
-
-      std::array<hsize_t, 1> grid_point_overdens_dims = {
-          static_cast<hsize_t>(grid->n_grid_points)};
-      hdf5.createDataset<double, 1>("Grids/" + kernel_name +
-                                    "/GridPointOverDensities",
-                                    grid_point_overdens_dims);
-    }
-
-    // Flush to ensure all datasets are committed
-    H5Fflush(hdf5.file_id, H5F_SCOPE_GLOBAL);
+  } else {
+    // Other ranks participate with empty data
+    std::vector<int> empty_start(sim->nr_cells, 0);
+    std::vector<int> empty_counts(sim->nr_cells, 0);
+    hdf5.writeDataset<int, 1>("Cells/GridPointStart", empty_start, sim_cell_dims);
+    hdf5.writeDataset<int, 1>("Cells/GridPointCounts", empty_counts, sim_cell_dims);
   }
-
-  // Synchronize all ranks after dataset creation
-  MPI_Barrier(MPI_COMM_WORLD);
 
   // Prepare local data for writing
   if (total_local_grid_points > 0) {
