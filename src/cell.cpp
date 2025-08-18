@@ -500,7 +500,7 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
 
 #pragma omp parallel for
   // Loop over the grid points assigning them to cells
-  for (int gid = 0; gid < grid->n_grid_points; gid++) {
+  for (size_t gid = 0; gid < grid_points.size(); gid++) {
 
     // Get the grid point
     GridPoint *grid_point = &grid_points[gid];
@@ -513,7 +513,7 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
     if (cell->rank != metadata->rank)
-      error("Grid point %d is in cell %zu which is not local to this rank %d",
+      error("Grid point %zu is in cell %zu which is not local to this rank %d",
             gid, getCellIndexContainingPoint(grid_point->loc), metadata->rank);
 #endif
 
