@@ -45,7 +45,7 @@ void partitionCells(Simulation *sim, Grid *grid) {
   int select = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     // Get the cell
-    Cell* cell = &sim->cells[cid];
+    Cell *cell = &sim->cells[cid];
 
     // Get the number of particles in the cell
     int part_count = cell->part_count;
@@ -101,119 +101,64 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
   const int rank = metadata->rank;
   const int size = metadata->size;
 
-  const double max_kernel_radius = grid->max_kernel_radius;
-  const double cell_size = sim->width[0];
-  const int delta = std::ceil(max_kernel_radius / cell_size) + 1;
-  
-  message("Rank %d: Using delta = %d (kernel_radius = %f, cell_size = %f)", 
-          rank, delta, max_kernel_radius, cell_size);
-
   // Clear any existing proxy information
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     sim->cells[cid].send_ranks.clear();
     sim->cells[cid].recv_rank = -1;
   }
 
-  // Step 1: Find which proxy cells we need from each other rank
-  std::map<int, std::set<int>> proxies_we_need; // rank -> set of cell IDs we need from that rank
-  
+  // Loop over all cells
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell* local_cell = &sim->cells[cid];
-    
-    // Skip if not our cell or not useful
-    if (local_cell->rank != rank || !local_cell->is_useful) continue;
-    
-    // Get cell coordinates
-    int i = cid / (sim->cdim[1] * sim->cdim[2]);
-    int j = (cid / sim->cdim[2]) % sim->cdim[1];
-    int k = cid % sim->cdim[2];
-    
-    // Check neighbors within kernel range
-    for (int ii = i - delta; ii <= i + delta; ii++) {
-      for (int jj = j - delta; jj <= j + delta; jj++) {
-        for (int kk = k - delta; kk <= k + delta; kk++) {
-          // Wrap for periodicity
-          int iii = (ii + sim->cdim[0]) % sim->cdim[0];
-          int jjj = (jj + sim->cdim[1]) % sim->cdim[1];
-          int kkk = (kk + sim->cdim[2]) % sim->cdim[2];
-          
-          int neighbor_cid = iii * sim->cdim[1] * sim->cdim[2] + jjj * sim->cdim[2] + kkk;
-          Cell* neighbor_cell = &sim->cells[neighbor_cid];
-          
-          // If neighbor is on different rank and useful, we need it as proxy
-          if (neighbor_cell->rank != rank && neighbor_cell->is_useful) {
-            proxies_we_need[neighbor_cell->rank].insert(neighbor_cid);
-          }
+    Cell *cell = &sim->cells[cid];
+
+    // If this cell is not local, skip it
+    if (cell->rank != rank)
+      continue;
+
+    // Loop over the neighbours of this cell
+    for (Cell *neighbour : cell->neighbours) {
+
+      // If the neighbour is local theres nothing to do
+      if (neighbour->rank == rank)
+        continue;
+
+      // If the neighbour is not local we need to recieve from it and send to it
+      if (cell->rank != neighbour->rank) {
+        // If we are not already receiving from this rank, set it
+        if (cell->recv_rank == -1) {
+          cell->recv_rank = neighbour->rank;
+        } else if (cell->recv_rank != neighbour->rank) {
+          error("Cell %zu on rank %d is trying to receive from multiple ranks: "
+                "rank %d and rank %d",
+                cid, rank, cell->recv_rank, neighbour->rank);
         }
+
+        // Add this rank to the send ranks
+        cell->send_ranks.push_back(neighbour->rank);
       }
     }
   }
 
-  // Step 2: Find which of our local cells other ranks need as proxies
-  std::map<int, std::set<int>> proxies_we_send; // rank -> set of our cell IDs that rank needs
-  
-  for (int other_rank = 0; other_rank < size; other_rank++) {
-    if (other_rank == rank) continue;
-    
-    // For each cell owned by other_rank, check if they need any of our cells
-    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-      Cell* their_cell = &sim->cells[cid];
-      
-      // Skip if not their cell or not useful
-      if (their_cell->rank != other_rank || !their_cell->is_useful) continue;
-      
-      // Get cell coordinates
-      int i = cid / (sim->cdim[1] * sim->cdim[2]);
-      int j = (cid / sim->cdim[2]) % sim->cdim[1];
-      int k = cid % sim->cdim[2];
-      
-      // Check if they need any of our cells as neighbors
-      for (int ii = i - delta; ii <= i + delta; ii++) {
-        for (int jj = j - delta; jj <= j + delta; jj++) {
-          for (int kk = k - delta; kk <= k + delta; kk++) {
-            // Wrap for periodicity
-            int iii = (ii + sim->cdim[0]) % sim->cdim[0];
-            int jjj = (jj + sim->cdim[1]) % sim->cdim[1];
-            int kkk = (kk + sim->cdim[2]) % sim->cdim[2];
-            
-            int neighbor_cid = iii * sim->cdim[1] * sim->cdim[2] + jjj * sim->cdim[2] + kkk;
-            Cell* neighbor_cell = &sim->cells[neighbor_cid];
-            
-            // If neighbor is our cell and useful, other_rank needs it as proxy
-            if (neighbor_cell->rank == rank && neighbor_cell->is_useful) {
-              proxies_we_send[other_rank].insert(neighbor_cid);
-            }
-          }
-        }
-      }
+  // Count how many cells we will be sending and how many we will be receiving
+  int total_send_cells = 0;
+  int total_recv_cells = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *cell = &sim->cells[cid];
+
+    // Are we receiving from this cell?
+    if (cell->recv_rank != -1) {
+      total_recv_cells++;
+    }
+
+    // Are we sending to any ranks?
+    if (!cell->send_ranks.empty()) {
+      total_send_cells++;
     }
   }
 
-  // Step 3: Set send_ranks and recv_rank based on final analysis
-  for (const auto& pair : proxies_we_send) {
-    int dest_rank = pair.first;
-    for (int cell_id : pair.second) {
-      sim->cells[cell_id].send_ranks.push_back(dest_rank);
-    }
-  }
-  
-  for (const auto& pair : proxies_we_need) {
-    int src_rank = pair.first;
-    for (int cell_id : pair.second) {
-      sim->cells[cell_id].recv_rank = src_rank;
-    }
-  }
-
-  // Report statistics
-  for (int other_rank = 0; other_rank < size; other_rank++) {
-    if (other_rank == rank) continue;
-    int need_count = proxies_we_need[other_rank].size();
-    int send_count = proxies_we_send[other_rank].size();
-    if (need_count > 0 || send_count > 0) {
-      message("Rank %d: Need %d proxies from rank %d, Send %d proxies to rank %d", 
-              rank, need_count, other_rank, send_count, other_rank);
-    }
-  }
+  // Report the number of proxy cells
+  message("Sending %d cells", total_send_cells);
+  message("Receiving %d cells", total_recv_cells);
 }
 #endif
 
@@ -234,31 +179,33 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
  * @param sim Simulation object
  * @param rank_data Map from destination rank to packed particle data
  */
-void packProxyComms(Simulation *sim, std::map<int, std::vector<double>>& rank_masses,
-                    std::map<int, std::vector<double>>& rank_positions,
-                    std::map<int, std::vector<int>>& rank_particle_cells) {
-  
+void packProxyComms(Simulation *sim,
+                    std::map<int, std::vector<double>> &rank_masses,
+                    std::map<int, std::vector<double>> &rank_positions,
+                    std::map<int, std::vector<int>> &rank_particle_cells) {
+
   // Get the current rank
   Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
-  
+
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell* cell = &sim->cells[cid];
-    
+    Cell *cell = &sim->cells[cid];
+
     // Only send cells that we own and have send ranks
-    if (cell->rank != rank || cell->send_ranks.empty()) continue;
-    
+    if (cell->rank != rank || cell->send_ranks.empty())
+      continue;
+
     int npart = cell->part_count;
-    
+
     // For each rank that needs this cell as a proxy
     for (int dest_rank : cell->send_ranks) {
       // Pack particle data with individual cell assignments
       for (int p = 0; p < npart; p++) {
-        Particle* part = cell->particles[p];
-        
+        Particle *part = cell->particles[p];
+
         // Calculate which cell this particle belongs to based on position
         int correct_cell = getCellIndexContainingPoint(part->pos);
-        
+
         rank_masses[dest_rank].push_back(part->mass);
         rank_positions[dest_rank].push_back(part->pos[0]);
         rank_positions[dest_rank].push_back(part->pos[1]);
@@ -274,25 +221,27 @@ void packProxyComms(Simulation *sim, std::map<int, std::vector<double>>& rank_ma
  *
  * @param sim Simulation object
  * @param masses Received masses data
- * @param positions Received positions data  
+ * @param positions Received positions data
  * @param cell_ids Received cell IDs
  * @param cell_counts Received particle counts per cell
  */
-void unpackProxyComms(Simulation *sim, const std::vector<double>& masses,
-                      const std::vector<double>& positions,
-                      const std::vector<int>& particle_cells) {
-  
-  // Create particles and assign to correct cells based on particle_cells mapping
+void unpackProxyComms(Simulation *sim, const std::vector<double> &masses,
+                      const std::vector<double> &positions,
+                      const std::vector<int> &particle_cells) {
+
+  // Create particles and assign to correct cells based on particle_cells
+  // mapping
   for (size_t p = 0; p < masses.size(); p++) {
     const double mass = masses[p];
-    const double pos[3] = {positions[p * 3], positions[p * 3 + 1], positions[p * 3 + 2]};
+    const double pos[3] = {positions[p * 3], positions[p * 3 + 1],
+                           positions[p * 3 + 2]};
     int cell_id = particle_cells[p];
-    
+
     // Create the particle using raw pointer allocation
-    Particle* part = new Particle(pos, mass);
-    
+    Particle *part = new Particle(pos, mass);
+
     // Get the correct cell and add particle
-    Cell* cell = &sim->cells[cell_id];
+    Cell *cell = &sim->cells[cell_id];
     cell->mass += mass;
     cell->particles.push_back(part);
     cell->part_count++;
@@ -310,47 +259,54 @@ void exchangeProxyCells(Simulation *sim) {
   // Pack data for each destination rank
   std::map<int, std::vector<double>> rank_masses, rank_positions;
   std::map<int, std::vector<int>> rank_particle_cells;
-  
+
   packProxyComms(sim, rank_masses, rank_positions, rank_particle_cells);
-  
+
   // Report packing statistics
   int total_send_particles = 0;
-  for (const auto& pair : rank_masses) {
+  for (const auto &pair : rank_masses) {
     total_send_particles += pair.second.size();
   }
-  message("Rank %d: Packed %d particles for sending", rank, total_send_particles);
+  message("Rank %d: Packed %d particles for sending", rank,
+          total_send_particles);
 
   // Send packed data to each rank (non-blocking)
   std::vector<MPI_Request> requests;
   int send_count = 0;
-  
+
   for (int dest_rank = 0; dest_rank < size; dest_rank++) {
-    if (dest_rank == rank || rank_masses[dest_rank].empty()) continue;
-    
+    if (dest_rank == rank || rank_masses[dest_rank].empty())
+      continue;
+
     int num_particles = rank_masses[dest_rank].size();
-    message("Rank %d: Sending %d particles to rank %d", rank, num_particles, dest_rank);
-    
+    message("Rank %d: Sending %d particles to rank %d", rank, num_particles,
+            dest_rank);
+
     MPI_Request req1, req2, req3, req4;
-    
+
     // Send particle count first
     MPI_Isend(&num_particles, 1, MPI_INT, dest_rank, 0, MPI_COMM_WORLD, &req1);
-    
+
     // Send particle data
-    MPI_Isend(rank_masses[dest_rank].data(), num_particles, MPI_DOUBLE, dest_rank, MPI_TAG_MASS, MPI_COMM_WORLD, &req2);
-    MPI_Isend(rank_positions[dest_rank].data(), num_particles * 3, MPI_DOUBLE, dest_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, &req3);
-    MPI_Isend(rank_particle_cells[dest_rank].data(), num_particles, MPI_INT, dest_rank, 3, MPI_COMM_WORLD, &req4);
-    
+    MPI_Isend(rank_masses[dest_rank].data(), num_particles, MPI_DOUBLE,
+              dest_rank, MPI_TAG_MASS, MPI_COMM_WORLD, &req2);
+    MPI_Isend(rank_positions[dest_rank].data(), num_particles * 3, MPI_DOUBLE,
+              dest_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, &req3);
+    MPI_Isend(rank_particle_cells[dest_rank].data(), num_particles, MPI_INT,
+              dest_rank, 3, MPI_COMM_WORLD, &req4);
+
     requests.insert(requests.end(), {req1, req2, req3, req4});
     send_count++;
   }
-  
+
   message("Rank %d: Posted sends to %d ranks", rank, send_count);
 
   // Receive data from each rank
   int recv_count = 0;
   for (int src_rank = 0; src_rank < size; src_rank++) {
-    if (src_rank == rank) continue;
-    
+    if (src_rank == rank)
+      continue;
+
     // Check if we expect data from this rank
     bool expect_data = false;
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
@@ -359,39 +315,45 @@ void exchangeProxyCells(Simulation *sim) {
         break;
       }
     }
-    
-    if (!expect_data) continue;
-    
+
+    if (!expect_data)
+      continue;
+
     message("Rank %d: Expecting proxy data from rank %d", rank, src_rank);
-    
+
     // Receive particle count
     int num_particles;
-    MPI_Recv(&num_particles, 1, MPI_INT, src_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    
-    message("Rank %d: Receiving %d particles from rank %d", rank, num_particles, src_rank);
-    
+    MPI_Recv(&num_particles, 1, MPI_INT, src_rank, 0, MPI_COMM_WORLD,
+             MPI_STATUS_IGNORE);
+
+    message("Rank %d: Receiving %d particles from rank %d", rank, num_particles,
+            src_rank);
+
     // Receive particle data
     std::vector<double> masses(num_particles), positions(num_particles * 3);
     std::vector<int> particle_cells(num_particles);
-    
-    MPI_Recv(masses.data(), num_particles, MPI_DOUBLE, src_rank, MPI_TAG_MASS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(positions.data(), num_particles * 3, MPI_DOUBLE, src_rank, MPI_TAG_POSITION, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(particle_cells.data(), num_particles, MPI_INT, src_rank, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    
+
+    MPI_Recv(masses.data(), num_particles, MPI_DOUBLE, src_rank, MPI_TAG_MASS,
+             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(positions.data(), num_particles * 3, MPI_DOUBLE, src_rank,
+             MPI_TAG_POSITION, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(particle_cells.data(), num_particles, MPI_INT, src_rank, 3,
+             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     // Unpack received data
     unpackProxyComms(sim, masses, positions, particle_cells);
     recv_count++;
   }
-  
+
   message("Rank %d: Received data from %d ranks", rank, recv_count);
-  
+
   // Wait for all sends to complete
   if (!requests.empty()) {
-    message("Rank %d: Waiting for %zu send operations to complete", rank, requests.size());
+    message("Rank %d: Waiting for %zu send operations to complete", rank,
+            requests.size());
     MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
   }
-  
+
   message("Rank %d: Proxy cell exchange completed", rank);
 }
 #endif
-
