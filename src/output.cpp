@@ -130,6 +130,16 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       continue;
     }
 
+    // Create masses dataset if requested
+    if (metadata->write_masses) {
+      if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                             "/GridPointMasses",
+                                         grid_point_overdens_dims)) {
+        error("Failed to create GridPointMasses dataset for kernel %f", kernel_rad);
+        continue;
+      }
+    }
+
     // Process each cell
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
       Cell *cell = &cells[cid];
@@ -144,14 +154,23 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
 
       // Prepare data arrays
       std::vector<double> cell_grid_overdens;
+      std::vector<double> cell_grid_masses;
       std::vector<double> cell_grid_pos;
       cell_grid_overdens.reserve(count);
       cell_grid_pos.reserve(count * 3);
+      if (metadata->write_masses) {
+        cell_grid_masses.reserve(count);
+      }
 
       // Extract data from grid points
       for (const GridPoint *gp : cell->grid_points) {
         // Get overdensity for this kernel
         cell_grid_overdens.push_back(gp->getOverDensity(kernel_rad, sim));
+
+        // Get masses if requested
+        if (metadata->write_masses) {
+          cell_grid_masses.push_back(gp->getMass(kernel_rad));
+        }
 
         // Store positions if not done yet
         if (!written_positions) {
@@ -169,6 +188,16 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
         error("Failed to write overdensity slice for cell %d, kernel %f", cid,
               kernel_rad);
         continue;
+      }
+
+      // Write masses slice if requested
+      if (metadata->write_masses && !cell_grid_masses.empty()) {
+        if (!hdf5.writeDatasetSlice<double, 1>(
+                "Grids/" + kernel_name + "/GridPointMasses",
+                cell_grid_masses, {static_cast<hsize_t>(start_idx)},
+                {static_cast<hsize_t>(count)})) {
+          error("Failed to write masses slice for cell %d, kernel %f", cid, kernel_rad);
+        }
       }
 
       // Write position slice if needed
@@ -350,7 +379,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         // Store masses if desired
         if (metadata->write_masses) {
           for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-            local_masses[k].push_back(gp->getMass(grid->kernel_radii[k], sim));
+            local_masses[k].push_back(gp->getMass(grid->kernel_radii[k]));
           }
         }
       }
@@ -424,6 +453,9 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
                        Simulation *sim, Grid *grid) {
 
   message("Creating virtual HDF5 file: %s", base_filename.c_str());
+
+  // Get the metadata
+  Metadata *metadata = &Metadata::getInstance();
 
   // Create the virtual file
   HDF5Helper hdf5(base_filename, H5F_ACC_TRUNC);
@@ -511,6 +543,15 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
                                        global_overdens_dims)) {
       error("Failed to create virtual overdensity dataset for kernel %f",
             kernel_rad);
+    }
+
+    // Create masses dataset if requested
+    if (metadata->write_masses) {
+      if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                             "/GridPointMasses",
+                                         global_overdens_dims)) {
+        error("Failed to create virtual mass dataset for kernel %f", kernel_rad);
+      }
     }
   }
 
