@@ -99,6 +99,9 @@ void partitionCells(Simulation *sim, Grid *grid) {
     }
   }
 #endif
+
+  // Barrier for clarity of output
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 #endif
 
@@ -181,6 +184,9 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
     }
   }
 
+  // Barrier for clarity of output
+  MPI_Barrier(MPI_COMM_WORLD);
+
   // Report the number of proxy cells
   message("Sending %d cells (including multiple sends of the same cell to "
           "different ranks)",
@@ -205,8 +211,8 @@ void exchangeProxyCells(Simulation *sim) {
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &sim->cells[cid];
 
-    // Skip if not our cell or no sends needed
-    if (cell->rank != rank || cell->send_ranks.empty())
+    // Skip if no sends
+    if (cell->send_ranks.empty())
       continue;
 
     // Loop over the ranks we are sending to
