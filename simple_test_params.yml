@@ -1,0 +1,21 @@
+Kernels:
+  nkernels: 3
+  kernel_radius_1: 0.5  # Should give mass = 0.0 (particle outside)
+  kernel_radius_2: 1.0  # Should give mass = 1.0 (particle inside)
+  kernel_radius_3: 2.0  # Should give mass = 1.0 (particle inside)
+
+Grid:
+  cdim: 3  # Small grid (3x3x3), grid point at center
+  type: uniform
+
+Tree:
+  max_leaf_count: 200
+
+Input:
+  filepath: simple_test.hdf5
+  placeholder: "0000"
+
+Output:
+  filepath: data/
+  basename: simple_test_grid.hdf5
+  write_masses: 1  # Enable mass output for testing
