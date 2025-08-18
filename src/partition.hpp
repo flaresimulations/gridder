@@ -9,10 +9,10 @@
 #include "simulation.hpp"
 
 // Partition prototypes
-void partitionCells(Simulation *sim, Grid *grid);
+void partitionCells(Simulation *sim);
 
 // Proxy prototypes
-void flagProxyCells(Simulation *sim, Grid *grid);
+void flagProxyCells(Simulation *sim);
 void exchangeProxyCells(Simulation *sim);
 
 #endif // PARTITION_HPP

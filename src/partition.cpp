@@ -13,9 +13,6 @@
 #include "simulation.hpp"
 
 #ifdef WITH_MPI
-// MPI communication tags
-static constexpr int MPI_TAG_MASS = 0;
-static constexpr int MPI_TAG_POSITION = 1;
 /**
  * @brief Function to partition the cells over the MPI ranks.
  *
@@ -23,9 +20,8 @@ static constexpr int MPI_TAG_POSITION = 1;
  * has an equal number of particles.
  *
  * @param sim The simulation object
- * @param grid The grid object
  */
-void partitionCells(Simulation *sim, Grid *grid) {
+void partitionCells(Simulation *sim) {
   tic();
 
   // Get the metadata
@@ -123,7 +119,7 @@ void partitionCells(Simulation *sim, Grid *grid) {
  *
  * @param sim The simulation object.
  */
-void flagProxyCells(Simulation *sim, Grid *grid) {
+void flagProxyCells(Simulation *sim) {
 
   tic();
 
@@ -259,7 +255,7 @@ void exchangeProxyCells(Simulation *sim) {
       // Send particle data (mass + positions for each particle)
       send_buffers.emplace_back();
       std::vector<double> &particle_data = send_buffers.back();
-      for (int p = 0; p < cell->part_count; p++) {
+      for (size_t p = 0; p < cell->part_count; p++) {
         particle_data.push_back(cell->particles[p]->mass);
         particle_data.push_back(cell->particles[p]->pos[0]);
         particle_data.push_back(cell->particles[p]->pos[1]);
@@ -312,7 +308,7 @@ void exchangeProxyCells(Simulation *sim) {
     const std::vector<double> &recv_particle_data = recv_buffers[i];
 
     // Data was received in the order: mass, pos[0], pos[1], pos[2] per particle
-    for (int p = 0; p < cell->part_count; p++) {
+    for (size_t p = 0; p < cell->part_count; p++) {
       double mass = recv_particle_data[p * 4];
       double pos[3] = {recv_particle_data[p * 4 + 1],
                        recv_particle_data[p * 4 + 2],

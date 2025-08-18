@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_MPI
   // Decomose the cells over the MPI ranks
   try {
-    partitionCells(sim, grid);
+    partitionCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
 
   // Find and flag the proxy cells at the edges of the partition
   try {
-    flagProxyCells(sim, grid);
+    flagProxyCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
