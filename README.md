@@ -98,7 +98,10 @@ Kernels:
   kernel_radius_5: 5.0 # Fifth kernel radius
 
 Grid:
-  cdim: 100 # Number of grid points per dimension (creates 100³ grid)
+  type: uniform # Grid point generation type: uniform, random, or file
+  cdim: 100 # Number of grid points per dimension (for uniform type, creates 100³ grid)
+  n_grid_points: 1000000 # Total number of grid points (for random type)
+  grid_file: grid_points.txt # File containing grid points (for file type)
 
 Tree:
   max_leaf_count: 200 # Maximum particles per leaf cell in octree
@@ -122,7 +125,13 @@ Output:
 
 **Grid section:**
 
-- `cdim`: Grid resolution per dimension (total grid points = cdim³)
+- `type`: Grid point generation method:
+  - `uniform`: Regularly spaced grid points (default)
+  - `random`: Randomly distributed grid points
+  - `file`: Load grid points from a file
+- `cdim`: Grid resolution per dimension for uniform grids (total grid points = cdim³)
+- `n_grid_points`: Total number of random grid points to generate (for random type)
+- `grid_file`: Path to file containing grid point coordinates (for file type)
 
 **Tree section:**
 
