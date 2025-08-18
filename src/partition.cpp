@@ -147,8 +147,18 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
         // Flag this cell is a proxy cell
         cell->is_proxy = true;
 
-        // Add this rank to the send ranks
-        cell->send_ranks.push_back(neighbour->rank);
+        // Add this rank to the send ranks if its not already there
+        bool already_sent = false;
+        for (int send_rank : cell->send_ranks) {
+          if (send_rank == neighbour->rank) {
+            already_sent = true;
+            break;
+          }
+        }
+        if (!already_sent) {
+          // Add the neighbour's rank to the send ranks
+          cell->send_ranks.push_back(neighbour->rank);
+        }
       }
     }
   }
