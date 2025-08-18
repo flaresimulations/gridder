@@ -1,13 +1,29 @@
+```
+ ██████╗  █████╗ ██████╗ ███████╗███╗   ██╗████████╗
+ ██╔══██╗██╔══██╗██╔══██╗██╔════╝████╗  ██║╚══██╔══╝
+ ██████╔╝███████║██████╔╝█████╗  ██╔██╗ ██║   ██║
+ ██╔═══╝ ██╔══██║██╔══██╗██╔══╝  ██║╚██╗██║   ██║        ┌─────┬─────┬─────┐
+ ██║     ██║  ██║██║  ██║███████╗██║ ╚████║   ██║        │  •  │  •  │  •  │
+ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝        ├─────┼─────┼─────┤
+                                                         │  •  │  •  │  •  │
+  ██████╗ ██████╗ ██╗██████╗ ██████╗ ███████╗██████╗     ├─────┼─────┼─────┤
+ ██╔════╝ ██╔══██╗██║██╔══██╗██╔══██╗██╔════╝██╔══██╗    │  •  │  •  │  •  │
+ ██║  ███╗██████╔╝██║██║  ██║██║  ██║█████╗  ██████╔╝    └─────┴─────┴─────┘
+ ██║   ██║██╔══██╗██║██║  ██║██║  ██║██╔══╝  ██╔══██╗
+ ╚██████╔╝██║  ██║██║██████╔╝██████╔╝███████╗██║  ██║
+  ╚═════╝ ╚═╝  ╚═╝╚═╝╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+```
+
 # Gridding simulations
 
 Apply spherical top hat kernels to the matter distribution of a simulation, creating HDF5 files of overdensities.
 
-This C++ application processes cosmological simulation snapshots to compute overdensities at grid points using multiple spherical top hat kernels. It reads HDF5 simulation files and outputs gridded overdensity data, making it useful for analyzing large-scale structure in cosmological simulations.
+This C++ application processes cosmological simulation snapshots to compute overdensities at grid points using multiple spherical top hat kernels. It reads HDF5 simulation files and outputs gridded overdensity data, making it useful for analysing large-scale structure in cosmological simulations.
 
 ## Features
 
 - **Multi-kernel analysis**: Apply multiple spherical top hat kernels with different radii simultaneously
-- **Efficient spatial partitioning**: Octree-based cell structure for fast neighbor searches
+- **Efficient spatial partitioning**: Octree-based cell structure for fast neighbour searches
 - **HDF5 I/O**: Native support for reading and writing HDF5 simulation data
 - **Parallel processing**: Optional MPI support for large simulations
 - **OpenMP threading**: Multi-threaded computation within nodes
@@ -41,15 +57,15 @@ cmake --build build
 
 The build system supports several configuration options:
 
-- **`ENABLE_MPI`**: Enable MPI parallelization (default: OFF)
+- **`ENABLE_MPI`**: Enable MPI parallelisation (default: OFF)
 - **`CMAKE_BUILD_TYPE`**: Build type (Release, Debug, RelWithDebInfo, MinSizeRel)
 
 **Build types:**
 
-- `Release` (default): Full optimization with `-O3 -march=native`
+- `Release` (default): Full optimisation with `-O3 -march=native`
 - `Debug`: Debug symbols and checks with `-g -O0`
-- `RelWithDebInfo`: Optimized with debug symbols `-O2 -g`
-- `MinSizeRel`: Size optimization with `-Os`
+- `RelWithDebInfo`: Optimised with debug symbols `-O2 -g`
+- `MinSizeRel`: Size optimisation with `-Os`
 
 ### Example builds:
 
@@ -94,6 +110,7 @@ Input:
 Output:
   filepath: data/ # Output directory path
   basename: test_grid_0000.hdf5 # Output filename pattern
+  write_masses: 0 # Whether to write out mass in a kernel as well as overdensity
 ```
 
 ### Parameter Descriptions
@@ -166,7 +183,7 @@ The input HDF5 files should contain:
 - `Units`: Unit system information
 - `Cosmology`: Cosmological parameters
 
-Currently this is built on the back of [SWIFT](https://swift.strw.leidenuniv.nl/docs/index.html) outputs but can be adapted for other formats with minor changes.
+Currently, this is built on the back of [SWIFT](https://swift.strw.leidenuniv.nl/docs/index.html) outputs, but can be adapted for other formats with minor changes.
 
 ### Output Files
 
