@@ -26,6 +26,8 @@ static constexpr int MPI_TAG_POSITION = 1;
  * @param grid The grid object
  */
 void partitionCells(Simulation *sim, Grid *grid) {
+  tic();
+
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
@@ -102,6 +104,8 @@ void partitionCells(Simulation *sim, Grid *grid) {
 
   // Barrier for clarity of output
   MPI_Barrier(MPI_COMM_WORLD);
+
+  toc("Partitioning cells");
 }
 #endif
 
@@ -120,6 +124,8 @@ void partitionCells(Simulation *sim, Grid *grid) {
  * @param sim The simulation object.
  */
 void flagProxyCells(Simulation *sim, Grid *grid) {
+
+  tic();
 
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
@@ -219,11 +225,15 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
     }
   }
 #endif
+  toc("Flagging proxy cells");
 }
 #endif
 
 #ifdef WITH_MPI
 void exchangeProxyCells(Simulation *sim) {
+
+  tic();
+
   // Get the metadata and MPI info
   Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
@@ -315,5 +325,6 @@ void exchangeProxyCells(Simulation *sim) {
   }
 
   message("Rank %d: Proxy cell exchange completed", rank);
+  toc("Exchanging proxy cells");
 }
 #endif

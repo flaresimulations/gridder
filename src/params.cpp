@@ -245,6 +245,8 @@ std::string getOutputFilePath(Parameters *params, const int nsnap) {
  */
 Parameters *parseParams(const std::string &filename) {
 
+  tic();
+
   // Create the parameters object
   Parameters *params = new Parameters();
 
@@ -311,6 +313,8 @@ Parameters *parseParams(const std::string &filename) {
       }
     }
   }
+
+  toc("Reading parameters");
 
   return params;
 }

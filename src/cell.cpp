@@ -313,6 +313,8 @@ int getCellIndexContainingPoint(const double pos[3]) {
  */
 void assignPartsToCells(Simulation *sim) {
 
+  tic();
+
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
@@ -478,6 +480,7 @@ void assignPartsToCells(Simulation *sim) {
     }
   }
 #endif
+  toc("Assigning particles to cells");
 }
 
 /**
@@ -486,6 +489,8 @@ void assignPartsToCells(Simulation *sim) {
  * @param cells The cells to assign grid points to.
  */
 void assignGridPointsToCells(Simulation *sim, Grid *grid) {
+
+  tic();
 
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
@@ -534,6 +539,8 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
     }
   }
 #endif
+
+  toc("Assigning grid points to cells");
 }
 
 /**
@@ -545,6 +552,8 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
  * @param sim The simulation object.
  */
 void limitToUsefulCells(Simulation *sim) {
+
+  tic();
 
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
@@ -579,4 +588,6 @@ void limitToUsefulCells(Simulation *sim) {
 
   message("Number of useful cells: %d (out of %d)", useful_count,
           sim->nr_cells);
+
+  toc("Flagging useful cells");
 }

@@ -137,7 +137,6 @@ int main(int argc, char *argv[]) {
 
   // Read the parameters from the parameter file
   Parameters *params;
-  tic();
   try {
     params = parseParams(param_file);
   } catch (const std::exception &e) {
@@ -150,7 +149,6 @@ int main(int argc, char *argv[]) {
 #endif
     return 1;
   }
-  toc("Reading parameters");
 
 #ifdef DEBUGGING_CHECKS
   // Print the parameters
@@ -159,14 +157,12 @@ int main(int argc, char *argv[]) {
 
   // Setup the metadata we need to carry around (some has already been set,
   // during command line argument parsing)
-  tic();
   try {
     readMetadata(params);
   } catch (const std::exception &e) {
     error(e.what());
     return 1;
   }
-  toc("Reading metadata");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -193,7 +189,6 @@ int main(int argc, char *argv[]) {
   // Get the grid object (this doesn't initialise the grid points yet, just the
   // object)
   Grid *grid;
-  tic();
   try {
     grid = createGrid(params);
     metadata->grid = grid;
@@ -201,7 +196,6 @@ int main(int argc, char *argv[]) {
     error(e.what());
     return 1;
   }
-  toc("Creating grid object");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -209,14 +203,12 @@ int main(int argc, char *argv[]) {
 
   // Define the top level cells (this will initialise the top level with their
   // location, geometry and particle counts)
-  tic();
   try {
     getTopCells(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Creating top level cells");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -226,14 +218,12 @@ int main(int argc, char *argv[]) {
 
 #ifdef WITH_MPI
   // Decomose the cells over the MPI ranks
-  tic();
   try {
     partitionCells(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Decomposing cells");
 #endif
 
   // Create the grid points (either from a file or tesselating the volume)
@@ -249,14 +239,12 @@ int main(int argc, char *argv[]) {
 #endif
 
   // Assign the grid points to the cells
-  tic();
   try {
     assignGridPointsToCells(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Assigning grid points to cells");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -265,52 +253,44 @@ int main(int argc, char *argv[]) {
   // Now that we know what grid points go where flag which cells we care about
   // (i.e. those that contain grid points or are neighbours of cells that
   // contain grid points)
-  tic();
   try {
     limitToUsefulCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Flagging useful cells");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
   // Find and flag the proxy cells at the edges of the partition
-  tic();
   try {
     flagProxyCells(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Flagging proxy cells");
 #endif
 
   // Now we know which cells are where we can make the grid points, and assign
   // them and the particles to the cells
-  tic();
   try {
     assignPartsToCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Assigning particles to cells");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
   // Communicate the proxy cell particles
-  tic();
   try {
     exchangeProxyCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Exchanging proxy cells");
 #endif
 
   // And before we can actually get going we need to split the cells into the
@@ -329,37 +309,31 @@ int main(int argc, char *argv[]) {
 
   // Now we can start the actual work... Associate particles with the grid
   // points within the maximum kernel radius
-  tic();
   try {
     getKernelMasses(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Computing kernel masses");
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
   // We're done write the output in parallel
-  tic();
   try {
     writeGridFileParallel(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Writing output (in parallel)");
 #else
   // We're done write the output in serial
-  tic();
   try {
     writeGridFileSerial(sim, grid);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-  toc("Writing output (in serial)");
 #endif
 
   // Stop the timer for the whole shebang

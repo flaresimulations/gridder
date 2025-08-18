@@ -16,12 +16,14 @@
  */
 void readMetadata(Parameters *params) {
 
+  tic();
+
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
 
   // Get the maximum leaf count
-  metadata->max_leaf_count =
-      static_cast<size_t>(params->getParameter<int>("Tree/max_leaf_count", 200));
+  metadata->max_leaf_count = static_cast<size_t>(
+      params->getParameter<int>("Tree/max_leaf_count", 200));
 
   // Get the input file path
   metadata->input_file = getInputFilePath(params, metadata->nsnap);
@@ -30,4 +32,6 @@ void readMetadata(Parameters *params) {
   metadata->output_file = getOutputFilePath(params, metadata->nsnap);
 
   message("Reading data from: %s", metadata->input_file.c_str());
+
+  toc("Reading metadata");
 }

@@ -17,7 +17,7 @@
  * @param kernel_rad The kernel radius.
  * @param kernel_rad2 The squared kernel radius.
  */
-static void addPartsToGridPoint(Cell* cell, GridPoint* grid_point,
+static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
                                 const double kernel_rad,
                                 const double kernel_rad2) {
 
@@ -27,7 +27,7 @@ static void addPartsToGridPoint(Cell* cell, GridPoint* grid_point,
 
   // Loop over the particles in the cell and assign them to the grid point
   for (size_t p = 0; p < cell->part_count; p++) {
-    Particle* part = cell->particles[p];
+    Particle *part = cell->particles[p];
 
     // Get the distance between the particle and the grid point
     double dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
@@ -61,8 +61,7 @@ static void addPartsToGridPoint(Cell* cell, GridPoint* grid_point,
  * @param kernel_rad The kernel radius
  * @param kernel_rad2 The squared kernel radius
  */
-static void recursivePairPartsToPoints(Cell* cell,
-                                       Cell* other,
+static void recursivePairPartsToPoints(Cell *cell, Cell *other,
                                        const double kernel_rad,
                                        const double kernel_rad2) {
 
@@ -92,7 +91,7 @@ static void recursivePairPartsToPoints(Cell* cell,
   }
 
   // Get the single grid point in this leaf
-  GridPoint* grid_point = cell->grid_points[0];
+  GridPoint *grid_point = cell->grid_points[0];
 
   // Early exit if the cells are too far apart.
   if (other->outsideKernel(grid_point, kernel_rad2))
@@ -134,8 +133,7 @@ static void recursivePairPartsToPoints(Cell* cell,
  * @param kernel_rad The kernel radius.
  * @param kernel_rad2 The squared kernel radius.
  */
-static void recursiveSelfPartsToPoints(Cell* cell,
-                                       const double kernel_rad,
+static void recursiveSelfPartsToPoints(Cell *cell, const double kernel_rad,
                                        const double kernel_rad2) {
 
   // Ensure we have grid points and particles
@@ -194,8 +192,10 @@ static void recursiveSelfPartsToPoints(Cell* cell,
  */
 void getKernelMasses(Simulation *sim, Grid *grid) {
 
+  tic();
+
   // Get the cells
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
 
 #ifdef WITH_MPI
   // Get the metadata instance for MPI rank checking
@@ -207,7 +207,7 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
-    Cell* cell = &cells[cid];
+    Cell *cell = &cells[cid];
 
     // Skip unuseful cells
     if (!cell->is_useful)
@@ -231,9 +231,10 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
 
       // Recursively assign particles within any neighbours to the grid points
       // within a cell
-      for (Cell* neighbour : cell->neighbours) {
+      for (Cell *neighbour : cell->neighbours) {
         recursivePairPartsToPoints(cell, neighbour, kernel_rad, kernel_rad2);
       }
     }
   }
+  toc("Computing kernel masses");
 }

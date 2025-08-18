@@ -25,6 +25,9 @@
  * @param grid Pointer to the grid object containing grid points and kernel data
  */
 void writeGridFileSerial(Simulation *sim, Grid *grid) {
+
+  tic();
+
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
@@ -34,7 +37,7 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
   message("Writing grid data to %s (serial mode)", filename.c_str());
 
   // Unpack the cells
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
 
   // Create a new HDF5 file
   HDF5Helper hdf5(filename, H5F_ACC_TRUNC,
@@ -130,7 +133,7 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
 
     // Process each cell
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-      Cell* cell = &cells[cid];
+      Cell *cell = &cells[cid];
 
       // Skip empty cells
       if (cell->grid_points.size() == 0) {
@@ -147,7 +150,7 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       cell_grid_pos.reserve(count * 3);
 
       // Extract data from grid points
-      for (const GridPoint* gp : cell->grid_points) {
+      for (const GridPoint *gp : cell->grid_points) {
         // Get overdensity for this kernel
         cell_grid_overdens.push_back(gp->getOverDensity(kernel_rad, sim));
 
@@ -188,6 +191,7 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
   // Close the HDF5 file
   hdf5.close();
   message("Successfully wrote grid data (serial mode)");
+  toc("Writing output (in serial)");
 }
 
 #ifdef WITH_MPI
@@ -202,6 +206,9 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
  * @param grid Pointer to the grid object containing grid points and kernel data
  */
 void writeGridFileParallel(Simulation *sim, Grid *grid) {
+
+  tic();
+
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
@@ -214,7 +221,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   }
 
   // Unpack the cells
-  std::vector<Cell>& cells = sim->cells;
+  std::vector<Cell> &cells = sim->cells;
 
   // Calculate local cell range for this rank
   int nr_cells_before = 0;
@@ -334,9 +341,9 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
     // Extract data from local grid points
     for (int cid = first_local_cell; cid < last_local_cell; cid++) {
-      Cell* cell = &cells[cid];
+      Cell *cell = &cells[cid];
 
-      for (const GridPoint* gp : cell->grid_points) {
+      for (const GridPoint *gp : cell->grid_points) {
         // Store positions
         local_positions.push_back(gp->loc[0]);
         local_positions.push_back(gp->loc[1]);
@@ -385,5 +392,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   if (metadata->rank == 0) {
     message("Successfully wrote grid data (parallel mode)");
   }
+
+  toc("Writing output (in parallel)");
 }
 #endif

@@ -33,8 +33,13 @@ double nearest(const double dx, const double box_size) {
  * @param params The parameters for the simulation
  */
 Grid *createGrid(Parameters *params) {
+
+  tic();
+
   // Create the grid object
   Grid *grid = new Grid(params);
+
+  toc("Creating grid object");
 
   // Return the grid
   return grid;

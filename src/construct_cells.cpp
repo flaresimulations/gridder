@@ -10,6 +10,9 @@
 #include "simulation.hpp"
 
 void getTopCells(Simulation *sim, Grid *grid) {
+
+  tic();
+
   // Unpack the simulation information we need
   std::vector<Cell> &cells = sim->cells;
   const double width[3] = {sim->width[0], sim->width[1], sim->width[2]};
@@ -100,6 +103,8 @@ void getTopCells(Simulation *sim, Grid *grid) {
       }
     }
   }
+
+  toc("Creating top level cells");
 }
 
 /**
