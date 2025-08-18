@@ -40,8 +40,7 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
   std::vector<Cell> &cells = sim->cells;
 
   // Create a new HDF5 file
-  HDF5Helper hdf5(filename, H5F_ACC_TRUNC,
-                  false); // No collective I/O for serial
+  HDF5Helper hdf5(filename, H5F_ACC_TRUNC);
   if (!hdf5.isOpen()) {
     error("Failed to create HDF5 file for serial output");
     return;
@@ -212,6 +211,8 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
+  message("Rank %d: Starting writeGridFileParallel", metadata->rank);
+
   // Get the base output filepath
   const std::string base_filename = metadata->output_file;
   
@@ -261,12 +262,17 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     total_local_grid_points += count;
   }
 
-  // Create rank-specific HDF5 file (serial mode for each rank)
-  HDF5Helper hdf5(rank_filename, H5F_ACC_TRUNC, false);
+  message("Rank %d: Found %d local grid points in %zu cells", 
+          metadata->rank, total_local_grid_points, local_cell_ids.size());
+
+  // Create rank-specific HDF5 file (always serial mode)
+  message("Rank %d: Creating HDF5 file %s", metadata->rank, rank_filename.c_str());
+  HDF5Helper hdf5(rank_filename, H5F_ACC_TRUNC);
   if (!hdf5.isOpen()) {
     error("Rank %d: Failed to create HDF5 file: %s", metadata->rank, rank_filename.c_str());
     return;
   }
+  message("Rank %d: Successfully opened HDF5 file", metadata->rank);
 
   // Create groups
   if (!hdf5.createGroup("Header")) {
@@ -367,13 +373,18 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
           metadata->rank, total_local_grid_points);
 
   // Synchronize all ranks before creating virtual file
+  message("Rank %d: Waiting at barrier before virtual file creation", metadata->rank);
   MPI_Barrier(MPI_COMM_WORLD);
+  message("Rank %d: Passed barrier", metadata->rank);
 
   // Only rank 0 creates the virtual file
   if (metadata->rank == 0) {
+    message("Rank 0: Creating virtual file");
     createVirtualFile(base_filename, metadata->size, sim, grid);
+    message("Rank 0: Finished creating virtual file");
   }
 
+  message("Rank %d: Finished writeGridFileParallel", metadata->rank);
   toc("Writing output (in parallel)");
 }
 
@@ -391,7 +402,7 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   message("Creating virtual HDF5 file: %s", base_filename.c_str());
   
   // Create the virtual file
-  HDF5Helper hdf5(base_filename, H5F_ACC_TRUNC, false);
+  HDF5Helper hdf5(base_filename, H5F_ACC_TRUNC);
   if (!hdf5.isOpen()) {
     error("Failed to create virtual HDF5 file: %s", base_filename.c_str());
     return;
@@ -413,7 +424,7 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
     }
 
     // Read header from rank file to get local grid point count
-    HDF5Helper rank_file(rank_filename, H5F_ACC_RDONLY, false);
+    HDF5Helper rank_file(rank_filename, H5F_ACC_RDONLY);
     if (rank_file.isOpen()) {
       int local_count = 0;
       if (rank_file.readAttribute("Header", "LocalGridPoints", local_count)) {
@@ -486,7 +497,7 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
       rank_filename += "_rank" + std::to_string(rank);
     }
 
-    HDF5Helper rank_file(rank_filename, H5F_ACC_RDONLY, false);
+    HDF5Helper rank_file(rank_filename, H5F_ACC_RDONLY);
     if (!rank_file.isOpen()) {
       error("Failed to open rank file for reading: %s", rank_filename.c_str());
       continue;

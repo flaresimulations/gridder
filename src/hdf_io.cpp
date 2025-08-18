@@ -15,84 +15,42 @@
 #include "logger.hpp"
 
 /**
- * @brief Constructor for HDF5Helper with automatic serial/parallel detection
+ * @brief Constructor for HDF5Helper - always uses serial HDF5 operations
  *
  * @param filename The name of the HDF5 file to open/create
  * @param accessMode The file access mode
- * @param use_collective Whether to use collective I/O in parallel mode
  */
-HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode,
-                       bool use_collective)
-    : file_open(false), use_collective_io(use_collective) {
+HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
+    : file_open(false) {
 
 #ifdef WITH_MPI
-  // Get MPI info
+  // Get MPI info for rank identification only
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-  is_parallel = (mpi_size > 1);
-
-  if (is_parallel) {
-    // Parallel HDF5 setup
-    hid_t plist_id = H5Pcreate(H5P_FILE_ACCESS);
-    if (plist_id < 0) {
-      error("Failed to create file access property list");
-      return;
-    }
-
-    herr_t plist_status =
-        H5Pset_fapl_mpio(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL);
-    if (plist_status < 0) {
-      error("Failed to set MPI-IO file access property");
-      H5Pclose(plist_id);
-      return;
-    }
-
-    // Handle different access modes for parallel I/O
-    if (accessMode == H5F_ACC_RDONLY) {
-      file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, plist_id);
-    } else if (accessMode == H5F_ACC_RDWR) {
-      file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR, plist_id);
-    } else {
-      // For create modes, all ranks participate collectively
-      file_id = H5Fcreate(filename.c_str(), accessMode, H5P_DEFAULT, plist_id);
-    }
-
-    H5Pclose(plist_id);
-
-    if (file_id < 0) {
-      error("Rank %d: Failed to open/create HDF5 file: %s", mpi_rank,
-            filename.c_str());
-      return;
-    }
-
-    if (mpi_rank == 0) {
-      message("Opened HDF5 file '%s' in parallel mode with %d processes",
-              filename.c_str(), mpi_size);
-    }
-  } else {
-    // Single process - use serial I/O even in MPI build
-    use_collective_io = false;
 #endif
 
-    // Serial HDF5 setup
-    if (accessMode == H5F_ACC_RDONLY) {
-      file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
-    } else if (accessMode == H5F_ACC_RDWR) {
-      file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
-    } else {
-      file_id =
-          H5Fcreate(filename.c_str(), accessMode, H5P_DEFAULT, H5P_DEFAULT);
-    }
+  // Always use serial HDF5 setup
+  if (accessMode == H5F_ACC_RDONLY) {
+    file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+  } else if (accessMode == H5F_ACC_RDWR) {
+    file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+  } else {
+    file_id = H5Fcreate(filename.c_str(), accessMode, H5P_DEFAULT, H5P_DEFAULT);
+  }
 
-    if (file_id < 0) {
-      error("Failed to open/create HDF5 file: %s", filename.c_str());
-      return;
-    }
-
-    message("Opened HDF5 file '%s' in serial mode", filename.c_str());
+  if (file_id < 0) {
+#ifdef WITH_MPI
+    error("Rank %d: Failed to open/create HDF5 file: %s", mpi_rank, filename.c_str());
+#else
+    error("Failed to open/create HDF5 file: %s", filename.c_str());
+#endif
+    return;
+  }
 
 #ifdef WITH_MPI
-  }
+  message("Rank %d: Opened HDF5 file '%s'", mpi_rank, filename.c_str());
+#else
+  message("Opened HDF5 file '%s'", filename.c_str());
 #endif
 
   file_open = true;
@@ -112,23 +70,12 @@ HDF5Helper::~HDF5Helper() {
  */
 void HDF5Helper::close() {
   if (file_open && file_id >= 0) {
-#ifdef WITH_MPI
-    if (is_parallel) {
-      // In parallel mode, all processes must close collectively
-      MPI_Barrier(MPI_COMM_WORLD);
-    }
-#endif
     H5Fclose(file_id);
     file_open = false;
-
 #ifdef WITH_MPI
-    if (is_parallel && mpi_rank == 0) {
-      message("Closed HDF5 file (parallel mode)");
-    } else if (!is_parallel) {
-#endif
-      message("Closed HDF5 file (serial mode)");
-#ifdef WITH_MPI
-    }
+    message("Rank %d: Closed HDF5 file", mpi_rank);
+#else
+    message("Closed HDF5 file");
 #endif
   }
 }
@@ -145,36 +92,13 @@ bool HDF5Helper::createGroup(const std::string &groupName) {
     return false;
   }
 
-  hid_t group_id = -1;
-
-#ifdef WITH_MPI
-  if (is_parallel) {
-    // In parallel mode, only rank 0 creates the group, others wait
-    if (mpi_rank == 0) {
-      group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT,
-                           H5P_DEFAULT);
-      if (group_id < 0) {
-        error("Failed to create group '%s'", groupName.c_str());
-      } else {
-        H5Gclose(group_id);
-      }
-    }
-    // All ranks wait for group creation to complete
-    MPI_Barrier(MPI_COMM_WORLD);
-    return (group_id >= 0);
-  } else {
-#endif
-    group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT,
-                         H5P_DEFAULT);
-    if (group_id < 0) {
-      error("Failed to create group '%s'", groupName.c_str());
-      return false;
-    }
-    H5Gclose(group_id);
-    return true;
-#ifdef WITH_MPI
+  hid_t group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  if (group_id < 0) {
+    error("Failed to create group '%s'", groupName.c_str());
+    return false;
   }
-#endif
+  H5Gclose(group_id);
+  return true;
 }
 
 /**
@@ -241,15 +165,8 @@ bool HDF5Helper::isVirtualDataset(const std::string &datasetName) {
  * @return Property list identifier
  */
 hid_t HDF5Helper::createTransferPlist() {
-  hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-
-#ifdef WITH_MPI
-  if (is_parallel && use_collective_io) {
-    H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-  }
-#endif
-
-  return plist_id;
+  // Always return default transfer property list (serial operations)
+  return H5Pcreate(H5P_DATASET_XFER);
 }
 
 // Template specializations for HDF5 type mappings
@@ -354,32 +271,3 @@ template <> hid_t HDF5Helper::getHDF5Type<size_t[6]>() {
   return H5T_NATIVE_HSIZE;
 }
 
-#ifdef WITH_MPI
-/**
- * @brief Constructor for parallel HDF5 helper
- */
-HDF5ParallelHelper::HDF5ParallelHelper(const std::string &filename, unsigned int accessMode)
-  : HDF5Helper(filename, accessMode, true) {
-  // Base constructor handles parallel file opening
-}
-
-/**
- * @brief Create group collectively - all ranks participate
- */
-bool HDF5ParallelHelper::createGroupCollective(const std::string &groupName) {
-  if (!file_open) {
-    error("Cannot create group: file is not open");
-    return false;
-  }
-  
-  // All ranks create the group simultaneously
-  hid_t group_id = H5Gcreate2(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  if (group_id < 0) {
-    error("Failed to create group '%s'", groupName.c_str());
-    return false;
-  }
-  
-  H5Gclose(group_id);
-  return true;
-}
-#endif
