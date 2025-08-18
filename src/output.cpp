@@ -387,12 +387,16 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
       
     } catch (const std::exception &e) {
       error("Rank 0: Exception during dataset creation: %s", e.what());
+      error("Rank 0: ABORTING - will not reach barrier due to exception!");
       return;
     } catch (...) {
       error("Rank 0: Unknown exception during dataset creation");
+      error("Rank 0: ABORTING - will not reach barrier due to unknown exception!");
       return;
     }
   }
+  
+  message("Rank 0: Finished dataset creation, about to reach barrier");
 
   // Synchronize all ranks after setup
   message("Rank %d: Waiting at barrier for dataset creation to complete", metadata->rank);
