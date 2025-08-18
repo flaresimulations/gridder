@@ -129,14 +129,20 @@ Grid::Grid(Parameters *params) {
     this->grid_from_file = true;
     this->grid_uniform = false;
     this->grid_random = false;
+    message("Grid points will be read from file: %s",
+            params->getParameter<std::string>("Grid/grid_file", "").c_str());
   } else if (grid_type == "uniform") {
     this->grid_from_file = false;
     this->grid_uniform = true;
     this->grid_random = false;
+    message(
+        "Grid points will be created uniformly across the simulation volume");
   } else if (grid_type == "random") {
     this->grid_from_file = false;
     this->grid_uniform = false;
     this->grid_random = true;
+    message(
+        "Grid points will be created randomly within the simulation volume");
   } else {
     throw std::runtime_error("Invalid grid type specified: " + grid_type);
   }
