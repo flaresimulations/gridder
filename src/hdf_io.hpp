@@ -195,7 +195,7 @@ public:
   int getMPISize() const { return mpi_size; }
 #endif
 
-private:
+protected:
   bool file_open;         ///< Track if file is open
   bool use_collective_io; ///< Whether to use collective I/O operations
 
@@ -265,7 +265,6 @@ public:
   template <typename T, std::size_t Rank>
   bool writeDatasetCollective(const std::string &datasetName,
                              const std::vector<T> &data,
-                             const std::array<hsize_t, Rank> &dims,
                              const std::array<hsize_t, Rank> &offset,
                              const std::array<hsize_t, Rank> &count);
 };
@@ -293,7 +292,6 @@ bool HDF5ParallelHelper::createDatasetCollective(const std::string &datasetName,
 template <typename T, std::size_t Rank>
 bool HDF5ParallelHelper::writeDatasetCollective(const std::string &datasetName,
                                                const std::vector<T> &data,
-                                               const std::array<hsize_t, Rank> &dims,
                                                const std::array<hsize_t, Rank> &offset,
                                                const std::array<hsize_t, Rank> &count) {
   if (!file_open) return false;
