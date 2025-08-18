@@ -192,6 +192,25 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
           "different ranks)",
           total_send_cells);
   message("Receiving %d cells", total_recv_cells);
+
+#ifdef DEBUGGING_CHECKS
+  // Ensure we all agree on what is sent where
+  std::vector<int> send_counts(size, 0);
+  std::vector<int> recv_counts(size, 0);
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *cell = &sim->cells[cid];
+    if (cell->is_proxy) {
+      recv_counts[cell->rank]++;
+    }
+    for (int send_rank : cell->send_ranks) {
+      send_counts[send_rank]++;
+    }
+  }
+  // Compare each ranks sends and recvs to make sure everyone agrees
+  for (int r = 0; r < size; r++) {
+    message("Sending %d cells to rank %d", send_counts[r], r);
+    message("Receiving %d cells from rank %d", recv_counts[r], r);
+  }
 }
 #endif
 

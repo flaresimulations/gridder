@@ -58,7 +58,7 @@ void getTopCells(Simulation *sim, Grid *grid) {
 
   message("Looking for neighbours within %d cells", nwalk);
 
-  // Calculate maximum neighbors and reserve space
+  // Calculate maximum neighbors
   const int max_neighbors =
       (2 * nwalk + 1) * (2 * nwalk + 1) * (2 * nwalk + 1) -
       1; // -1 excludes self
