@@ -40,18 +40,13 @@ HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
 
   if (file_id < 0) {
 #ifdef WITH_MPI
-    error("Rank %d: Failed to open/create HDF5 file: %s", mpi_rank, filename.c_str());
+    error("Rank %d: Failed to open/create HDF5 file: %s", mpi_rank,
+          filename.c_str());
 #else
     error("Failed to open/create HDF5 file: %s", filename.c_str());
 #endif
     return;
   }
-
-#ifdef WITH_MPI
-  message("Rank %d: Opened HDF5 file '%s'", mpi_rank, filename.c_str());
-#else
-  message("Opened HDF5 file '%s'", filename.c_str());
-#endif
 
   file_open = true;
 }
@@ -72,11 +67,6 @@ void HDF5Helper::close() {
   if (file_open && file_id >= 0) {
     H5Fclose(file_id);
     file_open = false;
-#ifdef WITH_MPI
-    message("Rank %d: Closed HDF5 file", mpi_rank);
-#else
-    message("Closed HDF5 file");
-#endif
   }
 }
 
@@ -92,7 +82,8 @@ bool HDF5Helper::createGroup(const std::string &groupName) {
     return false;
   }
 
-  hid_t group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  hid_t group_id = H5Gcreate(file_id, groupName.c_str(), H5P_DEFAULT,
+                             H5P_DEFAULT, H5P_DEFAULT);
   if (group_id < 0) {
     error("Failed to create group '%s'", groupName.c_str());
     return false;
@@ -270,4 +261,3 @@ template <> hid_t HDF5Helper::getHDF5Type<size_t>() { return H5T_NATIVE_HSIZE; }
 template <> hid_t HDF5Helper::getHDF5Type<size_t[6]>() {
   return H5T_NATIVE_HSIZE;
 }
-
