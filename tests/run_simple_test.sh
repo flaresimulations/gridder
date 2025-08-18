@@ -3,7 +3,7 @@
 # Simple test runner for the gridder
 # This creates a simple test case and verifies the expected results
 
-set -e  # Exit on any error
+set -e # Exit on any error
 
 # Test configuration
 TEST_DIR="$(dirname "$0")"
@@ -61,10 +61,10 @@ with h5py.File('$DONOR_FILE', 'w') as f:
 # Function to run the test
 run_test() {
     echo -e "${YELLOW}Step 1: Creating simple test snapshot...${NC}"
-    
+
     # Create donor file if needed
     create_donor_file
-    
+
     # Create simple test snapshot
     cd "$ROOT_DIR"
     python3 make_test_snap.py \
@@ -73,16 +73,16 @@ run_test() {
         --boxsize 10.0 \
         --doner "$DONOR_FILE" \
         --simple
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Test snapshot created successfully${NC}"
     else
         echo -e "${RED}✗ Failed to create test snapshot${NC}"
         exit 1
     fi
-    
+
     echo -e "${YELLOW}Step 2: Running gridder on test data...${NC}"
-    
+
     # Check if gridder executable exists (try multiple possible locations)
     GRIDDER_EXEC=""
     POSSIBLE_LOCATIONS=(
@@ -91,7 +91,7 @@ run_test() {
         "$ROOT_DIR/cmake-build-debug/parent_gridder"
         "$ROOT_DIR/cmake-build-release/parent_gridder"
     )
-    
+
     for location in "${POSSIBLE_LOCATIONS[@]}"; do
         if [ -f "$location" ]; then
             GRIDDER_EXEC="$location"
@@ -99,7 +99,7 @@ run_test() {
             break
         fi
     done
-    
+
     if [ -z "$GRIDDER_EXEC" ]; then
         echo -e "${RED}ERROR: parent_gridder executable not found${NC}"
         echo "Searched in the following locations:"
@@ -109,25 +109,25 @@ run_test() {
         echo "Please build the project first with 'make' or 'cmake --build .'"
         exit 1
     fi
-    
+
     # Run the gridder
-    "$GRIDDER_EXEC" "$TEST_PARAMS" 0
-    
+    "$GRIDDER_EXEC" "$TEST_PARAMS" 4
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Gridder completed successfully${NC}"
     else
         echo -e "${RED}✗ Gridder failed${NC}"
         exit 1
     fi
-    
+
     echo -e "${YELLOW}Step 3: Verifying results...${NC}"
-    
+
     # Check if output file was created
     if [ ! -f "$OUTPUT_FILE" ]; then
         echo -e "${RED}✗ Output file not created: $OUTPUT_FILE${NC}"
         exit 1
     fi
-    
+
     # Verify the results using Python
     python3 -c "
 import h5py
@@ -185,7 +185,7 @@ except Exception as e:
     print(f'ERROR: Failed to verify results: {e}')
     sys.exit(1)
 "
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Results verification passed${NC}"
     else
@@ -203,24 +203,24 @@ cleanup() {
 
 # Main execution
 case "${1:-run}" in
-    "run")
-        run_test
-        echo -e "${GREEN}=============================================="
-        echo "✓ ALL TESTS PASSED!"
-        echo "==============================================${NC}"
-        ;;
-    "clean")
-        cleanup
-        ;;
-    "help")
-        echo "Usage: $0 [run|clean|help]"
-        echo "  run   - Run the simple test (default)"
-        echo "  clean - Clean up test files"
-        echo "  help  - Show this help message"
-        ;;
-    *)
-        echo "Unknown command: $1"
-        echo "Use '$0 help' for usage information"
-        exit 1
-        ;;
+"run")
+    run_test
+    echo -e "${GREEN}=============================================="
+    echo "✓ ALL TESTS PASSED!"
+    echo "==============================================${NC}"
+    ;;
+"clean")
+    cleanup
+    ;;
+"help")
+    echo "Usage: $0 [run|clean|help]"
+    echo "  run   - Run the simple test (default)"
+    echo "  clean - Clean up test files"
+    echo "  help  - Show this help message"
+    ;;
+*)
+    echo "Unknown command: $1"
+    echo "Use '$0 help' for usage information"
+    exit 1
+    ;;
 esac
