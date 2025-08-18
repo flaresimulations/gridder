@@ -19,10 +19,10 @@ GridPoint::GridPoint(double loc[3]) {
   this->loc[0] = loc[0];
   this->loc[1] = loc[1];
   this->loc[2] = loc[2];
-  
+
   // Initialize mass_map and count_map with 0.0 for all kernel radii
-  // Note: This will be called during grid point creation, so we need access to kernel radii
-  // We'll handle this initialization after grid points are created
+  // Note: This will be called during grid point creation, so we need access to
+  // kernel radii We'll handle this initialization after grid points are created
 }
 
 /**
@@ -30,7 +30,7 @@ GridPoint::GridPoint(double loc[3]) {
  *
  * @param kernel_radii The vector of kernel radii to initialize
  */
-void GridPoint::initializeMaps(const std::vector<double>& kernel_radii) {
+void GridPoint::initializeMaps(const std::vector<double> &kernel_radii) {
   for (double kernel_rad : kernel_radii) {
     this->mass_map[kernel_rad] = 0.0;
     this->count_map[kernel_rad] = 0.0;
@@ -43,7 +43,7 @@ void GridPoint::initializeMaps(const std::vector<double>& kernel_radii) {
  * @param part The particle to add
  * @param kernel_radius The kernel radius
  */
-void GridPoint::add_particle(Particle* part, double kernel_radius) {
+void GridPoint::add_particle(Particle *part, double kernel_radius) {
   this->count_map[kernel_radius]++;
   this->mass_map[kernel_radius] += part->mass;
 }
@@ -62,15 +62,27 @@ void GridPoint::add_cell(const int cell_part_count, const double cell_mass,
 }
 
 // Method to get over density inside kernel radius
-double GridPoint::getOverDensity(const double kernel_radius, Simulation *sim) const {
+double GridPoint::getOverDensity(const double kernel_radius,
+                                 Simulation *sim) const {
   // Compute the volume of the kernel
   const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
 
   // Compute the density
-  const double density = this->mass_map.at(kernel_radius) / kernel_volume;
+  const double density = getMass(kernel_radius) / kernel_volume;
 
   // Compute the over density
   return (density / sim->mean_density) - 1;
+}
+
+// Method to get the mass inside the kernel radius
+double GridPoint::getMass(const double kernel_radius) const {
+  // Check if the kernel radius exists in the mass map
+  auto it = this->mass_map.find(kernel_radius);
+  if (it != this->mass_map.end()) {
+    return it->second;
+  } else {
+    return 0.0; // Return 0 if the kernel radius is not found
+  }
 }
 
 /**

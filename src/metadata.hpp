@@ -35,6 +35,9 @@ public:
   std::string input_file;
   std::string output_file;
 
+  // Should we write out masses?
+  bool write_masses = false;
+
   // The snapshot number we are working with (set in main.parseCmdArgs)
   int nsnap;
 

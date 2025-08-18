@@ -31,6 +31,10 @@ void readMetadata(Parameters *params) {
   // Get the output file path
   metadata->output_file = getOutputFilePath(params, metadata->nsnap);
 
+  // Should we write out masses?
+  metadata->write_masses =
+      params->getParameter<bool>("Output/write_masses", false);
+
   message("Reading data from: %s", metadata->input_file.c_str());
 
   toc("Reading metadata");

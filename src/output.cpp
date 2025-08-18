@@ -322,6 +322,16 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
       overdens_vec.reserve(total_local_grid_points);
     }
 
+    // If we are writing out masses, we need to prepare a vector for them in
+    // each kernel too
+    std::vector<std::vector<double>> local_masses;
+    if (metadata->write_masses) {
+      local_masses.resize(grid->kernel_radii.size());
+      for (auto &mass_vec : local_masses) {
+        mass_vec.reserve(total_local_grid_points);
+      }
+    }
+
     // Extract data from local grid points
     for (int cid = first_local_cell; cid < last_local_cell; cid++) {
       Cell *cell = &cells[cid];
@@ -335,6 +345,13 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
           local_overdens[k].push_back(
               gp->getOverDensity(grid->kernel_radii[k], sim));
+        }
+
+        // Store masses if desired
+        if (metadata->write_masses) {
+          for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
+            local_masses[k].push_back(gp->getMass(grid->kernel_radii[k], sim));
+          }
         }
       }
     }
@@ -367,6 +384,16 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
                                         local_overdens[k], overdens_dims)) {
         error("Rank %d: Failed to write overdensity dataset for kernel %f",
               metadata->rank, kernel_rad);
+      }
+
+      // Write the masses if desired
+      if (metadata->write_masses) {
+        if (!hdf5.writeDataset<double, 1>("Grids/" + kernel_name +
+                                              "/GridPointMasses",
+                                          local_masses[k], overdens_dims)) {
+          error("Rank %d: Failed to write mass dataset for kernel %f",
+                metadata->rank, kernel_rad);
+        }
       }
     }
   }
@@ -533,6 +560,26 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
                 {static_cast<hsize_t>(rank_grid_points[rank])})) {
           error("Failed to write overdensity slice for rank %d, kernel %f",
                 rank, kernel_rad);
+        }
+      }
+    }
+
+    // Read and write the masses if requested
+    if (metadata->write_masses) {
+      for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
+        double kernel_rad = grid->kernel_radii[k];
+        std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+
+        std::vector<double> rank_masses;
+        if (rank_file.readDataset("Grids/" + kernel_name + "/GridPointMasses",
+                                  rank_masses)) {
+          if (!hdf5.writeDatasetSlice<double, 1>(
+                  "Grids/" + kernel_name + "/GridPointMasses", rank_masses,
+                  {static_cast<hsize_t>(rank_offsets[rank])},
+                  {static_cast<hsize_t>(rank_grid_points[rank])})) {
+            error("Failed to write mass slice for rank %d, kernel %f", rank,
+                  kernel_rad);
+          }
         }
       }
     }
