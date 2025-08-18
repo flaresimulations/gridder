@@ -156,7 +156,7 @@ Grid::Grid(Parameters *params) {
     this->grid_file = "";
   } else {
     // If we are reading from a file, get the file path
-    this->grid_file = params->getParameter<std::string>("Grid/grid_file");
+    this->grid_file = params->getParameter<std::string>("Grid/grid_file", "");
     this->grid_cdim = 0;     // Not used when reading from file
     this->n_grid_points = 0; // We'll count these when reading the file
   }
