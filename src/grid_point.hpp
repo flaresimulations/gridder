@@ -54,6 +54,15 @@ public:
   //! Are we using a file of grid points?
   bool grid_from_file;
 
+  //! The path to the file of grid points
+  std::string grid_file;
+
+  //! Are we creating uniform grid points?
+  bool grid_uniform;
+
+  //! Are we creating grid points randomly?
+  bool grid_random;
+
   //! The number of grid points
   int n_grid_points;
 

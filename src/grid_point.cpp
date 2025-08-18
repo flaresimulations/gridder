@@ -122,23 +122,49 @@ Grid::Grid(Parameters *params) {
   // Get the maximum kernel radius squared
   this->max_kernel_radius2 = this->max_kernel_radius * this->max_kernel_radius;
 
-  // Has a grid file been provided? If so Grid/grid_file will exist
-  this->grid_from_file = params->exists("Grid/grid_file");
-
-  // If we are not reading a file, get the number of grid points along an axis
-  if (!this->grid_from_file) {
-    this->grid_cdim = params->getParameterNoDefault<int>("Grid/cdim");
+  // Determine how we are creating the grid points
+  std::string grid_type =
+      params->getParameter<std::string>("Grid/type", "uniform");
+  if (grid_type == "file") {
+    this->grid_from_file = true;
+    this->grid_uniform = false;
+    this->grid_random = false;
+    message("Grid points will be read from file: %s",
+            params->getParameter<std::string>("Grid/grid_file", "").c_str());
+  } else if (grid_type == "uniform") {
+    this->grid_from_file = false;
+    this->grid_uniform = true;
+    this->grid_random = false;
+    message(
+        "Grid points will be created uniformly across the simulation volume");
+  } else if (grid_type == "random") {
+    this->grid_from_file = false;
+    this->grid_uniform = false;
+    this->grid_random = true;
+    message(
+        "Grid points will be created randomly within the simulation volume");
   } else {
-    this->grid_cdim = 0;
+    throw std::runtime_error("Invalid grid type specified: " + grid_type);
   }
 
-  // Get the number of grid points (either read from a parameter if loading
-  // a file or calculated from the grid_cdim)
-  if (this->grid_from_file) {
+  // If we are doing a uniform grid we need the grid cdim but don't need a file
+  // path or n_grid_points
+  if (this->grid_uniform) {
+    this->grid_cdim = params->getParameterNoDefault<int>("Grid/cdim");
+    this->n_grid_points = this->grid_cdim * this->grid_cdim * this->grid_cdim;
+    this->grid_file = "";
+  } else if (this->grid_random) {
+    // If we are doing a random grid we need the number of grid points but not
+    // the cdim or file path
     this->n_grid_points =
         params->getParameterNoDefault<int>("Grid/n_grid_points");
+    this->grid_cdim = 0;
+    this->grid_file = "";
   } else {
-    this->n_grid_points = this->grid_cdim * this->grid_cdim * this->grid_cdim;
+    // If we are reading from a file, get the file path
+    this->grid_file = params->getParameter<std::string>("Grid/grid_file", "");
+    this->grid_cdim = 0;     // Not used when reading from file
+    this->n_grid_points = 0; // We'll count these when reading the file
   }
 }
 

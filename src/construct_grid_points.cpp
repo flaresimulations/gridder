@@ -1,4 +1,8 @@
 // Standard includes
+#include <cmath>
+#include <memory>
+#include <random>
+#include <vector>
 
 // Local includes
 #include "cell.hpp"
@@ -117,6 +121,75 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
 }
 
 /**
+ * @brief Create randomly distributed grid points.
+ *
+ * @param sim The simulation object
+ * @param grid The grid object
+ */
+static void createGridPointsRandom(Simulation *sim, Grid *grid) {
+  // Get the grid size and simulation box size
+  int nr_grid_points = grid->n_grid_points;
+  double *dim = sim->dim;
+
+#ifdef WITH_MPI
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Each rank needs to generate nr_grid_points / size local points
+  int points_per_rank = nr_grid_points / metadata->size;
+  int remainder = nr_grid_points % metadata->size;
+  int target_points = points_per_rank + (metadata->rank < remainder ? 1 : 0);
+
+  message("Generating %d random grid points locally (rank %d)", target_points, metadata->rank);
+
+  // Use reproducible but rank-dependent seed
+  std::mt19937 rng(42 + metadata->rank);
+  std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
+  std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
+  std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
+
+  grid->grid_points.reserve(target_points);
+
+  int generated = 0;
+  while (generated < target_points) {
+    double loc[3] = {dist_x(rng), dist_y(rng), dist_z(rng)};
+
+    // Check if this point is in a cell we own
+    Cell *cell = getCellContainingPoint(loc);
+    if (cell->rank == metadata->rank) {
+      grid->grid_points.emplace_back(loc);
+      generated++;
+    }
+    // If not our cell, discard and try again
+  }
+
+#else
+  // Serial mode - generate all points directly
+  message("Generating %d random grid points", nr_grid_points);
+
+  // Use a fixed seed for reproducible results
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
+  std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
+  std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
+
+  grid->grid_points.reserve(nr_grid_points);
+
+  for (int gid = 0; gid < nr_grid_points; gid++) {
+    double loc[3] = {dist_x(rng), dist_y(rng), dist_z(rng)};
+    grid->grid_points.emplace_back(loc);
+  }
+#endif
+
+  message("Created %zu random grid points", grid->grid_points.size());
+
+  // Initialize mass and count maps for all grid points
+  message("Initializing grid point maps for %d kernel radii", grid->nkernels);
+  for (GridPoint &gp : grid->grid_points) {
+    gp.initializeMaps(grid->kernel_radii);
+  }
+}
+
+/**
  * @brief Create grid points from a file
  *
  * @param sim The simulation object
@@ -146,8 +219,12 @@ void createGridPoints(Simulation *sim, Grid *grid) {
   // Call the appropriate function to create the grid points
   if (grid->grid_from_file) {
     createGridPointsFromFile(sim, grid);
-  } else {
+  } else if (grid->grid_uniform) {
     createGridPointsEverywhere(sim, grid);
+  } else if (grid->grid_random) {
+    createGridPointsRandom(sim, grid);
+  } else {
+    error("Unknown grid type");
   }
 
   toc("Creating grid points");
