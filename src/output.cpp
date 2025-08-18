@@ -135,7 +135,8 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
                                              "/GridPointMasses",
                                          grid_point_overdens_dims)) {
-        error("Failed to create GridPointMasses dataset for kernel %f", kernel_rad);
+        error("Failed to create GridPointMasses dataset for kernel %f",
+              kernel_rad);
         continue;
       }
     }
@@ -193,10 +194,11 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       // Write masses slice if requested
       if (metadata->write_masses && !cell_grid_masses.empty()) {
         if (!hdf5.writeDatasetSlice<double, 1>(
-                "Grids/" + kernel_name + "/GridPointMasses",
-                cell_grid_masses, {static_cast<hsize_t>(start_idx)},
+                "Grids/" + kernel_name + "/GridPointMasses", cell_grid_masses,
+                {static_cast<hsize_t>(start_idx)},
                 {static_cast<hsize_t>(count)})) {
-          error("Failed to write masses slice for cell %d, kernel %f", cid, kernel_rad);
+          error("Failed to write masses slice for cell %d, kernel %f", cid,
+                kernel_rad);
         }
       }
 
@@ -253,6 +255,8 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   } else {
     rank_filename += "_rank" + std::to_string(metadata->rank);
   }
+
+  message("Writing grid data to %s (parallel mode)", rank_filename.c_str());
 
   // Unpack the cells
   std::vector<Cell> &cells = sim->cells;
@@ -550,7 +554,8 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
       if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
                                              "/GridPointMasses",
                                          global_overdens_dims)) {
-        error("Failed to create virtual mass dataset for kernel %f", kernel_rad);
+        error("Failed to create virtual mass dataset for kernel %f",
+              kernel_rad);
       }
     }
   }
@@ -649,7 +654,8 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
                             cell_dims);
 
   hdf5.close();
-  message("Successfully created virtual HDF5 file with %d total grid points",
-          total_grid_points);
+  message(
+      "Successfully created virtual HDF5 file @ %s with %d total grid points ",
+      base_filename.c_str(), total_grid_points);
 }
 #endif
