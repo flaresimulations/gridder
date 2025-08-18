@@ -248,6 +248,17 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   MPI_Allreduce(local_grid_point_counts.data(), grid_point_counts.data(),
                 sim->nr_cells, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
+#ifdef DEBUGGING_CHECKS
+  // Ensure we have all the grid points accounted for
+  if (std::accumulate(grid_point_counts.begin(), grid_point_counts.end(), 0) !=
+      grid->n_grid_points) {
+    error(
+        "Total grid points mismatch: expected %d, got %d", grid->n_grid_points,
+        std::accumulate(grid_point_counts.begin(), grid_point_counts.end(), 0));
+    return;
+  }
+#endif
+
   // Convert counts to start indices
   std::vector<int> grid_point_start(sim->nr_cells, 0);
   for (size_t cid = 1; cid < sim->nr_cells; cid++) {
@@ -279,8 +290,12 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     return;
   }
 
+  MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks are synchronized
+
   // Only rank 0 creates groups and writes metadata
+  message("Rank %d: About to check if rank == 0 (metadata->rank = %d)", metadata->rank, metadata->rank);
   if (metadata->rank == 0) {
+    message("Rank %d: I AM RANK 0 - proceeding with dataset creation", metadata->rank);
     try {
       // Create header group and write metadata
       if (!hdf5.createGroup("Header")) {
@@ -300,13 +315,14 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
       // Create groups
       message("Rank 0: About to create Grids group");
       bool grids_success = hdf5.createGroup("Grids");
-      message("Rank 0: createGroup(Grids) returned %s", grids_success ? "true" : "false");
+      message("Rank 0: createGroup(Grids) returned %s",
+              grids_success ? "true" : "false");
       if (!grids_success) {
         error("Rank 0: Failed to create Grids group");
         return;
       }
       message("Rank 0: Successfully created Grids group");
-      
+
       message("Rank 0: About to create Cells group");
       if (!hdf5.createGroup("Cells")) {
         error("Rank 0: Failed to create Cells group");
@@ -318,7 +334,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
       message("Rank 0: About to write cell lookup tables");
       std::array<hsize_t, 1> sim_cell_dims = {
           static_cast<hsize_t>(sim->nr_cells)};
-      
+
       message("Rank 0: About to write GridPointStart dataset");
       if (!hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
                                      sim_cell_dims)) {
@@ -326,7 +342,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         return;
       }
       message("Rank 0: Successfully wrote GridPointStart dataset");
-      
+
       message("Rank 0: About to write GridPointCounts dataset");
       if (!hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
                                      sim_cell_dims)) {
@@ -344,9 +360,10 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         return;
       }
       message("Rank 0: Successfully created GridPointPositions dataset");
-      
+
       // Verify the dataset can be opened
-      hid_t test_dataset = H5Dopen2(hdf5.file_id, "Grids/GridPointPositions", H5P_DEFAULT);
+      hid_t test_dataset =
+          H5Dopen2(hdf5.file_id, "Grids/GridPointPositions", H5P_DEFAULT);
       if (test_dataset < 0) {
         error("Rank 0: Cannot open GridPointPositions dataset after creation!");
         return;
@@ -354,7 +371,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         message("Rank 0: Verified GridPointPositions dataset can be opened");
         H5Dclose(test_dataset);
       }
-      
+
       // Flush to ensure dataset is committed
       H5Fflush(hdf5.file_id, H5F_SCOPE_GLOBAL);
 
@@ -362,57 +379,65 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
       for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
         double kernel_rad = grid->kernel_radii[k];
         std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-        
+
         if (!hdf5.createGroup("Grids/" + kernel_name)) {
-          error("Rank 0: Failed to create kernel group %s", kernel_name.c_str());
+          error("Rank 0: Failed to create kernel group %s",
+                kernel_name.c_str());
           return;
         }
 
         std::array<hsize_t, 1> grid_point_overdens_dims = {
             static_cast<hsize_t>(grid->n_grid_points)};
         if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
-                                           "/GridPointOverDensities",
+                                               "/GridPointOverDensities",
                                            grid_point_overdens_dims)) {
-          error("Rank 0: Failed to create GridPointOverDensities dataset for kernel %s",
+          error("Rank 0: Failed to create GridPointOverDensities dataset for "
+                "kernel %s",
                 kernel_name.c_str());
           return;
         }
-        message("Rank 0: Successfully created kernel %zu/%zu: %s", 
-                k + 1, grid->kernel_radii.size(), kernel_name.c_str());
+        message("Rank 0: Successfully created kernel %zu/%zu: %s", k + 1,
+                grid->kernel_radii.size(), kernel_name.c_str());
       }
-      
+
       // Final flush to ensure all datasets are committed
       H5Fflush(hdf5.file_id, H5F_SCOPE_GLOBAL);
       message("Rank 0: Successfully created all datasets");
-      
+
     } catch (const std::exception &e) {
       error("Rank 0: Exception during dataset creation: %s", e.what());
       error("Rank 0: ABORTING - will not reach barrier due to exception!");
       return;
     } catch (...) {
       error("Rank 0: Unknown exception during dataset creation");
-      error("Rank 0: ABORTING - will not reach barrier due to unknown exception!");
+      error("Rank 0: ABORTING - will not reach barrier due to unknown "
+            "exception!");
       return;
     }
+  } else {
+    message("Rank %d: I am NOT rank 0 - skipping dataset creation", metadata->rank);
   }
-  
-  message("Rank 0: Finished dataset creation, about to reach barrier");
+
+  message("Rank %d: Finished dataset creation logic, about to reach barrier", metadata->rank);
 
   // Synchronize all ranks after setup
-  message("Rank %d: Waiting at barrier for dataset creation to complete", metadata->rank);
+  message("Rank %d: Waiting at barrier for dataset creation to complete",
+          metadata->rank);
   MPI_Barrier(MPI_COMM_WORLD);
   message("Rank %d: Passed barrier, datasets should be ready", metadata->rank);
 
   // Prepare local data for writing
   if (total_local_grid_points > 0) {
     try {
-      message("Rank %d: Preparing to write %d grid points", metadata->rank, total_local_grid_points);
-      
+      message("Rank %d: Preparing to write %d grid points", metadata->rank,
+              total_local_grid_points);
+
       std::vector<double> local_positions;
       local_positions.reserve(total_local_grid_points * 3);
 
       // Create overdensity arrays for each kernel
-      std::vector<std::vector<double>> local_overdens(grid->kernel_radii.size());
+      std::vector<std::vector<double>> local_overdens(
+          grid->kernel_radii.size());
       for (auto &overdens_vec : local_overdens) {
         overdens_vec.reserve(total_local_grid_points);
       }
@@ -434,11 +459,13 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
           }
         }
       }
-      message("Rank %d: Extracted data for %zu grid points", metadata->rank, local_positions.size() / 3);
+      message("Rank %d: Extracted data for %zu grid points", metadata->rank,
+              local_positions.size() / 3);
 
       // Write position data
       if (!local_positions.empty()) {
-        message("Rank %d: Writing position data at offset %d", metadata->rank, global_offset);
+        message("Rank %d: Writing position data at offset %d", metadata->rank,
+                global_offset);
         if (!hdf5.writeDatasetSlice<double, 2>(
                 "Grids/GridPointPositions", local_positions,
                 {static_cast<hsize_t>(global_offset), 0},
@@ -454,7 +481,8 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         if (!local_overdens[k].empty()) {
           std::string kernel_name =
               "Kernel_" + std::to_string(grid->kernel_radii[k]);
-          message("Rank %d: Writing overdensity data for kernel %s", metadata->rank, kernel_name.c_str());
+          message("Rank %d: Writing overdensity data for kernel %s",
+                  metadata->rank, kernel_name.c_str());
           if (!hdf5.writeDatasetSlice<double, 1>(
                   "Grids/" + kernel_name + "/GridPointOverDensities",
                   local_overdens[k], {static_cast<hsize_t>(global_offset)},
@@ -463,13 +491,15 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
                   metadata->rank, kernel_name.c_str());
             return;
           }
-          message("Rank %d: Successfully wrote overdensity data for kernel %s", metadata->rank, kernel_name.c_str());
+          message("Rank %d: Successfully wrote overdensity data for kernel %s",
+                  metadata->rank, kernel_name.c_str());
         }
       }
       message("Rank %d: Successfully wrote all data", metadata->rank);
-      
+
     } catch (const std::exception &e) {
-      error("Rank %d: Exception during data writing: %s", metadata->rank, e.what());
+      error("Rank %d: Exception during data writing: %s", metadata->rank,
+            e.what());
       return;
     } catch (...) {
       error("Rank %d: Unknown exception during data writing", metadata->rank);
