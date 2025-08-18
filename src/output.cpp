@@ -281,47 +281,88 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
   // Only rank 0 creates groups and writes metadata
   if (metadata->rank == 0) {
-    // Create header group and write metadata
-    if (!hdf5.createGroup("Header")) {
-      error("Rank 0: Failed to create Header group");
+    try {
+      // Create header group and write metadata
+      if (!hdf5.createGroup("Header")) {
+        error("Rank 0: Failed to create Header group");
+        return;
+      }
+      message("Rank 0: Successfully created Header group");
+
+      hdf5.writeAttribute<int>("Header", "NGridPoint", grid->n_grid_points);
+      hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", sim->cdim);
+      hdf5.writeAttribute<double[3]>("Header", "BoxSize", sim->dim);
+      hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
+                                  grid->max_kernel_radius);
+      hdf5.writeAttribute<double>("Header", "Redshift", sim->redshift);
+      message("Rank 0: Successfully wrote Header attributes");
+
+      // Create groups
+      if (!hdf5.createGroup("Grids")) {
+        error("Rank 0: Failed to create Grids group");
+        return;
+      }
+      if (!hdf5.createGroup("Cells")) {
+        error("Rank 0: Failed to create Cells group");
+        return;
+      }
+      message("Rank 0: Successfully created Grids and Cells groups");
+
+      // Write cell lookup tables
+      std::array<hsize_t, 1> sim_cell_dims = {
+          static_cast<hsize_t>(sim->nr_cells)};
+      if (!hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
+                                     sim_cell_dims)) {
+        error("Rank 0: Failed to write GridPointStart dataset");
+        return;
+      }
+      if (!hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
+                                     sim_cell_dims)) {
+        error("Rank 0: Failed to write GridPointCounts dataset");
+        return;
+      }
+      message("Rank 0: Successfully wrote cell lookup tables");
+
+      // Create grid position dataset
+      std::array<hsize_t, 2> grid_point_positions_dims = {
+          static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
+      if (!hdf5.createDataset<double, 2>("Grids/GridPointPositions",
+                                         grid_point_positions_dims)) {
+        error("Rank 0: Failed to create GridPointPositions dataset");
+        return;
+      }
+      message("Rank 0: Successfully created GridPointPositions dataset");
+
+      // Create datasets for each kernel
+      for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
+        double kernel_rad = grid->kernel_radii[k];
+        std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+        
+        if (!hdf5.createGroup("Grids/" + kernel_name)) {
+          error("Rank 0: Failed to create kernel group %s", kernel_name.c_str());
+          return;
+        }
+
+        std::array<hsize_t, 1> grid_point_overdens_dims = {
+            static_cast<hsize_t>(grid->n_grid_points)};
+        if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
+                                           "/GridPointOverDensities",
+                                           grid_point_overdens_dims)) {
+          error("Rank 0: Failed to create GridPointOverDensities dataset for kernel %s",
+                kernel_name.c_str());
+          return;
+        }
+        message("Rank 0: Successfully created kernel %zu/%zu: %s", 
+                k + 1, grid->kernel_radii.size(), kernel_name.c_str());
+      }
+      message("Rank 0: Successfully created all datasets");
+      
+    } catch (const std::exception &e) {
+      error("Rank 0: Exception during dataset creation: %s", e.what());
       return;
-    }
-
-    hdf5.writeAttribute<int>("Header", "NGridPoint", grid->n_grid_points);
-    hdf5.writeAttribute<int[3]>("Header", "Simulation_CDim", sim->cdim);
-    hdf5.writeAttribute<double[3]>("Header", "BoxSize", sim->dim);
-    hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
-                                grid->max_kernel_radius);
-    hdf5.writeAttribute<double>("Header", "Redshift", sim->redshift);
-
-    // Create groups
-    hdf5.createGroup("Grids");
-    hdf5.createGroup("Cells");
-
-    // Write cell lookup tables
-    std::array<hsize_t, 1> sim_cell_dims = {
-        static_cast<hsize_t>(sim->nr_cells)};
-    hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
-                              sim_cell_dims);
-    hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
-                              sim_cell_dims);
-
-    // Create grid position dataset
-    std::array<hsize_t, 2> grid_point_positions_dims = {
-        static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
-    hdf5.createDataset<double, 2>("Grids/GridPointPositions",
-                                  grid_point_positions_dims);
-
-    // Create datasets for each kernel
-    for (double kernel_rad : grid->kernel_radii) {
-      std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
-      hdf5.createGroup("Grids/" + kernel_name);
-
-      std::array<hsize_t, 1> grid_point_overdens_dims = {
-          static_cast<hsize_t>(grid->n_grid_points)};
-      hdf5.createDataset<double, 1>("Grids/" + kernel_name +
-                                        "/GridPointOverDensities",
-                                    grid_point_overdens_dims);
+    } catch (...) {
+      error("Rank 0: Unknown exception during dataset creation");
+      return;
     }
   }
 
@@ -330,57 +371,78 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
   // Prepare local data for writing
   if (total_local_grid_points > 0) {
-    std::vector<double> local_positions;
-    local_positions.reserve(total_local_grid_points * 3);
+    try {
+      message("Rank %d: Preparing to write %d grid points", metadata->rank, total_local_grid_points);
+      
+      std::vector<double> local_positions;
+      local_positions.reserve(total_local_grid_points * 3);
 
-    // Create overdensity arrays for each kernel
-    std::vector<std::vector<double>> local_overdens(grid->kernel_radii.size());
-    for (auto &overdens_vec : local_overdens) {
-      overdens_vec.reserve(total_local_grid_points);
-    }
+      // Create overdensity arrays for each kernel
+      std::vector<std::vector<double>> local_overdens(grid->kernel_radii.size());
+      for (auto &overdens_vec : local_overdens) {
+        overdens_vec.reserve(total_local_grid_points);
+      }
 
-    // Extract data from local grid points
-    for (int cid = first_local_cell; cid < last_local_cell; cid++) {
-      Cell *cell = &cells[cid];
+      // Extract data from local grid points
+      for (int cid = first_local_cell; cid < last_local_cell; cid++) {
+        Cell *cell = &cells[cid];
 
-      for (const GridPoint *gp : cell->grid_points) {
-        // Store positions
-        local_positions.push_back(gp->loc[0]);
-        local_positions.push_back(gp->loc[1]);
-        local_positions.push_back(gp->loc[2]);
+        for (const GridPoint *gp : cell->grid_points) {
+          // Store positions
+          local_positions.push_back(gp->loc[0]);
+          local_positions.push_back(gp->loc[1]);
+          local_positions.push_back(gp->loc[2]);
 
-        // Store overdensities for each kernel
-        for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-          local_overdens[k].push_back(
-              gp->getOverDensity(grid->kernel_radii[k], sim));
+          // Store overdensities for each kernel
+          for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
+            local_overdens[k].push_back(
+                gp->getOverDensity(grid->kernel_radii[k], sim));
+          }
         }
       }
-    }
+      message("Rank %d: Extracted data for %zu grid points", metadata->rank, local_positions.size() / 3);
 
-    // Write position data
-    if (!local_positions.empty()) {
-      if (!hdf5.writeDatasetSlice<double, 2>(
-              "Grids/GridPointPositions", local_positions,
-              {static_cast<hsize_t>(global_offset), 0},
-              {static_cast<hsize_t>(total_local_grid_points), 3})) {
-        error("Rank %d: Failed to write position data", metadata->rank);
+      // Write position data
+      if (!local_positions.empty()) {
+        message("Rank %d: Writing position data at offset %d", metadata->rank, global_offset);
+        if (!hdf5.writeDatasetSlice<double, 2>(
+                "Grids/GridPointPositions", local_positions,
+                {static_cast<hsize_t>(global_offset), 0},
+                {static_cast<hsize_t>(total_local_grid_points), 3})) {
+          error("Rank %d: Failed to write position data", metadata->rank);
+          return;
+        }
+        message("Rank %d: Successfully wrote position data", metadata->rank);
       }
-    }
 
-    // Write overdensity data for each kernel
-    for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-      if (!local_overdens[k].empty()) {
-        std::string kernel_name =
-            "Kernel_" + std::to_string(grid->kernel_radii[k]);
-        if (!hdf5.writeDatasetSlice<double, 1>(
-                "Grids/" + kernel_name + "/GridPointOverDensities",
-                local_overdens[k], {static_cast<hsize_t>(global_offset)},
-                {static_cast<hsize_t>(total_local_grid_points)})) {
-          error("Rank %d: Failed to write overdensity data for kernel %f",
-                metadata->rank, grid->kernel_radii[k]);
+      // Write overdensity data for each kernel
+      for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
+        if (!local_overdens[k].empty()) {
+          std::string kernel_name =
+              "Kernel_" + std::to_string(grid->kernel_radii[k]);
+          message("Rank %d: Writing overdensity data for kernel %s", metadata->rank, kernel_name.c_str());
+          if (!hdf5.writeDatasetSlice<double, 1>(
+                  "Grids/" + kernel_name + "/GridPointOverDensities",
+                  local_overdens[k], {static_cast<hsize_t>(global_offset)},
+                  {static_cast<hsize_t>(total_local_grid_points)})) {
+            error("Rank %d: Failed to write overdensity data for kernel %s",
+                  metadata->rank, kernel_name.c_str());
+            return;
+          }
+          message("Rank %d: Successfully wrote overdensity data for kernel %s", metadata->rank, kernel_name.c_str());
         }
       }
+      message("Rank %d: Successfully wrote all data", metadata->rank);
+      
+    } catch (const std::exception &e) {
+      error("Rank %d: Exception during data writing: %s", metadata->rank, e.what());
+      return;
+    } catch (...) {
+      error("Rank %d: Unknown exception during data writing", metadata->rank);
+      return;
     }
+  } else {
+    message("Rank %d: No local grid points to write", metadata->rank);
   }
 
   // Synchronize before closing
