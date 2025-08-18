@@ -11,6 +11,7 @@
 
 // Local includes
 #include "logger.hpp"
+#include "metadata.hpp"
 #include "params.hpp"
 
 /** @brief Helper function to convert a string to a YAMLValue
