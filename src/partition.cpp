@@ -98,6 +98,7 @@ void partitionCells(Simulation *sim, Grid *grid) {
             cell_ranks[cid]);
     }
   }
+#endif
 }
 #endif
 
