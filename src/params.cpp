@@ -113,28 +113,28 @@ void Parameters::printAllParameters() {
 
   // Only rank 0 prints the parameters
 #ifdef WITH_MPI
-  if (Metadata::getInstance().rank != 0) {
-    return;
-  }
+  if (Metadata::getInstance().rank == 0) {
 #endif
 
-  message("Key-Value Pairs:");
-  for (const auto &pair : parameters) {
-    const Param &value = pair.second;
+    message("Key-Value Pairs:");
+    for (const auto &pair : parameters) {
+      const Param &value = pair.second;
 
-    // Print the value based on its type
-    if (std::holds_alternative<int>(value)) {
-      message("Key: %s - Value: %d", pair.first.c_str(), std::get<int>(value));
-    } else if (std::holds_alternative<double>(value)) {
-      message("Key: %s - Value: %f", pair.first.c_str(),
-              std::get<double>(value));
-    } else if (std::holds_alternative<std::string>(value)) {
-      message("Key: %s - Value: %s", pair.first.c_str(),
-              std::get<std::string>(value).c_str());
+      // Print the value based on its type
+      if (std::holds_alternative<int>(value)) {
+        message("Key: %s - Value: %d", pair.first.c_str(),
+                std::get<int>(value));
+      } else if (std::holds_alternative<double>(value)) {
+        message("Key: %s - Value: %f", pair.first.c_str(),
+                std::get<double>(value));
+      } else if (std::holds_alternative<std::string>(value)) {
+        message("Key: %s - Value: %s", pair.first.c_str(),
+                std::get<std::string>(value).c_str());
+      }
     }
-  }
 
 #ifdef WITH_MPI
+  }
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 }
