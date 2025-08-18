@@ -51,7 +51,7 @@ void partitionCells(Simulation *sim, Grid *grid) {
     int part_count = cell->part_count;
 
     // Assign this rank to the cell
-    cell->rank = select;
+    cell->rank = std::min(select, size - 1);
 
     // If were assigning to this rank then increment the particle and cell
     // counts
@@ -77,6 +77,27 @@ void partitionCells(Simulation *sim, Grid *grid) {
   // Report the number of particles on each rank
   message("Rank %d has %d local particles", rank, rank_part_counts[rank]);
   message("Rank %d has %d local cells", rank, metadata->nr_local_cells);
+
+#ifdef DEBUGGING_CHECKS
+  // Ensure everyone agrees on the cell locations
+  std::vector<int> cell_ranks(sim->nr_cells, -1);
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *cell = &sim->cells[cid];
+    if (cell->rank < 0 || cell->rank >= size) {
+      error("Cell %zu has invalid rank %d", cid, cell->rank);
+      cell_ranks[cid] = cell->rank;
+    }
+  }
+
+  // Ensure all ranks have the same cell ranks
+  MPI_Allreduce(MPI_IN_PLACE, cell_ranks.data(), sim->nr_cells, MPI_INT,
+                MPI_MAX, MPI_COMM_WORLD);
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cell_ranks[cid] != sim->cells[cid].rank) {
+      error("Cell %zu has rank %d but expected %d", cid, sim->cells[cid].rank,
+            cell_ranks[cid]);
+    }
+  }
 }
 #endif
 
