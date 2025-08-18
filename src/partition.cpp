@@ -147,22 +147,21 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
         continue;
 
       // If the neighbour is not local we need to recieve from it and send to it
-      if (cell->rank != neighbour->rank) {
-        // Flag this cell is a proxy cell
-        cell->is_proxy = true;
 
-        // Add this rank to the send ranks if its not already there
-        bool already_sent = false;
-        for (int send_rank : cell->send_ranks) {
-          if (send_rank == neighbour->rank) {
-            already_sent = true;
-            break;
-          }
+      // Flag this cell as a proxy cell
+      cell->is_proxy = true;
+
+      // Add this rank to the send ranks if its not already there
+      bool already_sent = false;
+      for (int send_rank : cell->send_ranks) {
+        if (send_rank == neighbour->rank) {
+          already_sent = true;
+          break;
         }
-        if (!already_sent) {
-          // Add the neighbour's rank to the send ranks
-          cell->send_ranks.push_back(neighbour->rank);
-        }
+      }
+      if (!already_sent) {
+        // Add the neighbour's rank to the send ranks
+        cell->send_ranks.push_back(neighbour->rank);
       }
     }
   }
@@ -199,6 +198,10 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
   std::vector<int> recv_counts(size, 0);
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &sim->cells[cid];
+    if (cell->is_proxy && cell->rank == rank) {
+      error("Proxy cell %zu on rank %d should not be sending to itself", cid,
+            rank);
+    }
     if (cell->is_proxy) {
       recv_counts[cell->rank]++;
     }
@@ -207,9 +210,14 @@ void flagProxyCells(Simulation *sim, Grid *grid) {
     }
   }
   // Compare each ranks sends and recvs to make sure everyone agrees
-  for (int r = 0; r < size; r++) {
-    message("Sending %d cells to rank %d", send_counts[r], r);
-    message("Receiving %d cells from rank %d", recv_counts[r], r);
+  for (int this_rank = 0; this_rank < size; this_rank++) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (this_rank != rank)
+      continue;
+    for (int r = 0; r < size; r++) {
+      message("Sending %d cells to rank %d", send_counts[r], r);
+      message("Receiving %d cells from rank %d", recv_counts[r], r);
+    }
   }
 #endif
 }
