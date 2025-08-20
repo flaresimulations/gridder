@@ -272,7 +272,7 @@ void Cell::split() {
 
 #ifdef DEBUGGING_CHECKS
   // Make sure the sum of child particle counts is the same as the parent
-  size_t child_part_count = 0AND YOU GET A DEBUGGING CHECK;
+  size_t child_part_count = 0;
   for (int i = 0; i < OCTREE_CHILDREN; i++) {
     child_part_count += this->children[i]->part_count;
   }
