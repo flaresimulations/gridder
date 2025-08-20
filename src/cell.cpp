@@ -556,8 +556,6 @@ void assignPartsToCells(Simulation *sim) {
 static void checkAndMoveParticlesMPI(Simulation *sim) {
 #ifdef WITH_MPI
 
-  tic();
-
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
 
@@ -722,7 +720,6 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
 
   message("Moved %zu particles to correct cells", moved_count);
 
-  toc("Moving particles to correct cells");
 #endif // WITH_MPI
 }
 
@@ -733,13 +730,12 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
  */
 void checkAndMoveParticles(Simulation *sim) {
 
+  tic();
+
 #ifdef WITH_MPI
   // If we are using MPI, use the MPI version
   checkAndMoveParticlesMPI(sim);
-  return;
-#endif
-
-  tic();
+#else
 
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
@@ -777,6 +773,36 @@ void checkAndMoveParticles(Simulation *sim) {
   }
 
   message("Moved %zu particles to correct cells", moved_count);
+
+#endif // WITH_MPI
+
+#ifdef DEBUGGING_CHECKS
+  // Check that all particles are in the right cells
+  if (moved_count > 0) {
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+      Cell *cell = &cells[cid];
+      for (Particle *part : cell->particles) {
+        Cell *containing_cell = getCellContainingPoint(part->pos);
+        if (containing_cell != cell) {
+          error("Particle at (%f, %f, %f) in cell %zu is not in the correct "
+                "cell %zu",
+                part->pos[0], part->pos[1], part->pos[2], cid,
+                containing_cell->ph_ind);
+        }
+      }
+
+      if (part->pos[0] < cell->loc[0] ||
+          part->pos[0] >= cell->loc[0] + cell->width[0] ||
+          part->pos[1] < cell->loc[1] ||
+          part->pos[1] >= cell->loc[1] + cell->width[1] ||
+          part->pos[2] < cell->loc[2] ||
+          part->pos[2] >= cell->loc[2] + cell->width[2]) {
+        error("Particle at (%f, %f, %f) in cell %zu is out of bounds",
+              part->pos[0], part->pos[1], part->pos[2], cid);
+      }
+    }
+  }
+#endif // DEBUGGING_CHECKS
 
   toc("Moving particles to correct cells");
 }
