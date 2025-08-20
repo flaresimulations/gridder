@@ -414,11 +414,7 @@ void assignPartsToCells(Simulation *sim) {
   std::vector<double> poss;
   message("Reading all particle positions from '%s'...",
           metadata->input_file.c_str());
-  std::array<unsigned long long, 2> pos_dims = {
-      static_cast<unsigned long long>(sim->nr_dark_matter), 3};
-  std::array<unsigned long long, 2> pos_start_index = {0, 0};
-  if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss,
-                                    pos_start_index, pos_dims)) {
+  if (!hdf.readDataset<double>("PartType1/Coordinates", poss)) {
     error("Failed to read particle positions");
   }
   message("Read %zu particle positions from '%s'", poss.size() / 3,
