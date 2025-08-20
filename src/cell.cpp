@@ -524,7 +524,11 @@ void assignPartsToCells(Simulation *sim) {
           part->pos[1] >= cell->loc[1] + cell->width[1] + buffer ||
           part->pos[2] < cell->loc[2] - buffer ||
           part->pos[2] >= cell->loc[2] + cell->width[2] + buffer)
-        error("Particle not in correct cell");
+        error("Particle not in correct cell (cell loc = [%f, %f, %f], "
+              "cell width = [%f, %f, %f], particle pos = [%f, %f, %f])",
+              cell->loc[0], cell->loc[1], cell->loc[2], cell->width[0],
+              cell->width[1], cell->width[2], part->pos[0], part->pos[1],
+              part->pos[2]);
     }
   }
 #endif
