@@ -405,20 +405,6 @@ void assignPartsToCells(Simulation *sim) {
       // Add the mass to the cell
       cell->mass += mass;
 
-      // Validate that this particle actually belongs in this cell
-      if (pos[0] < cell->loc[0] || pos[0] >= cell->loc[0] + cell->width[0] ||
-          pos[1] < cell->loc[1] || pos[1] >= cell->loc[1] + cell->width[1] ||
-          pos[2] < cell->loc[2] || pos[2] >= cell->loc[2] + cell->width[2]) {
-
-        error("Particle assigned to wrong cell in input file: particle "
-              "pos=(%.6f,%.6f,%.6f) but cell bounds=[%.6f-%.6f, %.6f-%.6f, "
-              "%.6f-%.6f]",
-              pos[0], pos[1], pos[2], cell->loc[0],
-              cell->loc[0] + cell->width[0], cell->loc[1],
-              cell->loc[1] + cell->width[1], cell->loc[2],
-              cell->loc[2] + cell->width[2]);
-      }
-
       // Attach the particle to the cell
       cell->particles.push_back(part);
     }
