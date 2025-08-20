@@ -281,6 +281,14 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // Just to be safe check particles are all where they should be
+  try {
+    checkAndMoveParticles(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 

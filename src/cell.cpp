@@ -171,7 +171,8 @@ void Cell::split() {
   // Flag that we are splitting this cell
   this->is_split = true;
 
-  // Loop over the children creating the cells and attaching the particles
+  // Loop over the children creating the cells and attaching the particles and
+  // grid points
   for (int i = 0; i < OCTREE_DIM; i++) {
     for (int j = 0; j < OCTREE_DIM; j++) {
       for (int k = 0; k < OCTREE_DIM; k++) {
@@ -261,9 +262,9 @@ void Cell::split() {
     child_part_count += this->children[i]->part_count;
   }
   if (child_part_count != this->part_count)
-    error("Particle count mismatch in cell %d (child_part_count = %d, "
+    error("Particle count mismatch in cell (child_part_count = %d, "
           "this->part_count = %d)",
-          this->ph_ind, child_part_count, this->part_count);
+          child_part_count, this->part_count);
 
   // Make sure the sum of the child grid point counts is the same as the
   // parent
@@ -277,6 +278,38 @@ void Cell::split() {
           "this->grid_points.size = %d)",
           this->ph_ind, child_grid_point_count, this->grid_points.size());
 #endif
+}
+
+/**
+ * @brief Add a new particle to the cell.
+ *
+ * @param part The particle to add.
+ */
+void Cell::addParticle(Particle *part) {
+
+#ifdef DEBUGGING_CHECKS
+  // Check if the particle is already in the cell
+  for (size_t i = 0; i < this->particles.size(); i++) {
+    if (this->particles[i] == part) {
+      error("Particle already in cell %d (particle address: %p)", this->ph_ind,
+            part);
+    }
+  }
+#endif
+
+  // Add the particle to the cell
+  try {
+    this->particles.push_back(part);
+    this->part_count++;
+    this->mass += part->mass;
+  } catch (const std::bad_alloc &e) {
+    error("Memory allocation failed while adding particle to cell. "
+          "System out of memory. Error: %s",
+          e.what());
+  }
+
+  // Mark the cell as useful
+  this->is_useful = true;
 }
 
 /**
@@ -498,6 +531,242 @@ void assignPartsToCells(Simulation *sim) {
 }
 
 /**
+ * @brief Make sure particles are in the right cells and move them if not.
+ *
+ * This function is the parallel version and will also communicate any
+ * particles that need to be moved to other ranks.
+ *
+ * @param sim The simulation object.
+ */
+static void checkAndMoveParticlesMPI(Simulation *sim) {
+#ifdef WITH_MPI
+
+  tic();
+
+  // Get the metadata instance
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Get the cells
+  std::vector<Cell> &cells = sim->cells;
+
+  // Initialise a counter for the number of particles moved
+  size_t moved_count = 0;
+
+  // Initialise a vector to hold the particles we will send to each rank
+  std::vector<std::vector<Particle *>> send_particles(metadata->size);
+
+  // Loop over the cells and check the particles
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+
+    // Get the cell
+    Cell *cell = &cells[cid];
+
+    // Skip unuseful cells
+    if (!cell->is_useful)
+      continue;
+
+    // Loop over the particles in this cell
+    for (size_t p = 0; p < cell->part_count; p++) {
+
+      // Get the particle
+      Particle *part = cell->particles[p];
+
+      // Get the cell containing this particle
+      Cell *containing_cell = getCellContainingPoint(part->pos);
+
+      // If the particle is in the right cell, continue
+      if (containing_cell == cell)
+        continue;
+
+      // Get the rank of the containing cell
+      int target_rank = containing_cell->rank;
+      if (target_rank < 0 || target_rank >= metadata->size) {
+        error("Particle %zu in cell %zu has invalid target rank %d", p, cid,
+              target_rank);
+      }
+
+      // If the containing cell is local, move the particle to it
+      if (containing_cell->rank == metadata->rank) {
+        containing_cell->addParticle(part);
+        moved_count++;
+        continue;
+      }
+
+      // Otherwise, store it to send shortly
+      try {
+        send_particles[target_rank].push_back(part);
+      } catch (const std::bad_alloc &e) {
+        error("Memory allocation failed while adding particle to send vector "
+              "for rank %d. System out of memory. Error: %s",
+              target_rank, e.what());
+      }
+    }
+  }
+
+  // We need to tell everyone how many particles to expect from each
+  // rank, so we can allocate the right amount of memory for the receives
+  std::vector<int> send_counts(metadata->size, 0);
+  for (size_t rank = 0; rank < metadata->size; rank++) {
+    // Count the number of particles to send to this rank
+    send_counts[rank] = static_cast<int>(send_particles[rank].size());
+  }
+
+  // Send the counts to all ranks
+  std::vector<int> recv_counts(metadata->size * metadata->size, 0);
+  for (size_t rank = 0; rank < metadata->size; rank++) {
+    // If this is me, tell the recieving ranks how many particles to expect
+    if (rank == metadata->rank) {
+      MPI_Send(send_counts.data(), metadata->size, MPI_INT, rank, cid,
+               MPI_COMM_WORLD);
+    } else {
+      // Otherwise, receive the counts from the sending rank
+      MPI_Recv(recv_counts.data() + rank * metadata->size, metadata->size,
+               MPI_INT, rank, cid, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+  }
+
+  // Now we need to send and recieve the foreign particles
+  std::vector<MPI_Request> requests;
+  std::vector<std::vector<double>> recv_buffers;
+  for (size_t rank = 0; rank < metadata->size; rank++) {
+
+    // If there are no particles to send to this rank, skip it
+    if (send_particles[rank].empty())
+      continue;
+
+    // Prepare the data to send
+    MPI_Request req;
+    std::vector<double> send_buffer.reserve(
+        send_particles[rank].size() * 4); // 1 mass + 3 positions per particle
+    for (Particle *part : send_particles[rank]) {
+      // Add the particle data to the buffer
+      send_buffer.push_back(part->mass);
+      send_buffer.push_back(part->pos[0]);
+      send_buffer.push_back(part->pos[1]);
+      send_buffer.push_back(part->pos[2]);
+    }
+
+    // Post the send
+    MPI_Isend(send_buffer.data(), send_buffer.size(), MPI_DOUBLE, rank, cid,
+              MPI_COMM_WORLD, &req);
+    requests.push_back(req);
+
+#ifdef DEBUGGING_CHECKS
+    message("Rellocating %zu particles to rank %d from cell %zu",
+            send_particles[rank].size(), rank, cid);
+#endif
+
+    // Do we also need to receive particles from this rank?
+    if (recv_counts[rank] > 0) {
+
+      // Prepare the receive buffer
+      std::vector<double> recv_buffer(recv_counts[rank] * 4); // 1 mass + 3 pos
+
+      // Post the receive
+      MPI_Irecv(recv_buffer.data(), recv_counts[rank] * 4, MPI_DOUBLE, rank,
+                cid, MPI_COMM_WORLD, &req);
+      requests.push_back(req);
+
+      // Store the receive buffer for later processing
+      recv_buffers.push_back(std::move(recv_buffer));
+    }
+  }
+
+  // Wait for all the sends and receives to complete
+  if (!requests.empty()) {
+    int err =
+        MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE);
+    if (err != MPI_SUCCESS) {
+      error("MPI_Waitall failed with error code %d", err);
+    }
+  }
+
+  // Now process the received particles
+  for (size_t rank = 0; rank < metadata->size; rank++) {
+    // If there are no particles to receive from this rank, skip it
+    if (recv_counts[rank] == 0)
+      continue;
+
+    // Get the receive buffer for this rank
+    std::vector<double> &recv_buffer = recv_buffers[rank];
+
+    // Loop over the received particles
+    for (size_t i = 0; i < recv_counts[rank]; i++) {
+      // Get the mass and position of the particle
+      double mass = recv_buffer[i * 4];
+      double pos[3] = {recv_buffer[i * 4 + 1], recv_buffer[i * 4 + 2],
+                       recv_buffer[i * 4 + 3]};
+
+      // Create a new particle and add it to the correct cell
+      Particle *part = new Particle(mass, pos);
+      Cell *containing_cell = getCellContainingPoint(pos);
+      containing_cell->addParticle(part);
+      moved_count++;
+    }
+  }
+
+  message("Moved %zu particles to correct cells", moved_count);
+
+  toc("Moving particles to correct cells");
+#endif // WITH_MPI
+}
+
+/**
+ * @brief Make sure particles are in the right cells and move them if not.
+ *
+ * @param sim The simulation object.
+ */
+void checkAndMoveParticles(Simulation *sim) {
+
+#ifdef WITH_MPI
+  // If we are using MPI, use the MPI version
+  checkAndMoveParticlesMPI(sim);
+  return;
+#endif
+
+  tic();
+
+  // Get the cells
+  std::vector<Cell> &cells = sim->cells;
+
+  // Initialise a counter for the number of particles moved
+  size_t moved_count = 0;
+
+  // Loop over the cells and check the particles
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+
+    // Get the cell
+    Cell *cell = &cells[cid];
+
+    // Skip unuseful cells
+    if (!cell->is_useful)
+      continue;
+
+    // Loop over the particles in this cell
+    for (size_t p = 0; p < cell->part_count; p++) {
+
+      // Get the particle
+      Particle *part = cell->particles[p];
+
+      // Get the cell containing this particle
+      Cell *containing_cell = getCellContainingPoint(part->pos);
+
+      // If the particle is in the right cell, continue
+      if (containing_cell == cell)
+        continue;
+
+      // Otherwise, move it into the correct cell
+      containing_cell->addParticle(part);
+      moved_count++;
+    }
+  }
+
+  message("Moved %zu particles to correct cells", moved_count);
+
+  toc("Moving particles to correct cells");
+}
+
+/**
  * @brief Assign grid points to cells.
  *
  * @param cells The cells to assign grid points to.
@@ -585,8 +854,8 @@ void limitToUsefulCells(Simulation *sim) {
       continue;
     }
 
-    // If we got here we have a useful cell, so we need to label the neighbours
-    // as useful too
+    // If we got here we have a useful cell, so we need to label the
+    // neighbours as useful too
     for (Cell *neighbour : cell->neighbours) {
       neighbour->is_useful = true;
     }

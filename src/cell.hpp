@@ -161,6 +161,8 @@ public:
   bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
   void split();
+  void addParticle(Particle *part);
+  void addParticles(const std::vector<Particle *> &parts);
 };
 
 // Prototypes for functions defined in construct_cells.cpp
@@ -171,6 +173,7 @@ void splitCells(Simulation *sim);
 Cell *getCellContainingPoint(const double pos[3]);
 int getCellIndexContainingPoint(const double pos[3]);
 void assignPartsToCells(Simulation *sim);
+void checkAndMoveParticles(Simulation *sim);
 void assignGridPointsToCells(Simulation *sim, Grid *grid);
 
 // Prototypes for functions defined in cell_search.cpp
