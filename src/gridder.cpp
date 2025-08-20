@@ -271,8 +271,6 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 #endif
-  message("Number of useful cells: %d (out of %d)", sim->nr_useful_cells,
-          sim->nr_cells);
 
   // Now we know which cells are where we can make the grid points, and assign
   // them and the particles to the cells
