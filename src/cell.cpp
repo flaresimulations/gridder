@@ -415,8 +415,8 @@ void assignPartsToCells(Simulation *sim) {
 #endif
 
     // Get the particle slice start and length
-    int offset = offsets[cid];
-    int count = counts[cid];
+    size_t offset = offsets[cid];
+    size_t count = counts[cid];
     total_part_count += count;
 
     // Reserve space for the particles in the cell
@@ -438,7 +438,7 @@ void assignPartsToCells(Simulation *sim) {
       continue;
 
     // Loop over the particle data making particles
-    for (int p = offset; p < offset + count; p++) {
+    for (size_t p = offset; p < offset + count; p++) {
 
       // Get the mass and position of the particle
       const double mass = masses[p];
