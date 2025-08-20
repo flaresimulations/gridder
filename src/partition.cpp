@@ -31,6 +31,19 @@ void partitionCells(Simulation *sim) {
   const int rank = metadata->rank;
   const int size = metadata->size;
 
+  // If we only have one rank, nothing to do
+  if (size <= 1) {
+    message("Only one MPI rank, no partitioning needed");
+    metadata->nr_local_cells = sim->nr_cells;
+    metadata->nr_local_particles = sim->nr_dark_matter;
+    metadata->first_local_part_ind = 0;
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+      sim->cells[cid].rank = 0; // All cells are on rank 0
+    }
+    toc("Partitioning cells");
+    return;
+  }
+
   // Intialise an array to hold the number of particles on each rank
   std::vector<int> rank_part_counts(size, 0);
 
