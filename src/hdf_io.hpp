@@ -567,7 +567,24 @@ bool HDF5Helper::readDatasetSlice(const std::string &datasetName,
 
   hsize_t total_elements = std::accumulate(count.begin(), count.end(), 1,
                                            std::multiplies<hsize_t>());
-  data.resize(total_elements);
+  
+  // Debug: Print resize information
+  message("HDF5Helper::readDatasetSlice: Preparing vector for dataset '%s' with %llu elements (%.2f GB)", 
+          datasetName.c_str(), total_elements, 
+          (total_elements * sizeof(T)) / (1024.0 * 1024.0 * 1024.0));
+  
+  try {
+    data.reserve(total_elements);
+    data.resize(total_elements);
+  } catch (const std::bad_alloc& e) {
+    error("Failed to allocate vector for dataset '%s' with %llu elements (%.2f GB). "
+          "Memory allocation failed: %s", 
+          datasetName.c_str(), total_elements,
+          (total_elements * sizeof(T)) / (1024.0 * 1024.0 * 1024.0), e.what());
+    H5Sclose(filespace_id);
+    H5Dclose(dataset_id);
+    return false;
+  }
 
   hid_t memspace_id = H5Screate_simple(Rank, count.data(), nullptr);
   if (memspace_id < 0) {
