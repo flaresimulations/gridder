@@ -512,16 +512,18 @@ void assignPartsToCells(Simulation *sim) {
           total_part_count, total_cell_part_count);
   }
 
-  // Check particles are in the right cells
+  // Check particles are in the right cells (but allow for some buffer
+  // due to SWIFT letting particles move slightly out of their cells)
+  double buffer = cell->width[0] * 0.1; // 10% of cell width
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &cells[cid];
     for (Particle *part : cell->particles) {
-      if (part->pos[0] < cell->loc[0] ||
-          part->pos[0] >= cell->loc[0] + cell->width[0] ||
-          part->pos[1] < cell->loc[1] ||
-          part->pos[1] >= cell->loc[1] + cell->width[1] ||
-          part->pos[2] < cell->loc[2] ||
-          part->pos[2] >= cell->loc[2] + cell->width[2])
+      if (part->pos[0] < cell->loc[0] - buffer ||
+          part->pos[0] >= cell->loc[0] + cell->width[0] + buffer ||
+          part->pos[1] < cell->loc[1] - buffer ||
+          part->pos[1] >= cell->loc[1] + cell->width[1] + buffer ||
+          part->pos[2] < cell->loc[2] - buffer ||
+          part->pos[2] >= cell->loc[2] + cell->width[2] + buffer)
         error("Particle not in correct cell");
     }
   }
