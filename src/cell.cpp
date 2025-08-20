@@ -799,10 +799,12 @@ void checkAndMoveParticles(Simulation *sim) {
       for (Particle *part : cell->particles) {
         Cell *containing_cell = getCellContainingPoint(part->pos);
         if (containing_cell != cell) {
-          error("Particle at (%f, %f, %f) in cell %zu (%f, %f, %f) "
+          error("Particle at (%f, %f, %f) in cell %zu (%f-%f, %f-%f, %f-%f) "
                 "is in the wrong cell",
                 part->pos[0], part->pos[1], part->pos[2], cid, cell->loc[0],
-                cell->loc[1], cell->loc[2]);
+                cell->loc[0] + cell->width[0], cell->loc[1],
+                cell->loc[1] + cell->width[1], cell->loc[2],
+                cell->loc[2] + cell->width[2]);
         }
 
         if (part->pos[0] < cell->loc[0] ||
