@@ -764,10 +764,6 @@ void checkAndMoveParticles(Simulation *sim) {
     // Get the cell
     Cell *cell = &cells[cid];
 
-    // Skip unuseful cells
-    if (!cell->is_useful)
-      continue;
-
     // Loop over the particles in this cell
     for (size_t p = 0; p < cell->part_count; p++) {
 
