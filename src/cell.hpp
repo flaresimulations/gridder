@@ -162,7 +162,9 @@ public:
                      const double kernel_rad2) const;
   void split();
   void addParticle(Particle *part);
-  void addParticles(const std::vector<Particle *> &parts);
+  void addGridPoint(GridPoint *grid_point) {
+    this->grid_points.push_back(grid_point);
+  }
 };
 
 // Prototypes for functions defined in construct_cells.cpp

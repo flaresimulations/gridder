@@ -202,81 +202,97 @@ void Cell::split() {
         child->rank = this->rank;
 #endif
 
-        // Attach the particles to the child and count them while we're at
-        // it
-        for (size_t p = 0; p < this->part_count; p++) {
-          if (this->particles[p]->pos[0] >= new_loc[0] &&
-              this->particles[p]->pos[0] < new_loc[0] + new_width[0] &&
-              this->particles[p]->pos[1] >= new_loc[1] &&
-              this->particles[p]->pos[1] < new_loc[1] + new_width[1] &&
-              this->particles[p]->pos[2] >= new_loc[2] &&
-              this->particles[p]->pos[2] < new_loc[2] + new_width[2]) {
-            try {
-              child->particles.push_back(this->particles[p]);
-              child->part_count++;
-              child->mass += this->particles[p]->mass;
-            } catch (const std::bad_alloc &e) {
-              error("Memory allocation failed while splitting cell (depth=%d, "
-                    "particles=%zu, child_particles=%zu). "
-                    "Try reducing n_grid_points or max_leaf_count parameters. "
-                    "Error: %s",
-                    this->depth, this->part_count, child->part_count, e.what());
-            }
-          }
-        }
-
-        // Attach the grid points to the child
-        for (size_t p = 0; p < this->grid_points.size(); p++) {
-          if (this->grid_points[p]->loc[0] >= new_loc[0] &&
-              this->grid_points[p]->loc[0] < new_loc[0] + new_width[0] &&
-              this->grid_points[p]->loc[1] >= new_loc[1] &&
-              this->grid_points[p]->loc[1] < new_loc[1] + new_width[1] &&
-              this->grid_points[p]->loc[2] >= new_loc[2] &&
-              this->grid_points[p]->loc[2] < new_loc[2] + new_width[2]) {
-            try {
-              child->grid_points.push_back(this->grid_points[p]);
-            } catch (const std::bad_alloc &e) {
-              error("Memory allocation failed while assigning grid points to "
-                    "child cell "
-                    "(depth=%d, grid_points=%zu, child_grid_points=%zu). "
-                    "Try reducing n_grid_points parameter. Error: %s",
-                    this->depth, this->grid_points.size(),
-                    child->grid_points.size(), e.what());
-            }
-          }
-        }
-
         // Attach the child to this cell
         this->children[iprogeny] = child;
-
-        // Split this child
-        child->split();
       }
     }
   }
 
-#ifdef DEBUGGING_CHECKS
-  // Make sure the sum of child particle counts is the same as the parent
-  size_t child_part_count = 0;
-  for (int i = 0; i < OCTREE_CHILDREN; i++) {
-    child_part_count += this->children[i]->part_count;
-  }
-  if (child_part_count != this->part_count)
-    error("Particle count mismatch in cell (child_part_count = %d, "
-          "this->part_count = %d)",
-          child_part_count, this->part_count);
+  // Loop over the particles and attach them to the right child
+  for (Particle *part : this->particles) {
 
-  // Make sure the sum of the child grid point counts is the same as the
-  // parent
-  size_t child_grid_point_count = 0;
-  for (int i = 0; i < OCTREE_CHILDREN; i++) {
-    child_grid_point_count += this->children[i]->grid_points.size();
+    // Get the position of the particle
+    const double x = part->pos[0];
+    const double y = part->pos[1];
+    const double z = part->pos[2];
+
+    // Calculate the child index based on the particle position
+    int i = (x >= this->loc[0] + new_width[0]) ? 1 : 0;
+    int j = (y >= this->loc[1] + new_width[1]) ? 1 : 0;
+    int k = (z >= this->loc[2] + new_width[2]) ? 1 : 0;
+    int child_index = k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
+
+    // Attach the particle to the child cell
+    Cell *child = this->children[child_index];
+
+    if (child == nullptr) {
+      error("Child cell is null at index %d for particle at (%f, %f, %f) in "
+            "cell with location (%f, %f, %f) and width (%f, %f, %f)",
+            child_index, x, y, z, this->loc[0], this->loc[1], this->loc[2],
+            this->width[0], this->width[1], this->width[2]);
+    }
+
+    // Add the particle to the child cell
+    child->addParticle(part);
   }
-  if (child_grid_point_count != this->grid_points.size())
-    error("Grid point count mismatch in cell %d (child_grid_point_count = "
-          "%d, "
-          "this->grid_points.size = %d)",
-          this->ph_ind, child_grid_point_count, this->grid_points.size());
+
+  // Loop over the grid points and attach them to the right child
+  for (size_t p = 0; p < this->grid_points.size(); p++) {
+
+    // Get the position of the grid point
+    const double x = this->grid_points[p]->loc[0];
+    const double y = this->grid_points[p]->loc[1];
+    const double z = this->grid_points[p]->loc[2];
+
+    // Calculate the child index based on the grid point position
+    int i = (x >= this->loc[0] + new_width[0]) ? 1 : 0;
+    int j = (y >= this->loc[1] + new_width[1]) ? 1 : 0;
+    int k = (z >= this->loc[2] + new_width[2]) ? 1 : 0;
+    int child_index = k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
+
+    // Attach the grid point to the child cell
+    Cell *child = this->children[child_index];
+
+    if (child == nullptr) {
+      error("Child cell is null at index %d for grid point at (%f, %f, %f) in "
+            "cell with location (%f, %f, %f) and width (%f, %f, %f)",
+            child_index, x, y, z, this->loc[0], this->loc[1], this->loc[2],
+            this->width[0], this->width[1], this->width[2]);
+    }
+
+    // Add the grid point to the child cell
+    child->addGridPoint(this->grid_points[p]);
+  }
+
+  // Loop over the children and recursively split them if they have too many
+  for (int i = 0; i < OCTREE_CHILDREN; i++) {
+    Cell *child = this->children[i];
+    child->split();
+  }
+}
+
+#ifdef DEBUGGING_CHECKS
+// Make sure the sum of child particle counts is the same as the parent
+size_t child_part_count = 0;
+for (int i = 0; i < OCTREE_CHILDREN; i++) {
+  child_part_count += this->children[i]->part_count;
+}
+if (child_part_count != this->part_count)
+  error("Particle count mismatch in cell (child_part_count = %d, "
+        "this->part_count = %d)",
+        child_part_count, this->part_count);
+
+// Make sure the sum of the child grid point counts is the same as the
+// parent
+size_t child_grid_point_count = 0;
+for (int i = 0; i < OCTREE_CHILDREN; i++) {
+  child_grid_point_count += this->children[i]->grid_points.size();
+}
+if (child_grid_point_count != this->grid_points.size())
+  error("Grid point count mismatch in cell %d (child_grid_point_count = "
+        "%d, "
+        "this->grid_points.size = %d)",
+        this->ph_ind, child_grid_point_count, this->grid_points.size());
 #endif
 }
 
