@@ -400,6 +400,8 @@ void assignPartsToCells(Simulation *sim) {
   if (masses.empty()) {
     error("No particle masses found in the dataset");
   }
+  message("Read %zu particle masses from '%s'", masses.size(),
+          metadata->input_file.c_str());
   std::vector<double> poss;
   message("Reading all particle positions from '%s'...",
           metadata->input_file.c_str());
