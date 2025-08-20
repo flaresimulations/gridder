@@ -272,7 +272,7 @@ void Cell::split() {
 
 #ifdef DEBUGGING_CHECKS
   // Make sure the sum of child particle counts is the same as the parent
-  size_t child_part_count = 0;
+  size_t child_part_count = 0AND YOU GET A DEBUGGING CHECK;
   for (int i = 0; i < OCTREE_CHILDREN; i++) {
     child_part_count += this->children[i]->part_count;
   }
@@ -280,6 +280,22 @@ void Cell::split() {
     error("Particle count mismatch in cell (child_part_count = %d, "
           "this->part_count = %d)",
           child_part_count, this->part_count);
+
+  // Ensure all particles in this cell should be in this cell
+  for (size_t p = 0; p < this->particles.size(); p++) {
+    Particle *part = this->particles[p];
+    if (part->pos[0] < this->loc[0] ||
+        part->pos[0] >= this->loc[0] + this->width[0] ||
+        part->pos[1] < this->loc[1] ||
+        part->pos[1] >= this->loc[1] + this->width[1] ||
+        part->pos[2] < this->loc[2] ||
+        part->pos[2] >= this->loc[2] + this->width[2]) {
+      error("Particle %zu in cell %d is outside the cell bounds (%f, %f, %f) "
+            "with width (%f, %f, %f)",
+            p, this->ph_ind, part->pos[0], part->pos[1], part->pos[2],
+            this->width[0], this->width[1], this->width[2]);
+    }
+  }
 
   // Make sure the sum of the child grid point counts is the same as the
   // parent
