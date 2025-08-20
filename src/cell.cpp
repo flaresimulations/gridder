@@ -366,6 +366,8 @@ void assignPartsToCells(Simulation *sim) {
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
 
+  message("Reading particle data from '%s'...", metadata->input_file.c_str());
+
 #ifdef WITH_MPI
   // Read the particle data slice for this rank
   std::vector<double> masses;
@@ -399,12 +401,22 @@ void assignPartsToCells(Simulation *sim) {
   }
 #endif
 
+  message("Read %zu particles from '%s'", masses.size(),
+          metadata->input_file.c_str());
+
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
+    message("Assigning particles to cell %zu...", cid);
+
     // Get the cell
     Cell *cell = &cells[cid];
+
+    message("Cell %zu: loc=(%f, %f, %f), width=(%f, %f, %f), "
+            "part_count=%zu",
+            cid, cell->loc[0], cell->loc[1], cell->loc[2], cell->width[0],
+            cell->width[1], cell->width[2], cell->part_count);
 
     // Skip unuseful cells
     if (!cell->is_useful)
