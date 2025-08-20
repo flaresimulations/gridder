@@ -357,9 +357,9 @@ Cell *getCellContainingPoint(const double pos[3]) {
   Simulation *sim = metadata->sim;
 
   // Get the cell index
-  int i = static_cast<int>(pos[0] / sim->width[0]);
-  int j = static_cast<int>(pos[1] / sim->width[1]);
-  int k = static_cast<int>(pos[2] / sim->width[2]);
+  int i = static_cast<int>(std::floor(pos[0] * sim->inv_width[0]));
+  int j = static_cast<int>(std::floor(pos[1] * sim->inv_width[1]));
+  int k = static_cast<int>(std::floor(pos[2] * sim->inv_width[2]));
 
   // Get the cell index
   int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
@@ -382,9 +382,9 @@ int getCellIndexContainingPoint(const double pos[3]) {
   Simulation *sim = metadata->sim;
 
   // Get the cell index
-  int i = static_cast<int>(pos[0] / sim->width[0]);
-  int j = static_cast<int>(pos[1] / sim->width[1]);
-  int k = static_cast<int>(pos[2] / sim->width[2]);
+  int i = static_cast<int>(std::floor(pos[0] * sim->inv_width[0]));
+  int j = static_cast<int>(std::floor(pos[1] * sim->inv_width[1]));
+  int k = static_cast<int>(std::floor(pos[2] * sim->inv_width[2]));
 
   // Get the cell index
   return (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;

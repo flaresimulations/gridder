@@ -73,6 +73,11 @@ void Simulation::readSimulationData() {
   hdf.readAttribute<double[3]>(std::string("Header"), std::string("BoxSize"),
                                this->dim);
 
+  // Compute the inverse width of the cells
+  for (int i = 0; i < 3; i++) {
+    this->inv_width[i] = 1.0 / this->width[i];
+  }
+
   // Count the cells
   this->nr_cells = this->cdim[0] * this->cdim[1] * this->cdim[2];
 
