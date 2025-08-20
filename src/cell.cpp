@@ -419,6 +419,13 @@ void assignPartsToCells(Simulation *sim) {
     int count = counts[cid];
     total_part_count += count;
 
+#ifdef DEBUGGING_CHECKS
+    // Report the number of particles in this cell
+    message(
+        "Cell %zu has %d particles (offset: %d, count: %d, total_so_far: %zu)",
+        cid, count, offset, count, total_part_count);
+#endif
+
     // Reserve space for the particles in the cell
     try {
       cell->particles.reserve(count);
