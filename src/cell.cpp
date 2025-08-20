@@ -369,6 +369,9 @@ void assignPartsToCells(Simulation *sim) {
   message("Reading particle data from '%s'...", metadata->input_file.c_str());
 
 #ifdef WITH_MPI
+  message("Reading particle data (local = %d, total = %d, first_local = %d)...",
+          metadata->nr_local_particles, metadata->nr_particles,
+          metadata->first_local_part_ind);
   // Read the particle data slice for this rank
   std::vector<double> masses;
   std::array<long unsigned int, 1> mass_dims = {
