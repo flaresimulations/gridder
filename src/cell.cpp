@@ -805,16 +805,16 @@ void checkAndMoveParticles(Simulation *sim) {
                 part->pos[0], part->pos[1], part->pos[2], cid,
                 containing_cell->ph_ind);
         }
-      }
 
-      if (part->pos[0] < cell->loc[0] ||
-          part->pos[0] >= cell->loc[0] + cell->width[0] ||
-          part->pos[1] < cell->loc[1] ||
-          part->pos[1] >= cell->loc[1] + cell->width[1] ||
-          part->pos[2] < cell->loc[2] ||
-          part->pos[2] >= cell->loc[2] + cell->width[2]) {
-        error("Particle at (%f, %f, %f) in cell %zu is out of bounds",
-              part->pos[0], part->pos[1], part->pos[2], cid);
+        if (part->pos[0] < cell->loc[0] ||
+            part->pos[0] >= cell->loc[0] + cell->width[0] ||
+            part->pos[1] < cell->loc[1] ||
+            part->pos[1] >= cell->loc[1] + cell->width[1] ||
+            part->pos[2] < cell->loc[2] ||
+            part->pos[2] >= cell->loc[2] + cell->width[2]) {
+          error("Particle at (%f, %f, %f) in cell %zu is out of bounds",
+                part->pos[0], part->pos[1], part->pos[2], cid);
+        }
       }
     }
   }
