@@ -88,9 +88,7 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
           e.what());
   }
 
-  // Create the grid points (we'll loop over every individual grid point for
-  // better parallelism)
-#pragma omp parallel for
+  // Create the grid points
   for (int gid = 0; gid < n_grid_points; gid++) {
 
     // Convert the flat index to the ijk coordinates of the grid point
@@ -112,19 +110,14 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
     }
 #endif
 
-#pragma omp critical
-    {
-      // Create the grid point and add it to the vector
-      // TODO: We could use a tbb::concurrent_vector for grid points to
-      // avoid the need for a critical section here
-      try {
-        grid->grid_points.emplace_back(loc);
-      } catch (const std::bad_alloc& e) {
-        error("Memory allocation failed while creating grid point %d "
-              "(current size: %zu). System out of memory. "
-              "Try reducing n_grid_points parameter. Error: %s", 
-              gid, grid->grid_points.size(), e.what());
-      }
+    // Create the grid point and add it to the vector
+    try {
+      grid->grid_points.emplace_back(loc);
+    } catch (const std::bad_alloc& e) {
+      error("Memory allocation failed while creating grid point %d "
+            "(current size: %zu). System out of memory. "
+            "Try reducing n_grid_points parameter. Error: %s", 
+            gid, grid->grid_points.size(), e.what());
     }
   }
 
