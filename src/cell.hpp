@@ -30,6 +30,7 @@ public:
   static constexpr int OCTREE_CHILDREN = 8;
   static constexpr int OCTREE_DIM = 2; // 2x2x2 = 8 children
   static constexpr int SPATIAL_DIMS = 3;
+  static constexpr int MAX_OCTREE_DEPTH = 64;
   //! Cell location
   double loc[3];
 

@@ -1,6 +1,7 @@
 // Standard includes
 #include <cmath>
 #include <memory>
+#include <new>
 #include <random>
 #include <vector>
 
@@ -76,7 +77,16 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
           grid_spacing[2]);
 
   // Reserve space for grid points to avoid reallocations
-  grid->grid_points.reserve(n_grid_points);
+  try {
+    grid->grid_points.reserve(n_grid_points);
+  } catch (const std::bad_alloc& e) {
+    error("Memory allocation failed while reserving space for %d grid points. "
+          "Try reducing n_grid_points parameter (current: %d). "
+          "Estimated memory needed: %.2f GB. Error: %s", 
+          n_grid_points, n_grid_points, 
+          (n_grid_points * sizeof(GridPoint)) / (1024.0 * 1024.0 * 1024.0), 
+          e.what());
+  }
 
   // Create the grid points (we'll loop over every individual grid point for
   // better parallelism)
@@ -107,7 +117,14 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
       // Create the grid point and add it to the vector
       // TODO: We could use a tbb::concurrent_vector for grid points to
       // avoid the need for a critical section here
-      grid->grid_points.emplace_back(loc);
+      try {
+        grid->grid_points.emplace_back(loc);
+      } catch (const std::bad_alloc& e) {
+        error("Memory allocation failed while creating grid point %d "
+              "(current size: %zu). System out of memory. "
+              "Try reducing n_grid_points parameter. Error: %s", 
+              gid, grid->grid_points.size(), e.what());
+      }
     }
   }
 
@@ -147,7 +164,12 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
   std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
   std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
 
-  grid->grid_points.reserve(target_points);
+  try {
+    grid->grid_points.reserve(target_points);
+  } catch (const std::bad_alloc& e) {
+    error("Memory allocation failed while reserving space for %d random grid points. "
+          "Try reducing n_grid_points parameter. Error: %s", target_points, e.what());
+  }
 
   int generated = 0;
   while (generated < target_points) {
@@ -156,8 +178,14 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
     // Check if this point is in a cell we own
     Cell *cell = getCellContainingPoint(loc);
     if (cell->rank == metadata->rank) {
-      grid->grid_points.emplace_back(loc);
-      generated++;
+      try {
+        grid->grid_points.emplace_back(loc);
+        generated++;
+      } catch (const std::bad_alloc& e) {
+        error("Memory allocation failed while creating random grid point %d. "
+              "System out of memory. Try reducing n_grid_points parameter. "
+              "Error: %s", generated, e.what());
+      }
     }
     // If not our cell, discard and try again
   }
@@ -172,11 +200,22 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
   std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
   std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
 
-  grid->grid_points.reserve(nr_grid_points);
+  try {
+    grid->grid_points.reserve(nr_grid_points);
+  } catch (const std::bad_alloc& e) {
+    error("Memory allocation failed while reserving space for %d random grid points. "
+          "Try reducing n_grid_points parameter. Error: %s", nr_grid_points, e.what());
+  }
 
   for (int gid = 0; gid < nr_grid_points; gid++) {
     double loc[3] = {dist_x(rng), dist_y(rng), dist_z(rng)};
-    grid->grid_points.emplace_back(loc);
+    try {
+      grid->grid_points.emplace_back(loc);
+    } catch (const std::bad_alloc& e) {
+      error("Memory allocation failed while creating random grid point %d. "
+            "System out of memory. Try reducing n_grid_points parameter. "
+            "Error: %s", gid, e.what());
+    }
   }
 #endif
 

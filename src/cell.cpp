@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -174,6 +175,16 @@ void Cell::split() {
     return;
   }
 
+  // Prevent infinite recursion from co-located particles
+  if (this->depth >= Cell::MAX_OCTREE_DEPTH) {
+    error("Maximum octree depth (%d) exceeded at cell with %zu particles. "
+          "This indicates co-located particles or numerical precision issues. "
+          "Cell location: [%f, %f, %f], width: [%f, %f, %f]",
+          Cell::MAX_OCTREE_DEPTH, this->part_count,
+          this->loc[0], this->loc[1], this->loc[2],
+          this->width[0], this->width[1], this->width[2]);
+  }
+
   // Flag that we are splitting this cell
   this->is_split = true;
 
@@ -191,7 +202,15 @@ void Cell::split() {
         new_loc[2] = this->loc[2] + k * new_width[2];
 
         // Create child cell using raw pointer allocation
-        Cell *child = new Cell(new_loc, new_width, this, this->top);
+        Cell *child = nullptr;
+        try {
+          child = new Cell(new_loc, new_width, this, this->top);
+        } catch (const std::bad_alloc& e) {
+          error("Memory allocation failed while creating child cell (depth=%d, "
+                "particles=%zu). System out of memory. Try reducing n_grid_points "
+                "or max_leaf_count parameters. Error: %s", 
+                this->depth, this->part_count, e.what());
+        }
 
 #ifdef WITH_MPI
         // Set the rank of the child
@@ -207,9 +226,17 @@ void Cell::split() {
               this->particles[p]->pos[1] < new_loc[1] + new_width[1] &&
               this->particles[p]->pos[2] >= new_loc[2] &&
               this->particles[p]->pos[2] < new_loc[2] + new_width[2]) {
-            child->particles.push_back(this->particles[p]);
-            child->part_count++;
-            child->mass += this->particles[p]->mass;
+            try {
+              child->particles.push_back(this->particles[p]);
+              child->part_count++;
+              child->mass += this->particles[p]->mass;
+            } catch (const std::bad_alloc& e) {
+              error("Memory allocation failed while splitting cell (depth=%d, "
+                    "particles=%zu, child_particles=%zu). "
+                    "Try reducing n_grid_points or max_leaf_count parameters. "
+                    "Error: %s", this->depth, this->part_count, 
+                    child->part_count, e.what());
+            }
           }
         }
 
@@ -221,7 +248,15 @@ void Cell::split() {
               this->grid_points[p]->loc[1] < new_loc[1] + new_width[1] &&
               this->grid_points[p]->loc[2] >= new_loc[2] &&
               this->grid_points[p]->loc[2] < new_loc[2] + new_width[2]) {
-            child->grid_points.push_back(this->grid_points[p]);
+            try {
+              child->grid_points.push_back(this->grid_points[p]);
+            } catch (const std::bad_alloc& e) {
+              error("Memory allocation failed while assigning grid points to child cell "
+                    "(depth=%d, grid_points=%zu, child_grid_points=%zu). "
+                    "Try reducing n_grid_points parameter. Error: %s", 
+                    this->depth, this->grid_points.size(), 
+                    child->grid_points.size(), e.what());
+            }
           }
         }
 
@@ -400,13 +435,27 @@ void assignPartsToCells(Simulation *sim) {
       const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
 
       // Create the particle using raw pointer allocation
-      Particle *part = new Particle(pos, mass);
+      Particle *part = nullptr;
+      try {
+        part = new Particle(pos, mass);
+      } catch (const std::bad_alloc& e) {
+        error("Memory allocation failed while creating particle %d in cell %zu. "
+              "System out of memory. Try reducing the simulation size or using "
+              "fewer grid points. Error: %s", p, cid, e.what());
+      }
 
       // Add the mass to the cell
       cell->mass += mass;
 
       // Attach the particle to the cell
-      cell->particles.push_back(part);
+      try {
+        cell->particles.push_back(part);
+      } catch (const std::bad_alloc& e) {
+        error("Memory allocation failed while adding particle to cell %zu "
+              "(current size: %zu particles). System out of memory. "
+              "Try reducing n_grid_points or max_leaf_count parameters. "
+              "Error: %s", cid, cell->particles.size(), e.what());
+      }
     }
   }
 
