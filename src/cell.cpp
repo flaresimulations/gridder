@@ -482,6 +482,15 @@ void assignPartsToCells(Simulation *sim) {
               "Error: %s",
               cid, cell->particles.size(), e.what());
       }
+
+#ifdef DEBUGGING_CHECKS
+      // Check the last particle we added is ok
+      if (cell->particles.back() == nullptr) {
+        error("Failed to add particle to cell %zu (current size: %zu "
+              "particles). System out of memory.",
+              cid, cell->particles.size());
+      }
+#endif
     }
   }
 
