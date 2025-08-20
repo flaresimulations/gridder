@@ -392,13 +392,22 @@ void assignPartsToCells(Simulation *sim) {
 #else
   // Read the particle data all at once
   std::vector<double> masses;
+  message("Reading all particle masses from '%s'...",
+          metadata->input_file.c_str());
   if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses)) {
     error("Failed to read particle masses");
   }
+  if (masses.empty()) {
+    error("No particle masses found in the dataset");
+  }
   std::vector<double> poss;
+  message("Reading all particle positions from '%s'...",
+          metadata->input_file.c_str());
   if (!hdf.readDataset<double>(std::string("PartType1/Coordinates"), poss)) {
     error("Failed to read particle positions");
   }
+  message("Read %zu particle positions from '%s'", poss.size() / 3,
+          metadata->input_file.c_str());
 #endif
 
   message("Read %zu particles from '%s'", masses.size(),
