@@ -569,8 +569,8 @@ void assignPartsToCells(Simulation *sim) {
  *
  * @param sim The simulation object.
  */
-static void checkAndMoveParticlesMPI(Simulation *sim) {
 #ifdef WITH_MPI
+static void checkAndMoveParticlesMPI(Simulation *sim) {
 
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
@@ -735,9 +735,8 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   }
 
   message("Moved %zu particles to correct cells", moved_count);
-
-#endif // WITH_MPI
 }
+#endif // WITH_MPI
 
 /**
  * @brief Make sure particles are in the right cells and move them if not.
