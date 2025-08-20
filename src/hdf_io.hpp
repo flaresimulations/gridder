@@ -352,6 +352,12 @@ bool HDF5Helper::readDataset(const std::string &datasetName,
   std::vector<hsize_t> dims(rank);
   H5Sget_simple_extent_dims(dataspace_id, dims.data(), nullptr);
 
+  // Debug: Print dimension information before calculation
+  message("HDF5Helper::readDataset: Dataset '%s' dimensions:", datasetName.c_str());
+  for (size_t i = 0; i < dims.size(); ++i) {
+      message("  Dimension %zu: %llu", i, dims[i]);
+  }
+  
   hsize_t total_elements =
       std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<hsize_t>());
   
@@ -368,7 +374,6 @@ bool HDF5Helper::readDataset(const std::string &datasetName,
           "Memory allocation failed: %s", 
           datasetName.c_str(), total_elements,
           (total_elements * sizeof(T)) / (1024.0 * 1024.0 * 1024.0), e.what());
-    H5Pclose(plist_id);
     H5Sclose(dataspace_id);
     H5Dclose(dataset_id);
     return false;
