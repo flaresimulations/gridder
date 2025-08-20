@@ -514,9 +514,9 @@ void assignPartsToCells(Simulation *sim) {
 
   // Check particles are in the right cells (but allow for some buffer
   // due to SWIFT letting particles move slightly out of their cells)
-  double buffer = cell->width[0] * 0.1; // 10% of cell width
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &cells[cid];
+    double buffer = cell->width[0] * 0.1; // 10% of cell width
     for (Particle *part : cell->particles) {
       if (part->pos[0] < cell->loc[0] - buffer ||
           part->pos[0] >= cell->loc[0] + cell->width[0] + buffer ||
