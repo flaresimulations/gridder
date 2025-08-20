@@ -283,7 +283,7 @@ int main(int argc, char *argv[]) {
 
   // Just to be safe check particles are all where they should be
   try {
-    checkAndMoveParticles(sim);
+    checkAndMoveParticles();
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
