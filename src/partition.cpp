@@ -307,6 +307,15 @@ void exchangeProxyCells(Simulation *sim) {
     Cell *cell = &sim->cells[cid];
     const std::vector<double> &recv_particle_data = recv_buffers[i];
 
+    // Reserve space for particles in the cell
+    try {
+      cell->particles.reserve(recv_particle_data.size() / 4);
+    } catch (const std::bad_alloc &e) {
+      error("Memory allocation failed while reserving space for particles in "
+            "cell %zu. System out of memory. Error: %s",
+            cid, e.what());
+    }
+
     // Data was received in the order: mass, pos[0], pos[1], pos[2] per particle
     for (size_t p = 0; p < cell->part_count; p++) {
       double mass = recv_particle_data[p * 4];
