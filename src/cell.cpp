@@ -135,22 +135,6 @@ void Cell::split() {
     sim->max_depth = this->depth;
 
 #ifdef DEBUGGING_CHECKS
-  // Ensure all the particles within this cell are in the correct place
-  for (size_t p = 0; p < this->part_count; p++) {
-    if (this->particles[p]->pos[0] < this->loc[0] ||
-        this->particles[p]->pos[0] >= this->loc[0] + this->width[0] ||
-        this->particles[p]->pos[1] < this->loc[1] ||
-        this->particles[p]->pos[1] >= this->loc[1] + this->width[1] ||
-        this->particles[p]->pos[2] < this->loc[2] ||
-        this->particles[p]->pos[2] >= this->loc[2] + this->width[2])
-      error("Particle not in correct cell: particle pos=(%f,%f,%f) but cell "
-            "bounds=[%f-%f, %f-%f, %f-%f]",
-            this->particles[p]->pos[0], this->particles[p]->pos[1],
-            this->particles[p]->pos[2], this->loc[0],
-            this->loc[0] + this->width[0], this->loc[1],
-            this->loc[1] + this->width[1], this->loc[2],
-            this->loc[2] + this->width[2]);
-  }
 
   // Ensure all the grid points within this cell are in the correct place
   for (size_t p = 0; p < this->grid_points.size(); p++) {
