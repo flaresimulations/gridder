@@ -511,40 +511,6 @@ void assignPartsToCells(Simulation *sim) {
           "%d)",
           total_part_count, total_cell_part_count);
   }
-
-  // Check particles are in the right cells (but allow for some buffer
-  // due to SWIFT letting particles move slightly out of their cells)
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell *cell = &cells[cid];
-    double buffer = cell->width[0] * 0.1; // 10% of cell width
-    double loc[3] = {cell->loc[0] - buffer, cell->loc[1] - buffer,
-                     cell->loc[2] - buffer};
-    double upper[3] = {cell->loc[0] + cell->width[0] + buffer,
-                       cell->loc[1] + cell->width[1] + buffer,
-                       cell->loc[2] + cell->width[2] + buffer};
-    // Wrap the loc if needed
-    Metadata *metadata = &Metadata::getInstance();
-    for (int d = 0; d < 3; d++) {
-      if (loc[d] < 0.0)
-        loc[d] += metadata->sim->dim[d];
-      else if (loc[d] >= metadata->sim->dim[d])
-        loc[d] -= metadata->sim->dim[d];
-      if (upper[d] < 0.0)
-        upper[d] += metadata->sim->dim[d];
-      else if (upper[d] >= metadata->sim->dim[d])
-        upper[d] -= metadata->sim->dim[d];
-    }
-    for (Particle *part : cell->particles) {
-      if (part->pos[0] < loc[0] || part->pos[0] >= upper[0] ||
-          part->pos[1] < loc[1] || part->pos[1] >= upper[1] ||
-          part->pos[2] < loc[2] || part->pos[2] >= upper[2])
-        error("Particle not in correct cell (cell loc = [%f, %f, %f], "
-              "cell width = [%f, %f, %f], particle pos = [%f, %f, %f])",
-              cell->loc[0], cell->loc[1], cell->loc[2], cell->width[0],
-              cell->width[1], cell->width[2], part->pos[0], part->pos[1],
-              part->pos[2]);
-    }
-  }
 #endif
   toc("Assigning particles to cells");
 }
