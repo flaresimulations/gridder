@@ -173,7 +173,7 @@ void splitCells(Simulation *sim);
 Cell *getCellContainingPoint(const double pos[3]);
 int getCellIndexContainingPoint(const double pos[3]);
 void assignPartsToCells(Simulation *sim);
-void checkAndMoveParticles();
+void checkAndMoveParticles(Simulation *sim);
 void assignGridPointsToCells(Simulation *sim, Grid *grid);
 
 // Prototypes for functions defined in cell_search.cpp
