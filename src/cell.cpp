@@ -351,6 +351,8 @@ void assignPartsToCells(Simulation *sim) {
 
   tic();
 
+  message("Assigning particles to cells...");
+
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
