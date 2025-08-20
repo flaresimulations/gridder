@@ -358,8 +358,13 @@ bool HDF5Helper::readDataset(const std::string &datasetName,
       message("  Dimension %zu: %llu", i, dims[i]);
   }
   
-  hsize_t total_elements =
-      std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<hsize_t>());
+  // Debug the accumulate calculation step by step
+  hsize_t total_elements = 1;
+  for (size_t i = 0; i < dims.size(); ++i) {
+      hsize_t old_total = total_elements;
+      total_elements *= dims[i];
+      message("  Step %zu: %llu × %llu = %llu", i, old_total, dims[i], total_elements);
+  }
   
   // Debug: Print resize information
   message("HDF5Helper::readDataset: Preparing vector for dataset '%s' with %llu elements (%.2f GB)", 
