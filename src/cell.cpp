@@ -421,6 +421,15 @@ void assignPartsToCells(Simulation *sim) {
     if (count == 0)
       continue;
 
+    // Allocate space for the particles in this cell
+    try {
+      cell->particles.resize(count);
+    } catch (const std::bad_alloc &e) {
+      error("Memory allocation failed while resizing particles in cell %zu. "
+            "System out of memory. Error: %s",
+            cid, e.what());
+    }
+
     // Loop over the particle data making particles
     for (size_t p = offset; p < offset + count; p++) {
 
@@ -428,23 +437,12 @@ void assignPartsToCells(Simulation *sim) {
       const double mass = masses[p];
       const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
 
-      // Create the particle using raw pointer allocation
-      Particle *part = nullptr;
-      try {
-        part = new Particle(pos, mass);
-      } catch (const std::bad_alloc &e) {
-        error(
-            "Memory allocation failed while creating particle %d in cell %zu. "
-            "System out of memory. Error: %s",
-            p, cid, e.what());
-      }
-
       // Add the mass to the cell
       cell->mass += mass;
 
       // Attach the particle to the cell
       try {
-        cell->particles.push_back(part);
+        cell->particles.emplace_back(mass, pos);
       } catch (const std::bad_alloc &e) {
         error("Memory allocation failed while adding particle to cell %zu "
               "(current size: %zu particles). System out of memory. "
