@@ -535,10 +535,8 @@ void assignPartsToCells(Simulation *sim) {
  *
  * This function is the parallel version and will also communicate any
  * particles that need to be moved to other ranks.
- *
- * @param sim The simulation object.
  */
-static void checkAndMoveParticlesMPI(Simulation *sim) {
+static void checkAndMoveParticlesMPI() {
 #ifdef WITH_MPI
 
   tic();
@@ -713,10 +711,8 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
 
 /**
  * @brief Make sure particles are in the right cells and move them if not.
- *
- * @param sim The simulation object.
  */
-void checkAndMoveParticles(Simulation *sim) {
+void checkAndMoveParticles() {
 
 #ifdef WITH_MPI
   // If we are using MPI, use the MPI version
