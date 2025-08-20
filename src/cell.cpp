@@ -374,10 +374,10 @@ void assignPartsToCells(Simulation *sim) {
           metadata->first_local_part_ind);
   // Read the particle data slice for this rank
   std::vector<double> masses;
-  std::array<long unsigned int, 1> mass_dims = {
-      static_cast<long unsigned int>(metadata->nr_local_particles)};
-  std::array<long unsigned int, 1> start_index = {
-      static_cast<long unsigned int>(metadata->first_local_part_ind)};
+  std::array<unsigned long long, 1> mass_dims = {
+      static_cast<unsigned long long>(metadata->nr_local_particles)};
+  std::array<unsigned long long, 1> start_index = {
+      static_cast<unsigned long long>(metadata->first_local_part_ind)};
   if (!hdf.readDatasetSlice<double>("PartType1/Masses", masses, start_index,
                                     mass_dims)) {
     error("Failed to read particle masses");
@@ -386,10 +386,10 @@ void assignPartsToCells(Simulation *sim) {
           metadata->input_file.c_str());
 
   std::vector<double> poss;
-  std::array<long unsigned int, 2> pos_dims = {
-      static_cast<long unsigned int>(metadata->nr_local_particles), 3};
-  std::array<long unsigned int, 2> pos_start_index = {
-      static_cast<long unsigned int>(metadata->first_local_part_ind), 0};
+  std::array<unsigned long long, 2> pos_dims = {
+      static_cast<unsigned long long>(metadata->nr_local_particles), 3};
+  std::array<unsigned long long, 2> pos_start_index = {
+      static_cast<unsigned long long>(metadata->first_local_part_ind), 0};
   message("Reading particle positions from '%s'...",
           metadata->input_file.c_str());
   if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss,
