@@ -475,7 +475,7 @@ void assignPartsToCells(Simulation *sim) {
 
       // Attach the particle to the cell
       try {
-        cell->particles.emplace_back(mass, pos);
+        cell->particles.emplace_back(new Particle(pos, mass));
       } catch (const std::bad_alloc &e) {
         error("Memory allocation failed while adding particle to cell %zu "
               "(current size: %zu particles). System out of memory. "
