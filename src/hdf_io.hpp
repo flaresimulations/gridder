@@ -227,13 +227,12 @@ protected:
                            const std::array<hsize_t, Rank> &count);
 };
 
-
 // Function prototypes for grid output (implemented in output.cpp)
 void writeGridFileSerial(Simulation *sim, Grid *grid);
 #ifdef WITH_MPI
 void writeGridFileParallel(Simulation *sim, Grid *grid);
-void createVirtualFile(const std::string &base_filename, int num_ranks, 
-                      Simulation *sim, Grid *grid);
+void createVirtualFile(const std::string &base_filename, int num_ranks,
+                       Simulation *sim, Grid *grid);
 #endif
 
 // Template implementations
