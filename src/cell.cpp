@@ -351,8 +351,6 @@ void assignPartsToCells(Simulation *sim) {
 
   tic();
 
-  message("Assigning particles to cells...");
-
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
 
@@ -366,12 +364,7 @@ void assignPartsToCells(Simulation *sim) {
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
 
-  message("Reading particle data from '%s'...", metadata->input_file.c_str());
-
 #ifdef WITH_MPI
-  message("Reading particle data (local = %d, total = %d, first_local = %d)...",
-          metadata->nr_local_particles, sim->nr_dark_matter,
-          metadata->first_local_part_ind);
   // Read the particle data slice for this rank
   std::vector<double> masses;
   std::array<unsigned long long, 1> mass_dims = {
@@ -382,47 +375,27 @@ void assignPartsToCells(Simulation *sim) {
                                     mass_dims)) {
     error("Failed to read particle masses");
   }
-  message("Read %zu particle masses from '%s'", masses.size(),
-          metadata->input_file.c_str());
 
   std::vector<double> poss;
   std::array<unsigned long long, 2> pos_dims = {
       static_cast<unsigned long long>(metadata->nr_local_particles), 3};
   std::array<unsigned long long, 2> pos_start_index = {
       static_cast<unsigned long long>(metadata->first_local_part_ind), 0};
-  message("Reading particle positions from '%s'...",
-          metadata->input_file.c_str());
   if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss,
                                     pos_start_index, pos_dims)) {
     error("Failed to read particle positions");
   }
-  message("Read %zu particle positions from '%s'", poss.size() / 3,
-          metadata->input_file.c_str());
 #else
   // Read the particle data all at once
   std::vector<double> masses;
-  message("Reading all particle masses from '%s'...",
-          metadata->input_file.c_str());
   if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses)) {
     error("Failed to read particle masses");
   }
-  if (masses.empty()) {
-    error("No particle masses found in the dataset");
-  }
-  message("Read %zu particle masses from '%s'", masses.size(),
-          metadata->input_file.c_str());
   std::vector<double> poss;
-  message("Reading all particle positions from '%s'...",
-          metadata->input_file.c_str());
   if (!hdf.readDataset<double>("PartType1/Coordinates", poss)) {
     error("Failed to read particle positions");
   }
-  message("Read %zu particle positions from '%s'", poss.size() / 3,
-          metadata->input_file.c_str());
 #endif
-
-  message("Read %zu particles from '%s'", masses.size(),
-          metadata->input_file.c_str());
 
   // Loop over cells attaching particles and grid points
   size_t total_part_count = 0;
