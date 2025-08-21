@@ -755,6 +755,8 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
       if (containing_cell->rank == metadata->rank) {
         containing_cell->addParticle(part);
         moved_count++;
+        // Remove the particle from the current cell after moving it locally
+        cell->removeParticle(part);
         continue;
       }
 
@@ -780,64 +782,56 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
     send_counts[rank] = static_cast<int>(send_particles[rank].size());
   }
 
-  // Send the counts to all ranks
-  std::vector<int> recv_counts(metadata->size * metadata->size, 0);
+  // Exchange particle counts between all ranks using Alltoall
+  std::vector<int> recv_counts(metadata->size, 0);
+  MPI_Alltoall(send_counts.data(), 1, MPI_INT, 
+               recv_counts.data(), 1, MPI_INT, MPI_COMM_WORLD);
+
+  // Now we need to send and receive the foreign particles
+  std::vector<MPI_Request> requests;
+  std::vector<std::vector<double>> send_buffers;  // Keep send buffers alive
+  std::vector<std::vector<double>> recv_buffers;
+  
+  // First, post all receives
   for (size_t rank = 0; rank < metadata->size; rank++) {
-    // If this is me, tell the recieving ranks how many particles to expect
-    if (rank == metadata->rank) {
-      MPI_Send(send_counts.data(), metadata->size, MPI_INT, rank, cid,
-               MPI_COMM_WORLD);
-    } else {
-      // Otherwise, receive the counts from the sending rank
-      MPI_Recv(recv_counts.data() + rank * metadata->size, metadata->size,
-               MPI_INT, rank, cid, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    if (recv_counts[rank] > 0 && rank != metadata->rank) {
+      // Prepare the receive buffer
+      recv_buffers.emplace_back(recv_counts[rank] * 4); // 1 mass + 3 positions
+      
+      // Post the receive
+      MPI_Request req;
+      MPI_Irecv(recv_buffers.back().data(), recv_counts[rank] * 4, MPI_DOUBLE, 
+                rank, 0, MPI_COMM_WORLD, &req);
+      requests.push_back(req);
     }
   }
-
-  // Now we need to send and recieve the foreign particles
-  std::vector<MPI_Request> requests;
-  std::vector<std::vector<double>> recv_buffers;
+  
+  // Then, post all sends
   for (size_t rank = 0; rank < metadata->size; rank++) {
+    if (!send_particles[rank].empty() && rank != metadata->rank) {
+      // Prepare the data to send
+      send_buffers.emplace_back();
+      std::vector<double> &send_buffer = send_buffers.back();
+      send_buffer.reserve(send_particles[rank].size() * 4); // 1 mass + 3 positions per particle
+      
+      for (Particle *part : send_particles[rank]) {
+        // Add the particle data to the buffer
+        send_buffer.push_back(part->mass);
+        send_buffer.push_back(part->pos[0]);
+        send_buffer.push_back(part->pos[1]);
+        send_buffer.push_back(part->pos[2]);
+      }
 
-    // If there are no particles to send to this rank, skip it
-    if (send_particles[rank].empty())
-      continue;
-
-    // Prepare the data to send
-    MPI_Request req;
-    std::vector<double> send_buffer.reserve(
-        send_particles[rank].size() * 4); // 1 mass + 3 positions per particle
-    for (Particle *part : send_particles[rank]) {
-      // Add the particle data to the buffer
-      send_buffer.push_back(part->mass);
-      send_buffer.push_back(part->pos[0]);
-      send_buffer.push_back(part->pos[1]);
-      send_buffer.push_back(part->pos[2]);
-    }
-
-    // Post the send
-    MPI_Isend(send_buffer.data(), send_buffer.size(), MPI_DOUBLE, rank, cid,
-              MPI_COMM_WORLD, &req);
-    requests.push_back(req);
-
-#ifdef DEBUGGING_CHECKS
-    message("Rellocating %zu particles to rank %d from cell %zu",
-            send_particles[rank].size(), rank, cid);
-#endif
-
-    // Do we also need to receive particles from this rank?
-    if (recv_counts[rank] > 0) {
-
-      // Prepare the receive buffer
-      std::vector<double> recv_buffer(recv_counts[rank] * 4); // 1 mass + 3 pos
-
-      // Post the receive
-      MPI_Irecv(recv_buffer.data(), recv_counts[rank] * 4, MPI_DOUBLE, rank,
-                cid, MPI_COMM_WORLD, &req);
+      // Post the send
+      MPI_Request req;
+      MPI_Isend(send_buffer.data(), send_buffer.size(), MPI_DOUBLE, rank, 0,
+                MPI_COMM_WORLD, &req);
       requests.push_back(req);
 
-      // Store the receive buffer for later processing
-      recv_buffers.push_back(std::move(recv_buffer));
+#ifdef DEBUGGING_CHECKS
+      message("Relocating %zu particles to rank %zu", 
+              send_particles[rank].size(), rank);
+#endif
     }
   }
 
@@ -851,13 +845,15 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   }
 
   // Now process the received particles
+  size_t recv_buffer_idx = 0;
   for (size_t rank = 0; rank < metadata->size; rank++) {
     // If there are no particles to receive from this rank, skip it
-    if (recv_counts[rank] == 0)
+    if (recv_counts[rank] == 0 || rank == metadata->rank)
       continue;
 
     // Get the receive buffer for this rank
-    std::vector<double> &recv_buffer = recv_buffers[rank];
+    std::vector<double> &recv_buffer = recv_buffers[recv_buffer_idx];
+    recv_buffer_idx++;
 
     // Loop over the received particles
     for (size_t i = 0; i < recv_counts[rank]; i++) {
@@ -867,7 +863,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
                        recv_buffer[i * 4 + 3]};
 
       // Create a new particle and add it to the correct cell
-      Particle *part = new Particle(mass, pos);
+      Particle *part = new Particle(pos, mass);
       Cell *containing_cell = getCellContainingPoint(pos);
       containing_cell->addParticle(part);
       moved_count++;
