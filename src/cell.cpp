@@ -795,6 +795,9 @@ void checkAndMoveParticles(Simulation *sim) {
     // Get the cell
     Cell *cell = &cells[cid];
 
+    // Define a new vector to hold the particles that are in this cell
+    std::vector<Particle *> particles_in_cell;
+
     // Loop over the particles in this cell
     for (size_t p = 0; p < cell->part_count; p++) {
 
@@ -805,15 +808,22 @@ void checkAndMoveParticles(Simulation *sim) {
       Cell *containing_cell = getCellContainingPoint(part->pos);
 
       // If the particle is in the right cell, continue
-      if (containing_cell == cell)
+      if (containing_cell == cell) {
+        particles_in_cell.push_back(part);
         continue;
+      }
 
       // Otherwise, move it into the correct cell
       containing_cell->addParticle(part);
       moved_count++;
+    }
 
-      // Remove the particle from the current cell
-      cell->removeParticle(part);
+    // Update the cell's particles to only those that are in this cell
+    cell->particles.clear();
+    cell->particles.reserve(particles_in_cell.size());
+    cell->part_count = particles_in_cell.size();
+    for (Particle *part : particles_in_cell) {
+      cell->particles.push_back(part);
     }
   }
 
