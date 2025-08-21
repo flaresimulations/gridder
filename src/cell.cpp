@@ -185,6 +185,13 @@ void Cell::split() {
                          this->width[2] / 2.0};
 
   // Check we actually need to split
+  // Don't split cells with no grid points - they don't contribute to density calculations
+  if (this->grid_points.size() == 0) {
+    this->is_split = false;
+    return;
+  }
+  
+  // For cells with grid points, apply the standard splitting criteria
   if (this->part_count < metadata->max_leaf_count &&
       this->grid_points.size() <= 1) {
     this->is_split = false;
@@ -899,6 +906,17 @@ void checkAndMoveParticles(Simulation *sim) {
 
     // Get the cell
     Cell *cell = &cells[cid];
+
+    // Skip cells with no particles
+    if (cell->part_count == 0 || cell->particles.empty()) {
+      continue;
+    }
+    
+    // Ensure part_count matches actual particle vector size
+    if (cell->part_count != cell->particles.size()) {
+      error("Particle count mismatch in cell %zu: part_count=%zu, particles.size()=%zu", 
+            cid, cell->part_count, cell->particles.size());
+    }
 
     // Loop over the particles in this cell (backwards to handle removal safely)
     for (size_t p = cell->part_count; p > 0; p--) {
