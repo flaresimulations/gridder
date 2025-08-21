@@ -81,17 +81,45 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
                  this->width[1] * this->width[1] +
                  this->width[2] * this->width[2];
 
-  // Get the distance between the grid point and the cell centre
+  // Get the distance between the grid point and the cell centre, accounting
+  // for periodic boundary conditions using the nearest function
   double dx = nearest(grid_point->loc[0] - cell_centre[0], dim[0]);
+  double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
+  double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
+  
+  // If the grid point is within the cell extent in a given dimension, then the
+  // minimum distance in that dimension is zero (the grid point overlaps the cell)
   if (fabs(dx) < this->width[0] / 2.0)
     dx = 0.0;
-  double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
   if (fabs(dy) < this->width[1] / 2.0)
     dy = 0.0;
-  double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
   if (fabs(dz) < this->width[2] / 2.0)
     dz = 0.0;
+  
+  // If the grid point is not within the cell extent in a dimension, calculate
+  // the distance to the nearest cell face in that dimension, accounting for
+  // periodic boundary wrapping
+  if (dx != 0.0)
+    dx = fabs(dx) - this->width[0] / 2.0;
+  if (dy != 0.0)
+    dy = fabs(dy) - this->width[1] / 2.0;
+  if (dz != 0.0)
+    dz = fabs(dz) - this->width[2] / 2.0;
+  
+  // Ensure all distances are non-negative (should already be the case, but
+  // adding this as a safety check)
+  dx = std::max(0.0, dx);
+  dy = std::max(0.0, dy);
+  dz = std::max(0.0, dz);
+  
+  // Calculate the squared distance from the grid point to the nearest point
+  // on the cell boundary
   double r2 = dx * dx + dy * dy + dz * dz;
+  
+  // Subtract the cell diagonal (with a safety factor) to account for the fact
+  // that particles can be anywhere within the cell. We want to be conservative
+  // and only return "outside" if we're absolutely certain that NO particle in
+  // this cell could possibly be within the kernel radius.
   r2 -= 1.1 * diag2; // Add a little bit of padding
 
 #ifdef DEBUGGING_CHECKS
