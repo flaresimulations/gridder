@@ -302,14 +302,34 @@ Parameters *parseParams(const std::string &filename) {
        * data type. */
       Param value = stringToVariant(valueStr);
 
-      /* Store the key-value pair using the right data type. */
-      if (std::holds_alternative<int>(value)) {
-        params->setParameter(parentKey + "/" + key, std::get<int>(value));
-      } else if (std::holds_alternative<double>(value)) {
-        params->setParameter(parentKey + "/" + key, std::get<double>(value));
-      } else if (std::holds_alternative<std::string>(value)) {
-        params->setParameter(parentKey + "/" + key,
-                             std::get<std::string>(value));
+      /* Special handling for kernel_radius_* parameters - force them to be doubles */
+      if (parentKey == "Kernels" && key.find("kernel_radius_") == 0) {
+        if (std::holds_alternative<int>(value)) {
+          // Convert int to double for kernel radius parameters
+          double doubleValue = static_cast<double>(std::get<int>(value));
+          params->setParameter(parentKey + "/" + key, doubleValue);
+        } else if (std::holds_alternative<double>(value)) {
+          params->setParameter(parentKey + "/" + key, std::get<double>(value));
+        } else {
+          // If it's a string, try to parse as double
+          std::istringstream iss(std::get<std::string>(value));
+          double doubleValue;
+          if (iss >> doubleValue) {
+            params->setParameter(parentKey + "/" + key, doubleValue);
+          } else {
+            throw std::runtime_error("Invalid kernel radius value: " + std::get<std::string>(value));
+          }
+        }
+      } else {
+        /* Store the key-value pair using the right data type. */
+        if (std::holds_alternative<int>(value)) {
+          params->setParameter(parentKey + "/" + key, std::get<int>(value));
+        } else if (std::holds_alternative<double>(value)) {
+          params->setParameter(parentKey + "/" + key, std::get<double>(value));
+        } else if (std::holds_alternative<std::string>(value)) {
+          params->setParameter(parentKey + "/" + key,
+                               std::get<std::string>(value));
+        }
       }
     }
   }
