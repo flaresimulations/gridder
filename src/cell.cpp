@@ -657,6 +657,9 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
               "for rank %d. System out of memory. Error: %s",
               target_rank, e.what());
       }
+
+      // Remove the particle from the current cell
+      cell->removeParticle(part);
     }
   }
 
