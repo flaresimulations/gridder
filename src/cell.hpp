@@ -162,6 +162,13 @@ public:
                      const double kernel_rad2) const;
   void split();
   void addParticle(Particle *part);
+  void removeParticle(Particle *part) {
+    auto it = std::find(this->particles.begin(), this->particles.end(), part);
+    if (it != this->particles.end()) {
+      this->particles.erase(it);
+      this->part_count--;
+    }
+  }
   void addGridPoint(GridPoint *grid_point) {
     this->grid_points.push_back(grid_point);
   }

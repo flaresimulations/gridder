@@ -808,6 +808,9 @@ void checkAndMoveParticles(Simulation *sim) {
       // Otherwise, move it into the correct cell
       containing_cell->addParticle(part);
       moved_count++;
+
+      // Remove the particle from the current cell
+      cell->removeParticle(part);
     }
   }
 
