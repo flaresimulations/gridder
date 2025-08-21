@@ -368,8 +368,26 @@ Cell *getCellContainingPoint(const double pos[3]) {
   // Get the cell index
   int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
 
-  // Return the cell
-  return &sim->cells[cid];
+  // Get the cell
+  struct Cell *cell = &sim->cells[cid];
+
+#ifdef DEBUGGING_CHECKS
+  // Check if the cell is valid
+  if (cell == nullptr) {
+    error("Cell is null for position (%f, %f, %f) at index (%d, %d, %d)",
+          pos[0], pos[1], pos[2], i, j, k);
+  }
+
+  // Ensure the position is actually within the cell bounds
+  if (pos[0] < cell->loc[0] || pos[0] >= cell->loc[0] + cell->width[0] ||
+      pos[1] < cell->loc[1] || pos[1] >= cell->loc[1] + cell->width[1] ||
+      pos[2] < cell->loc[2] || pos[2] >= cell->loc[2] + cell->width[2]) {
+    error("Position (%f, %f, %f) is outside the bounds of cell %d "
+          "(bounds: [%f, %f, %f], width: [%f, %f, %f])",
+          pos[0], pos[1], pos[2], cid, cell->loc[0], cell->loc[1], cell->loc[2],
+          cell->width[0], cell->width[1], cell->width[2]);
+  }
+#endif // DEBUGGING_CHECKS
 }
 
 /**
