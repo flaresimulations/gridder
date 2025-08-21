@@ -369,7 +369,7 @@ Cell *getCellContainingPoint(const double pos[3]) {
   int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
 
   // Get the cell
-  struct Cell *cell = &sim->cells[cid];
+  class Cell *cell = &sim->cells[cid];
 
 #ifdef DEBUGGING_CHECKS
   // Check if the cell is valid
@@ -388,6 +388,8 @@ Cell *getCellContainingPoint(const double pos[3]) {
           cell->width[0], cell->width[1], cell->width[2]);
   }
 #endif // DEBUGGING_CHECKS
+
+  return cell;
 }
 
 /**
