@@ -356,14 +356,28 @@ Cell *getCellContainingPoint(const double pos[3]) {
   Metadata *metadata = &Metadata::getInstance();
   Simulation *sim = metadata->sim;
 
+  // Wrap coordinates to handle periodic boundaries and floating point precision
+  double wrapped_pos[3];
+  wrapped_pos[0] = fmod(pos[0], sim->dim[0]);
+  if (wrapped_pos[0] < 0.0) wrapped_pos[0] += sim->dim[0];
+  wrapped_pos[1] = fmod(pos[1], sim->dim[1]);
+  if (wrapped_pos[1] < 0.0) wrapped_pos[1] += sim->dim[1];
+  wrapped_pos[2] = fmod(pos[2], sim->dim[2]);
+  if (wrapped_pos[2] < 0.0) wrapped_pos[2] += sim->dim[2];
+
   // Get the cell index
   const double eps = 1e-12;
-  double x = pos[0] * sim->inv_width[0] + eps;
-  double y = pos[1] * sim->inv_width[1] + eps;
-  double z = pos[2] * sim->inv_width[2] + eps;
+  double x = wrapped_pos[0] * sim->inv_width[0] + eps;
+  double y = wrapped_pos[1] * sim->inv_width[1] + eps;
+  double z = wrapped_pos[2] * sim->inv_width[2] + eps;
   int i = static_cast<int>(std::floor(x));
   int j = static_cast<int>(std::floor(y));
   int k = static_cast<int>(std::floor(z));
+
+  // Ensure indices are within bounds (additional safety)
+  i = std::max(0, std::min(i, static_cast<int>(sim->cdim[0]) - 1));
+  j = std::max(0, std::min(j, static_cast<int>(sim->cdim[1]) - 1));
+  k = std::max(0, std::min(k, static_cast<int>(sim->cdim[2]) - 1));
 
   // Get the cell index
   int cid = (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
@@ -378,14 +392,41 @@ Cell *getCellContainingPoint(const double pos[3]) {
           pos[0], pos[1], pos[2], i, j, k);
   }
 
-  // Ensure the position is actually within the cell bounds
-  if (pos[0] < cell->loc[0] || pos[0] >= cell->loc[0] + cell->width[0] ||
-      pos[1] < cell->loc[1] || pos[1] >= cell->loc[1] + cell->width[1] ||
-      pos[2] < cell->loc[2] || pos[2] >= cell->loc[2] + cell->width[2]) {
-    error("Position (%f, %f, %f) is outside the bounds of cell %d "
-          "(bounds: [%f, %f, %f], width: [%f, %f, %f])",
-          pos[0], pos[1], pos[2], cid, cell->loc[0], cell->loc[1], cell->loc[2],
-          cell->width[0], cell->width[1], cell->width[2]);
+  // Validate that we calculated the correct cell index
+  if (cid < 0 || cid >= static_cast<int>(sim->nr_cells)) {
+    error("Calculated cell index %d is out of bounds [0, %zu) for position (%f, %f, %f) "
+          "[wrapped: (%f, %f, %f)] with indices (%d, %d, %d)",
+          cid, sim->nr_cells, pos[0], pos[1], pos[2], 
+          wrapped_pos[0], wrapped_pos[1], wrapped_pos[2], i, j, k);
+  }
+
+  // Ensure the wrapped position is actually within the cell bounds
+  if (wrapped_pos[0] < cell->loc[0] || wrapped_pos[0] >= cell->loc[0] + cell->width[0] ||
+      wrapped_pos[1] < cell->loc[1] || wrapped_pos[1] >= cell->loc[1] + cell->width[1] ||
+      wrapped_pos[2] < cell->loc[2] || wrapped_pos[2] >= cell->loc[2] + cell->width[2]) {
+    error("Position (%f, %f, %f) [wrapped: (%f, %f, %f)] is outside the bounds of cell %d "
+          "(bounds: [%f-%f, %f-%f, %f-%f]) with calculated indices (%d, %d, %d)",
+          pos[0], pos[1], pos[2], wrapped_pos[0], wrapped_pos[1], wrapped_pos[2],
+          cid, cell->loc[0], cell->loc[0] + cell->width[0],
+          cell->loc[1], cell->loc[1] + cell->width[1],
+          cell->loc[2], cell->loc[2] + cell->width[2], i, j, k);
+  }
+
+  // Double check: recalculate what the indices should be for this cell
+  int expected_i = static_cast<int>((cell->loc[0] + cell->width[0]/2.0) * sim->inv_width[0]);
+  int expected_j = static_cast<int>((cell->loc[1] + cell->width[1]/2.0) * sim->inv_width[1]);
+  int expected_k = static_cast<int>((cell->loc[2] + cell->width[2]/2.0) * sim->inv_width[2]);
+  expected_i = std::max(0, std::min(expected_i, static_cast<int>(sim->cdim[0]) - 1));
+  expected_j = std::max(0, std::min(expected_j, static_cast<int>(sim->cdim[1]) - 1));
+  expected_k = std::max(0, std::min(expected_k, static_cast<int>(sim->cdim[2]) - 1));
+  int expected_cid = (expected_i * sim->cdim[1] * sim->cdim[2]) + (expected_j * sim->cdim[2]) + expected_k;
+  
+  if (expected_cid != cid) {
+    error("Cell index mismatch: calculated %d but expected %d for position (%f, %f, %f) "
+          "[wrapped: (%f, %f, %f)]. Calculated indices (%d, %d, %d), expected (%d, %d, %d)",
+          cid, expected_cid, pos[0], pos[1], pos[2], 
+          wrapped_pos[0], wrapped_pos[1], wrapped_pos[2],
+          i, j, k, expected_i, expected_j, expected_k);
   }
 #endif // DEBUGGING_CHECKS
 
@@ -405,14 +446,28 @@ int getCellIndexContainingPoint(const double pos[3]) {
   Metadata *metadata = &Metadata::getInstance();
   Simulation *sim = metadata->sim;
 
+  // Wrap coordinates to handle periodic boundaries and floating point precision
+  double wrapped_pos[3];
+  wrapped_pos[0] = fmod(pos[0], sim->dim[0]);
+  if (wrapped_pos[0] < 0.0) wrapped_pos[0] += sim->dim[0];
+  wrapped_pos[1] = fmod(pos[1], sim->dim[1]);
+  if (wrapped_pos[1] < 0.0) wrapped_pos[1] += sim->dim[1];
+  wrapped_pos[2] = fmod(pos[2], sim->dim[2]);
+  if (wrapped_pos[2] < 0.0) wrapped_pos[2] += sim->dim[2];
+
   // Get the cell index
   const double eps = 1e-12;
-  double x = pos[0] * sim->inv_width[0] + eps;
-  double y = pos[1] * sim->inv_width[1] + eps;
-  double z = pos[2] * sim->inv_width[2] + eps;
+  double x = wrapped_pos[0] * sim->inv_width[0] + eps;
+  double y = wrapped_pos[1] * sim->inv_width[1] + eps;
+  double z = wrapped_pos[2] * sim->inv_width[2] + eps;
   int i = static_cast<int>(std::floor(x));
   int j = static_cast<int>(std::floor(y));
   int k = static_cast<int>(std::floor(z));
+
+  // Ensure indices are within bounds (additional safety)
+  i = std::max(0, std::min(i, static_cast<int>(sim->cdim[0]) - 1));
+  j = std::max(0, std::min(j, static_cast<int>(sim->cdim[1]) - 1));
+  k = std::max(0, std::min(k, static_cast<int>(sim->cdim[2]) - 1));
 
   // Get the cell index
   return (i * sim->cdim[1] * sim->cdim[2]) + (j * sim->cdim[2]) + k;
@@ -831,12 +886,16 @@ void checkAndMoveParticles(Simulation *sim) {
       for (Particle *part : cell->particles) {
         Cell *containing_cell = getCellContainingPoint(part->pos);
         if (containing_cell != cell) {
+          int correct_cid = getCellIndexContainingPoint(part->pos);
           error("Particle at (%f, %f, %f) in cell %zu (%f-%f, %f-%f, %f-%f) "
-                "is in the wrong cell",
+                "is in the wrong cell. getCellContainingPoint says it should be in cell %d (%f-%f, %f-%f, %f-%f)",
                 part->pos[0], part->pos[1], part->pos[2], cid, cell->loc[0],
                 cell->loc[0] + cell->width[0], cell->loc[1],
                 cell->loc[1] + cell->width[1], cell->loc[2],
-                cell->loc[2] + cell->width[2]);
+                cell->loc[2] + cell->width[2], correct_cid,
+                containing_cell->loc[0], containing_cell->loc[0] + containing_cell->width[0],
+                containing_cell->loc[1], containing_cell->loc[1] + containing_cell->width[1],
+                containing_cell->loc[2], containing_cell->loc[2] + containing_cell->width[2]);
         }
 
         if (part->pos[0] < cell->loc[0] ||
