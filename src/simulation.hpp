@@ -33,6 +33,9 @@ public:
   //! The width of a cell
   double width[3];
 
+  //! The inverse of the width of a cell
+  double inv_width[3];
+
   //! The width of the simulation box
   double dim[3];
 
@@ -52,8 +55,6 @@ public:
   //! An array of the cells
   std::vector<Cell> cells;
 
-
-
   //! The number of particles in each cell
   std::vector<int> cell_part_counts;
 
@@ -62,16 +63,16 @@ public:
 
   // Constructor prototype
   Simulation();
-  
+
   // Destructor prototype
   ~Simulation();
 
   // Prototype for reader function (defined in simulation.cpp)
   void readSimulationData();
-  
+
 private:
   // Helper function for cleanup
-  void deleteChildCells(Cell* cell);
+  void deleteChildCells(Cell *cell);
 };
 
 #endif // SIMULATION_HPP

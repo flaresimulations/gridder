@@ -16,6 +16,7 @@
 #endif
 
 // Local includes
+#include "logger.hpp"
 #include "metadata.hpp"
 #include "particle.hpp"
 
@@ -30,6 +31,7 @@ public:
   static constexpr int OCTREE_CHILDREN = 8;
   static constexpr int OCTREE_DIM = 2; // 2x2x2 = 8 children
   static constexpr int SPATIAL_DIMS = 3;
+  static constexpr int MAX_OCTREE_DEPTH = 64;
   //! Cell location
   double loc[3];
 
@@ -160,6 +162,19 @@ public:
   bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
   void split();
+  void addParticle(Particle *part);
+  void removeParticle(Particle *part) {
+    auto it = std::find(this->particles.begin(), this->particles.end(), part);
+    if (it != this->particles.end()) {
+      this->particles.erase(it);
+      this->part_count--;
+    } else {
+      error("Particle not found in cell when trying to remove it");
+    }
+  }
+  void addGridPoint(GridPoint *grid_point) {
+    this->grid_points.push_back(grid_point);
+  }
 };
 
 // Prototypes for functions defined in construct_cells.cpp
@@ -170,6 +185,7 @@ void splitCells(Simulation *sim);
 Cell *getCellContainingPoint(const double pos[3]);
 int getCellIndexContainingPoint(const double pos[3]);
 void assignPartsToCells(Simulation *sim);
+void checkAndMoveParticles(Simulation *sim);
 void assignGridPointsToCells(Simulation *sim, Grid *grid);
 
 // Prototypes for functions defined in cell_search.cpp

@@ -31,6 +31,19 @@ void partitionCells(Simulation *sim) {
   const int rank = metadata->rank;
   const int size = metadata->size;
 
+  // If we only have one rank, nothing to do
+  if (size <= 1) {
+    message("Only one MPI rank, no partitioning needed");
+    metadata->nr_local_cells = sim->nr_cells;
+    metadata->nr_local_particles = sim->nr_dark_matter;
+    metadata->first_local_part_ind = 0;
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+      sim->cells[cid].rank = 0; // All cells are on rank 0
+    }
+    toc("Partitioning cells");
+    return;
+  }
+
   // Intialise an array to hold the number of particles on each rank
   std::vector<int> rank_part_counts(size, 0);
 
@@ -306,6 +319,15 @@ void exchangeProxyCells(Simulation *sim) {
     size_t cid = recv_cell_ids[i];
     Cell *cell = &sim->cells[cid];
     const std::vector<double> &recv_particle_data = recv_buffers[i];
+
+    // Reserve space for particles in the cell
+    try {
+      cell->particles.reserve(recv_particle_data.size() / 4);
+    } catch (const std::bad_alloc &e) {
+      error("Memory allocation failed while reserving space for particles in "
+            "cell %zu. System out of memory. Error: %s",
+            cid, e.what());
+    }
 
     // Data was received in the order: mass, pos[0], pos[1], pos[2] per particle
     for (size_t p = 0; p < cell->part_count; p++) {

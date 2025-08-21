@@ -23,6 +23,10 @@
 HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
     : file_open(false) {
 
+#ifdef DEBUGGING_CHECKS
+  message("HDF5Helper: Opening file '%s' with access mode %u", filename.c_str(), accessMode);
+#endif
+
 #ifdef WITH_MPI
   // Get MPI info for rank identification only
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -31,10 +35,19 @@ HDF5Helper::HDF5Helper(const std::string &filename, unsigned int accessMode)
 
   // Always use serial HDF5 setup
   if (accessMode == H5F_ACC_RDONLY) {
+#ifdef DEBUGGING_CHECKS
+    message("HDF5Helper: Opening file for read-only access");
+#endif
     file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
   } else if (accessMode == H5F_ACC_RDWR) {
+#ifdef DEBUGGING_CHECKS
+    message("HDF5Helper: Opening file for read-write access");
+#endif
     file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
   } else {
+#ifdef DEBUGGING_CHECKS
+    message("HDF5Helper: Creating new file");
+#endif
     file_id = H5Fcreate(filename.c_str(), accessMode, H5P_DEFAULT, H5P_DEFAULT);
   }
 

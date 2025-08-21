@@ -227,13 +227,12 @@ protected:
                            const std::array<hsize_t, Rank> &count);
 };
 
-
 // Function prototypes for grid output (implemented in output.cpp)
 void writeGridFileSerial(Simulation *sim, Grid *grid);
 #ifdef WITH_MPI
 void writeGridFileParallel(Simulation *sim, Grid *grid);
-void createVirtualFile(const std::string &base_filename, int num_ranks, 
-                      Simulation *sim, Grid *grid);
+void createVirtualFile(const std::string &base_filename, int num_ranks,
+                       Simulation *sim, Grid *grid);
 #endif
 
 // Template implementations
@@ -246,6 +245,11 @@ bool HDF5Helper::readAttribute(const std::string &objName,
     error("Cannot read attribute: file is not open");
     return false;
   }
+
+#ifdef DEBUGGING_CHECKS
+  message("HDF5Helper::readAttribute: Reading attribute '%s' from object '%s'", 
+          attributeName.c_str(), objName.c_str());
+#endif
 
   hid_t obj_id = H5Oopen(file_id, objName.c_str(), H5P_DEFAULT);
   if (obj_id < 0) {
@@ -353,9 +357,47 @@ bool HDF5Helper::readDataset(const std::string &datasetName,
   std::vector<hsize_t> dims(rank);
   H5Sget_simple_extent_dims(dataspace_id, dims.data(), nullptr);
 
-  hsize_t total_elements =
-      std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<hsize_t>());
-  data.resize(total_elements);
+#ifdef DEBUGGING_CHECKS
+  // Debug: Print dimension information before calculation
+  message("HDF5Helper::readDataset: Dataset '%s' dimensions:", datasetName.c_str());
+  for (size_t i = 0; i < dims.size(); ++i) {
+      message("  Dimension %zu: %llu", i, dims[i]);
+  }
+#endif
+  
+  // Debug the calculation step by step (avoid std::accumulate compiler bug)
+  hsize_t total_elements = 1;
+#ifdef DEBUGGING_CHECKS
+  for (size_t i = 0; i < dims.size(); ++i) {
+      hsize_t old_total = total_elements;
+      total_elements *= dims[i];
+      message("  Step %zu: %llu × %llu = %llu", i, old_total, dims[i], total_elements);
+  }
+#else
+  for (size_t i = 0; i < dims.size(); ++i) {
+      total_elements *= dims[i];
+  }
+#endif
+  
+#ifdef DEBUGGING_CHECKS
+  // Debug: Print resize information
+  message("HDF5Helper::readDataset: Preparing vector for dataset '%s' with %llu elements (%.2f GB)", 
+          datasetName.c_str(), total_elements, 
+          (total_elements * sizeof(T)) / (1024.0 * 1024.0 * 1024.0));
+#endif
+  
+  try {
+    data.reserve(total_elements);
+    data.resize(total_elements);
+  } catch (const std::bad_alloc& e) {
+    error("Failed to allocate vector for dataset '%s' with %llu elements (%.2f GB). "
+          "Memory allocation failed: %s", 
+          datasetName.c_str(), total_elements,
+          (total_elements * sizeof(T)) / (1024.0 * 1024.0 * 1024.0), e.what());
+    H5Sclose(dataspace_id);
+    H5Dclose(dataset_id);
+    return false;
+  }
 
   hid_t plist_id = createTransferPlist();
   herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), H5S_ALL, H5S_ALL,
@@ -421,6 +463,15 @@ bool HDF5Helper::writeDataset(const std::string &datasetName,
     error("Cannot write dataset: file is not open");
     return false;
   }
+
+#ifdef DEBUGGING_CHECKS
+  message("HDF5Helper::writeDataset: Writing dataset '%s' with %zu elements", 
+          datasetName.c_str(), data.size());
+  message("HDF5Helper::writeDataset: Dataset dimensions:");
+  for (size_t i = 0; i < dims.size(); ++i) {
+      message("  Dimension %zu: %llu", i, dims[i]);
+  }
+#endif
 
   // Verify data size matches dimensions
   hsize_t expected_size =
@@ -566,9 +617,47 @@ bool HDF5Helper::readDatasetSlice(const std::string &datasetName,
     return false;
   }
 
-  hsize_t total_elements = std::accumulate(count.begin(), count.end(), 1,
-                                           std::multiplies<hsize_t>());
-  data.resize(total_elements);
+#ifdef DEBUGGING_CHECKS
+  // Debug: Print dimension information before calculation
+  message("HDF5Helper::readDatasetSlice: Dataset '%s' slice dimensions:", datasetName.c_str());
+  for (size_t i = 0; i < count.size(); ++i) {
+      message("  Dimension %zu: %llu", i, count[i]);
+  }
+#endif
+
+  // Debug the calculation step by step (avoid std::accumulate compiler bug)
+  hsize_t total_elements = 1;
+#ifdef DEBUGGING_CHECKS
+  for (size_t i = 0; i < count.size(); ++i) {
+      hsize_t old_total = total_elements;
+      total_elements *= count[i];
+      message("  Step %zu: %llu × %llu = %llu", i, old_total, count[i], total_elements);
+  }
+#else
+  for (size_t i = 0; i < count.size(); ++i) {
+      total_elements *= count[i];
+  }
+#endif
+  
+#ifdef DEBUGGING_CHECKS
+  // Debug: Print resize information
+  message("HDF5Helper::readDatasetSlice: Preparing vector for dataset '%s' with %llu elements (%.2f GB)", 
+          datasetName.c_str(), total_elements, 
+          (total_elements * sizeof(T)) / (1024.0 * 1024.0 * 1024.0));
+#endif
+  
+  try {
+    data.reserve(total_elements);
+    data.resize(total_elements);
+  } catch (const std::bad_alloc& e) {
+    error("Failed to allocate vector for dataset '%s' with %llu elements (%.2f GB). "
+          "Memory allocation failed: %s", 
+          datasetName.c_str(), total_elements,
+          (total_elements * sizeof(T)) / (1024.0 * 1024.0 * 1024.0), e.what());
+    H5Sclose(filespace_id);
+    H5Dclose(dataset_id);
+    return false;
+  }
 
   hid_t memspace_id = H5Screate_simple(Rank, count.data(), nullptr);
   if (memspace_id < 0) {
