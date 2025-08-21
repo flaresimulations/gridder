@@ -167,6 +167,8 @@ public:
     if (it != this->particles.end()) {
       this->particles.erase(it);
       this->part_count--;
+    } else {
+      error("Particle not found in cell when trying to remove it");
     }
   }
   void addGridPoint(GridPoint *grid_point) {
