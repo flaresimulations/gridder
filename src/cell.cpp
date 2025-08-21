@@ -622,11 +622,12 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
     if (!cell->is_useful)
       continue;
 
-    // Loop over the particles in this cell
-    for (size_t p = 0; p < cell->part_count; p++) {
+    // Loop over the particles in this cell (backwards to handle removal safely)
+    for (size_t p = cell->part_count; p > 0; p--) {
+      size_t idx = p - 1;
 
       // Get the particle
-      Particle *part = cell->particles[p];
+      Particle *part = cell->particles[idx];
 
       // Get the cell containing this particle
       Cell *containing_cell = getCellContainingPoint(part->pos);
@@ -638,7 +639,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
       // Get the rank of the containing cell
       int target_rank = containing_cell->rank;
       if (target_rank < 0 || target_rank >= metadata->size) {
-        error("Particle %zu in cell %zu has invalid target rank %d", p, cid,
+        error("Particle %zu in cell %zu has invalid target rank %d", idx, cid,
               target_rank);
       }
 
@@ -795,35 +796,26 @@ void checkAndMoveParticles(Simulation *sim) {
     // Get the cell
     Cell *cell = &cells[cid];
 
-    // Define a new vector to hold the particles that are in this cell
-    std::vector<Particle *> particles_in_cell;
-
-    // Loop over the particles in this cell
-    for (size_t p = 0; p < cell->part_count; p++) {
+    // Loop over the particles in this cell (backwards to handle removal safely)
+    for (size_t p = cell->part_count; p > 0; p--) {
+      size_t idx = p - 1;
 
       // Get the particle
-      Particle *part = cell->particles[p];
+      Particle *part = cell->particles[idx];
 
       // Get the cell containing this particle
       Cell *containing_cell = getCellContainingPoint(part->pos);
 
       // If the particle is in the right cell, continue
-      if (containing_cell == cell) {
-        particles_in_cell.push_back(part);
+      if (containing_cell == cell)
         continue;
-      }
 
       // Otherwise, move it into the correct cell
       containing_cell->addParticle(part);
       moved_count++;
-    }
 
-    // Update the cell's particles to only those that are in this cell
-    cell->particles.clear();
-    cell->particles.reserve(particles_in_cell.size());
-    cell->part_count = particles_in_cell.size();
-    for (Particle *part : particles_in_cell) {
-      cell->particles.push_back(part);
+      // Remove the particle from the current cell
+      cell->removeParticle(part);
     }
   }
 
