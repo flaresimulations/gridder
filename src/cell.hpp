@@ -16,6 +16,7 @@
 #endif
 
 // Local includes
+#include "logger.hpp"
 #include "metadata.hpp"
 #include "particle.hpp"
 
