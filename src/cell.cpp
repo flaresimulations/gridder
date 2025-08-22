@@ -186,7 +186,7 @@ void Cell::split() {
 
   // Check we actually need to split
   // Don't split cells with no grid points - they don't contribute to density calculations
-  if (this->grid_points.size() == 0) {
+  if (this->grid_points.empty()) {
     this->is_split = false;
     return;
   }
