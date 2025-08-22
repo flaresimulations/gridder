@@ -337,7 +337,7 @@ static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
       valid_points++;
     } catch (const std::bad_alloc& e) {
       error("Memory allocation failed while creating grid point %d from file. "
-            "System out of memory. Error: %s", valid_points, e.what());
+            "System out of memory. Error: %s", valid_points + 1, e.what());
     }
   }
 
