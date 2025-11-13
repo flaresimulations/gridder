@@ -86,16 +86,17 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
   double dx = nearest(grid_point->loc[0] - cell_centre[0], dim[0]);
   double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
   double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
-  
+
   // If the grid point is within the cell extent in a given dimension, then the
-  // minimum distance in that dimension is zero (the grid point overlaps the cell)
+  // minimum distance in that dimension is zero (the grid point overlaps the
+  // cell)
   if (fabs(dx) < this->width[0] / 2.0)
     dx = 0.0;
   if (fabs(dy) < this->width[1] / 2.0)
     dy = 0.0;
   if (fabs(dz) < this->width[2] / 2.0)
     dz = 0.0;
-  
+
   // If the grid point is not within the cell extent in a dimension, calculate
   // the distance to the nearest cell face in that dimension, accounting for
   // periodic boundary wrapping
@@ -105,17 +106,17 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
     dy = fabs(dy) - this->width[1] / 2.0;
   if (dz != 0.0)
     dz = fabs(dz) - this->width[2] / 2.0;
-  
+
   // Ensure all distances are non-negative (should already be the case, but
   // adding this as a safety check)
   dx = std::max(0.0, dx);
   dy = std::max(0.0, dy);
   dz = std::max(0.0, dz);
-  
+
   // Calculate the squared distance from the grid point to the nearest point
   // on the cell boundary
   double r2 = dx * dx + dy * dy + dz * dz;
-  
+
   // Subtract the cell diagonal (with a safety factor) to account for the fact
   // that particles can be anywhere within the cell. We want to be conservative
   // and only return "outside" if we're absolutely certain that NO particle in
@@ -184,13 +185,6 @@ void Cell::split() {
   double new_width[3] = {this->width[0] / 2.0, this->width[1] / 2.0,
                          this->width[2] / 2.0};
 
-  // Check we actually need to split
-  // Don't split cells with no grid points - they don't contribute to density calculations
-  if (this->grid_points.empty()) {
-    this->is_split = false;
-    return;
-  }
-  
   // For cells with grid points, apply the standard splitting criteria
   if (this->part_count < metadata->max_leaf_count &&
       this->grid_points.size() <= 1) {
@@ -791,36 +785,37 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
 
   // Exchange particle counts between all ranks using Alltoall
   std::vector<int> recv_counts(metadata->size, 0);
-  MPI_Alltoall(send_counts.data(), 1, MPI_INT, 
-               recv_counts.data(), 1, MPI_INT, MPI_COMM_WORLD);
+  MPI_Alltoall(send_counts.data(), 1, MPI_INT, recv_counts.data(), 1, MPI_INT,
+               MPI_COMM_WORLD);
 
   // Now we need to send and receive the foreign particles
   std::vector<MPI_Request> requests;
-  std::vector<std::vector<double>> send_buffers;  // Keep send buffers alive
+  std::vector<std::vector<double>> send_buffers; // Keep send buffers alive
   std::vector<std::vector<double>> recv_buffers;
-  
+
   // First, post all receives
   for (size_t rank = 0; rank < metadata->size; rank++) {
     if (recv_counts[rank] > 0 && rank != metadata->rank) {
       // Prepare the receive buffer
       recv_buffers.emplace_back(recv_counts[rank] * 4); // 1 mass + 3 positions
-      
+
       // Post the receive
       MPI_Request req;
-      MPI_Irecv(recv_buffers.back().data(), recv_counts[rank] * 4, MPI_DOUBLE, 
+      MPI_Irecv(recv_buffers.back().data(), recv_counts[rank] * 4, MPI_DOUBLE,
                 rank, 0, MPI_COMM_WORLD, &req);
       requests.push_back(req);
     }
   }
-  
+
   // Then, post all sends
   for (size_t rank = 0; rank < metadata->size; rank++) {
     if (!send_particles[rank].empty() && rank != metadata->rank) {
       // Prepare the data to send
       send_buffers.emplace_back();
       std::vector<double> &send_buffer = send_buffers.back();
-      send_buffer.reserve(send_particles[rank].size() * 4); // 1 mass + 3 positions per particle
-      
+      send_buffer.reserve(send_particles[rank].size() *
+                          4); // 1 mass + 3 positions per particle
+
       for (Particle *part : send_particles[rank]) {
         // Add the particle data to the buffer
         send_buffer.push_back(part->mass);
@@ -836,7 +831,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
       requests.push_back(req);
 
 #ifdef DEBUGGING_CHECKS
-      message("Relocating %zu particles to rank %zu", 
+      message("Relocating %zu particles to rank %zu",
               send_particles[rank].size(), rank);
 #endif
     }
@@ -911,10 +906,11 @@ void checkAndMoveParticles(Simulation *sim) {
     if (cell->part_count == 0 || cell->particles.empty()) {
       continue;
     }
-    
+
     // Ensure part_count matches actual particle vector size
     if (cell->part_count != cell->particles.size()) {
-      error("Particle count mismatch in cell %zu: part_count=%zu, particles.size()=%zu", 
+      error("Particle count mismatch in cell %zu: part_count=%zu, "
+            "particles.size()=%zu",
             cid, cell->part_count, cell->particles.size());
     }
 
