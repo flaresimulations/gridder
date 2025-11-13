@@ -1,0 +1,21 @@
+Kernels:
+  nkernels: 3
+  kernel_radius_1: 0.5
+  kernel_radius_2: 1.0
+  kernel_radius_3: 2.0
+
+Grid:
+  type: file
+  grid_file: tests/data/grid_points_files/valid_points.txt
+
+Tree:
+  max_leaf_count: 200
+
+Input:
+  filepath: tests/data/simple_test.hdf5
+  placeholder: "0000"
+
+Output:
+  filepath: tests/data/
+  basename: file_grid_test.hdf5
+  write_masses: 1

@@ -1,0 +1,17 @@
+# Grid points with comments and whitespace
+# This tests the parser's robustness
+
+# First point at center
+5.0 5.0 5.0
+
+   # Indented comment
+3.0 3.0 3.0  # Inline comment (should be ignored by parser)
+
+  # Empty lines and whitespace-only lines below
+
+
+7.0 7.0 7.0
+
+# Tab above, spaces below
+
+8.0 2.0 6.0
