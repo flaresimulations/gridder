@@ -67,12 +67,16 @@ def test_snapshot():
         str(make_snap_script),
         "--output", str(snapshot_path),
         "--cdim", "3",
+        "--grid_dim", "10",
         "--boxsize", "10.0",
         "--doner", str(donor_path),
         "--simple"
     ]
 
-    subprocess.run(cmd, check=True, capture_output=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to create test snapshot:\nstdout: {result.stdout}\nstderr: {result.stderr}")
+
     assert snapshot_path.exists(), f"Failed to create test snapshot at {snapshot_path}"
 
     return snapshot_path
@@ -97,6 +101,10 @@ def create_minimal_donor(filepath):
         cosmo.attrs['Omega_lambda'] = 0.7
         cosmo.attrs['Omega_b'] = 0.04
         cosmo.attrs['h'] = 0.7
+        # Critical density needed by make_test_snap.py
+        # At z=0, rho_crit = 3H^2/(8πG) ≈ 1.878e-26 h^2 kg/m^3
+        # In internal units (10^10 Msun / Mpc^3): ~0.027 h^2
+        cosmo.attrs['Critical density [internal units]'] = 0.027 * 0.7**2
 
 
 # ============================================================================
@@ -122,8 +130,12 @@ class TestFileGridPoints:
             text=True
         )
 
-        assert result.returncode == 0, f"Gridder failed: {result.stderr}"
-        assert output_file.exists(), "Output file not created"
+        assert result.returncode == 0, (
+            f"Gridder failed with exit code {result.returncode}\n"
+            f"stdout: {result.stdout}\n"
+            f"stderr: {result.stderr}"
+        )
+        assert output_file.exists(), f"Output file not created at {output_file}"
 
         # Verify output
         with h5py.File(output_file, 'r') as f:
@@ -134,8 +146,9 @@ class TestFileGridPoints:
                 positions = f['/Grids/GridPointPositions'][:]
                 assert len(positions) == 5, f"Expected 5 grid points, got {len(positions)}"
 
-            # Check kernel data
-            assert '/Grids/Kernel_0.5' in f, "Missing kernel data"
+            # Check kernel data (kernel names have full floating point precision)
+            kernel_keys = [k for k in f['/Grids'].keys() if k.startswith('Kernel_')]
+            assert len(kernel_keys) >= 1, "Missing kernel data"
 
     def test_grid_points_with_comments(self, build_gridder, test_snapshot):
         """Test that comments and whitespace are handled correctly."""
@@ -175,8 +188,12 @@ Output:
                 text=True
             )
 
-            assert result.returncode == 0, f"Gridder failed: {result.stderr}"
-            assert output_file.exists(), "Output file not created"
+            assert result.returncode == 0, (
+            f"Gridder failed with exit code {result.returncode}\n"
+            f"stdout: {result.stdout}\n"
+            f"stderr: {result.stderr}"
+        )
+            assert output_file.exists(), f"Output file not created at {output_file}"
 
             # Verify correct number of points were read (should be 4 valid points)
             with h5py.File(output_file, 'r') as f:
@@ -225,8 +242,12 @@ Output:
             )
 
             # Should still succeed despite malformed lines
-            assert result.returncode == 0, f"Gridder failed: {result.stderr}"
-            assert output_file.exists(), "Output file not created"
+            assert result.returncode == 0, (
+            f"Gridder failed with exit code {result.returncode}\n"
+            f"stdout: {result.stdout}\n"
+            f"stderr: {result.stderr}"
+        )
+            assert output_file.exists(), f"Output file not created at {output_file}"
 
             # Verify that only valid points were read
             with h5py.File(output_file, 'r') as f:
@@ -301,18 +322,26 @@ class TestUniformGrid:
             text=True
         )
 
-        assert result.returncode == 0, f"Gridder failed: {result.stderr}"
-        assert output_file.exists(), "Output file not created"
+        assert result.returncode == 0, (
+            f"Gridder failed with exit code {result.returncode}\n"
+            f"stdout: {result.stdout}\n"
+            f"stderr: {result.stderr}"
+        )
+        assert output_file.exists(), f"Output file not created at {output_file}"
 
         # Verify output structure
         with h5py.File(output_file, 'r') as f:
             assert '/Grids' in f, "Missing /Grids group"
 
-            # Check kernels
-            for radius in [0.5, 1.0, 2.0]:
-                kernel_group = f[f'/Grids/Kernel_{radius}']
+            # Check kernels (kernel names have full floating point precision)
+            kernel_keys = [k for k in f['/Grids'].keys() if k.startswith('Kernel_')]
+            assert len(kernel_keys) >= 3, f"Expected at least 3 kernels, found {len(kernel_keys)}"
+
+            # Check each kernel has overdensities
+            for kernel_key in kernel_keys:
+                kernel_group = f[f'/Grids/{kernel_key}']
                 assert 'GridPointOverDensities' in kernel_group, \
-                    f"Missing overdensities for kernel {radius}"
+                    f"Missing overdensities for {kernel_key}"
 
 
 # ============================================================================

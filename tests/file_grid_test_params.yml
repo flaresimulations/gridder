@@ -7,6 +7,7 @@ Kernels:
 Grid:
   type: file
   grid_file: tests/data/grid_points_files/valid_points.txt
+  # n_grid_points is optional for file type - will be counted from file
 
 Tree:
   max_leaf_count: 200

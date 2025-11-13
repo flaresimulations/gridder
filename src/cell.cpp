@@ -583,7 +583,9 @@ void assignPartsToCells(Simulation *sim) {
 #endif
 
   // Loop over cells attaching particles and grid points
+#ifdef DEBUGGING_CHECKS
   size_t total_part_count = 0;
+#endif
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
@@ -602,7 +604,9 @@ void assignPartsToCells(Simulation *sim) {
     // Get the particle slice start and length
     size_t offset = offsets[cid];
     size_t count = counts[cid];
+#ifdef DEBUGGING_CHECKS
     total_part_count += count;
+#endif
 
     // Reserve space for the particles in the cell
     try {
@@ -987,12 +991,9 @@ void checkAndMoveParticles(Simulation *sim) {
  *
  * @param cells The cells to assign grid points to.
  */
-void assignGridPointsToCells(Simulation *sim, Grid *grid) {
+void assignGridPointsToCells([[maybe_unused]] Simulation *sim, Grid *grid) {
 
   tic();
-
-  // Get the cells
-  std::vector<Cell> &cells = sim->cells;
 
   // Get the grid points
   std::vector<GridPoint> &grid_points = grid->grid_points;
@@ -1023,6 +1024,9 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid) {
     }
   }
 #ifdef DEBUGGING_CHECKS
+
+  // Get the cells for debugging checks
+  std::vector<Cell> &cells = sim->cells;
 
   // Check grid points are in the right cells
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {

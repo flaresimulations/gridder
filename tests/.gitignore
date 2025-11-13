@@ -1,0 +1,10 @@
+# Test outputs (should not be committed)
+data/*.hdf5
+data/donor_minimal.hdf5
+
+# Temporary test parameter files
+temp_*.yml
+
+# Python cache
+__pycache__/
+*.pyc
