@@ -92,7 +92,6 @@ def analyze_grid_file(filename):
                 # Estimate grid spacing
                 if len(positions) > 1:
                     # For uniform grids, find minimum non-zero distance
-                    from scipy.spatial.distance import pdist
                     distances = pdist(positions[:min(100, len(positions))])  # Sample for speed
                     min_dist = np.min(distances[distances > 0])
                     print(f"  Estimated grid spacing: {min_dist:.3f}")
