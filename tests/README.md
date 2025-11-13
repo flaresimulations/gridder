@@ -2,6 +2,42 @@
 
 This directory contains test scripts and data for verifying the gridder functionality.
 
+## Quick Start
+
+```bash
+# Run all tests (recommended)
+./tests/run_tests.sh --all
+
+# Run only unit tests
+./tests/run_tests.sh --unit
+
+# Run only integration tests
+./tests/run_tests.sh --integration
+
+# Run Python unit tests directly
+pytest tests/test_gridder.py -v
+```
+
+## Test Suite Overview
+
+The test suite includes:
+
+- **Python Unit Tests** (`test_gridder.py`): Comprehensive pytest-based tests
+  - File-based grid point reading (new feature)
+  - Uniform grid generation
+  - Output validation
+  - Error handling and edge cases
+
+- **Integration Tests** (`run_tests.sh`): End-to-end workflow tests
+  - Simple test (1 particle, predictable results)
+  - File grid test (reading grid points from files)
+  - Random grid test (if enabled)
+
+- **CI/CD** (`.github/workflows/test.yml`): Automated testing on GitHub
+  - Serial build tests
+  - MPI build tests
+  - Debug build tests
+
 ## Simple Test
 
 The simple test creates a minimal test case with predictable results:
@@ -15,10 +51,27 @@ The simple test creates a minimal test case with predictable results:
 
 ## Running Tests
 
-### Quick Test
+### Recommended: Use Master Test Runner
+```bash
+./tests/run_tests.sh --all
+```
+
+### Quick Test (Original)
 ```bash
 cd tests
 ./run_simple_test.sh
+```
+
+### Python Unit Tests
+```bash
+# All tests
+pytest tests/test_gridder.py -v
+
+# File grid point tests only
+pytest tests/test_gridder.py::TestFileGridPoints -v
+
+# Specific test
+pytest tests/test_gridder.py::TestFileGridPoints::test_valid_grid_points_file -v
 ```
 
 ### Manual Test Steps
