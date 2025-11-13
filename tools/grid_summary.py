@@ -11,6 +11,7 @@ Usage:
 import sys
 import h5py
 import numpy as np
+from scipy.spatial.distance import pdist
 
 
 def analyze_grid_file(filename):

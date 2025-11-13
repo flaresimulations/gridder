@@ -1,4 +1,5 @@
 // Standard includes
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <memory>
@@ -82,12 +83,12 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
   // Reserve space for grid points to avoid reallocations
   try {
     grid->grid_points.reserve(n_grid_points);
-  } catch (const std::bad_alloc& e) {
+  } catch (const std::bad_alloc &e) {
     error("Memory allocation failed while reserving space for %d grid points. "
           "Try reducing n_grid_points parameter (current: %d). "
-          "Estimated memory needed: %.2f GB. Error: %s", 
-          n_grid_points, n_grid_points, 
-          (n_grid_points * sizeof(GridPoint)) / (1024.0 * 1024.0 * 1024.0), 
+          "Estimated memory needed: %.2f GB. Error: %s",
+          n_grid_points, n_grid_points,
+          (n_grid_points * sizeof(GridPoint)) / (1024.0 * 1024.0 * 1024.0),
           e.what());
   }
 
@@ -116,10 +117,10 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
     // Create the grid point and add it to the vector
     try {
       grid->grid_points.emplace_back(loc);
-    } catch (const std::bad_alloc& e) {
+    } catch (const std::bad_alloc &e) {
       error("Memory allocation failed while creating grid point %d "
             "(current size: %zu). System out of memory. "
-            "Try reducing n_grid_points parameter. Error: %s", 
+            "Try reducing n_grid_points parameter. Error: %s",
             gid, grid->grid_points.size(), e.what());
     }
   }
@@ -152,7 +153,8 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
   int remainder = nr_grid_points % metadata->size;
   int target_points = points_per_rank + (metadata->rank < remainder ? 1 : 0);
 
-  message("Generating %d random grid points locally (rank %d)", target_points, metadata->rank);
+  message("Generating %d random grid points locally (rank %d)", target_points,
+          metadata->rank);
 
   // Use reproducible but rank-dependent seed
   std::mt19937 rng(42 + metadata->rank);
@@ -162,9 +164,11 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
 
   try {
     grid->grid_points.reserve(target_points);
-  } catch (const std::bad_alloc& e) {
-    error("Memory allocation failed while reserving space for %d random grid points. "
-          "Try reducing n_grid_points parameter. Error: %s", target_points, e.what());
+  } catch (const std::bad_alloc &e) {
+    error("Memory allocation failed while reserving space for %d random grid "
+          "points. "
+          "Try reducing n_grid_points parameter. Error: %s",
+          target_points, e.what());
   }
 
   int generated = 0;
@@ -177,10 +181,11 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
       try {
         grid->grid_points.emplace_back(loc);
         generated++;
-      } catch (const std::bad_alloc& e) {
+      } catch (const std::bad_alloc &e) {
         error("Memory allocation failed while creating random grid point %d. "
               "System out of memory. Try reducing n_grid_points parameter. "
-              "Error: %s", generated, e.what());
+              "Error: %s",
+              generated, e.what());
       }
     }
     // If not our cell, discard and try again
@@ -198,19 +203,22 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
 
   try {
     grid->grid_points.reserve(nr_grid_points);
-  } catch (const std::bad_alloc& e) {
-    error("Memory allocation failed while reserving space for %d random grid points. "
-          "Try reducing n_grid_points parameter. Error: %s", nr_grid_points, e.what());
+  } catch (const std::bad_alloc &e) {
+    error("Memory allocation failed while reserving space for %d random grid "
+          "points. "
+          "Try reducing n_grid_points parameter. Error: %s",
+          nr_grid_points, e.what());
   }
 
   for (int gid = 0; gid < nr_grid_points; gid++) {
     double loc[3] = {dist_x(rng), dist_y(rng), dist_z(rng)};
     try {
       grid->grid_points.emplace_back(loc);
-    } catch (const std::bad_alloc& e) {
+    } catch (const std::bad_alloc &e) {
       error("Memory allocation failed while creating random grid point %d. "
             "System out of memory. Try reducing n_grid_points parameter. "
-            "Error: %s", gid, e.what());
+            "Error: %s",
+            gid, e.what());
     }
   }
 #endif
@@ -227,15 +235,17 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
 /**
  * @brief Read grid point coordinates from a text file
  *
- * Reads coordinates from a text file, ignoring lines that start with '#' or are empty.
- * Each valid line should contain three space/tab-separated coordinates: x y z
+ * Reads coordinates from a text file, ignoring lines that start with '#' or are
+ * empty. Each valid line should contain three space/tab-separated coordinates:
+ * x y z
  *
  * @param filename The path to the text file containing coordinates
  * @param coordinates Vector to store the read coordinates
  * @return The number of coordinates successfully read
  */
-static int readGridPointCoordinates(const std::string &filename, 
-                                   std::vector<std::vector<double>> &coordinates) {
+static int
+readGridPointCoordinates(const std::string &filename,
+                         std::vector<std::array<double, 3>> &coordinates) {
   std::ifstream file(filename);
   if (!file.is_open()) {
     throw std::runtime_error("Failed to open grid points file: " + filename);
@@ -248,7 +258,7 @@ static int readGridPointCoordinates(const std::string &filename,
 
   while (std::getline(file, line)) {
     line_number++;
-    
+
     // Skip empty lines and comments (lines starting with #)
     if (line.empty() || line[0] == '#') {
       continue;
@@ -257,23 +267,24 @@ static int readGridPointCoordinates(const std::string &filename,
     // Parse the line for three coordinates
     std::istringstream iss(line);
     double x, y, z;
-    
+
     if (iss >> x >> y >> z) {
       coordinates.push_back({x, y, z});
       valid_points++;
     } else {
-      message("Warning: Skipping invalid line %d in %s: '%s'", 
-              line_number, filename.c_str(), line.c_str());
+      message("Warning: Skipping invalid line %d in %s: '%s'", line_number,
+              filename.c_str(), line.c_str());
     }
   }
 
   file.close();
-  
+
   if (valid_points == 0) {
     throw std::runtime_error("No valid coordinates found in file: " + filename);
   }
 
-  message("Read %d valid grid point coordinates from %s", valid_points, filename.c_str());
+  message("Read %d valid grid point coordinates from %s", valid_points,
+          filename.c_str());
   return valid_points;
 }
 
@@ -284,24 +295,32 @@ static int readGridPointCoordinates(const std::string &filename,
  * @param grid The grid object
  */
 static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
-  
+
+  // Validate that grid_file parameter is set
+  if (grid->grid_file.empty()) {
+    throw std::runtime_error(
+        "Grid:grid_file parameter not specified in parameter file");
+  }
+
   // Read coordinates from the specified file
-  std::vector<std::vector<double>> coordinates;
+  std::vector<std::array<double, 3>> coordinates;
   int num_points = readGridPointCoordinates(grid->grid_file, coordinates);
-  
+
   // Update the grid with the actual number of points read
   grid->n_grid_points = num_points;
-  
+
   // Get simulation box dimensions for validation
   double *dim = sim->dim;
-  
+
   // Reserve space for grid points
   try {
     grid->grid_points.reserve(num_points);
-  } catch (const std::bad_alloc& e) {
-    error("Memory allocation failed while reserving space for %d grid points from file. "
-          "Estimated memory needed: %.2f GB. Error: %s", 
-          num_points, (num_points * sizeof(GridPoint)) / (1024.0 * 1024.0 * 1024.0), 
+  } catch (const std::bad_alloc &e) {
+    error("Memory allocation failed while reserving space for %d grid points "
+          "from file. "
+          "Estimated memory needed: %.2f GB. Error: %s",
+          num_points,
+          (num_points * sizeof(GridPoint)) / (1024.0 * 1024.0 * 1024.0),
           e.what());
   }
 
@@ -311,15 +330,15 @@ static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
   // Create grid points from the coordinates
   for (const auto &coord : coordinates) {
     double loc[3] = {coord[0], coord[1], coord[2]};
-    
+
     // Validate that the point is within the simulation box
-    if (loc[0] < 0 || loc[0] >= dim[0] || 
-        loc[1] < 0 || loc[1] >= dim[1] || 
+    if (loc[0] < 0 || loc[0] >= dim[0] || loc[1] < 0 || loc[1] >= dim[1] ||
         loc[2] < 0 || loc[2] >= dim[2]) {
       outside_box++;
-      message("Warning: Grid point (%.3f, %.3f, %.3f) is outside simulation box "
-              "[0, %.3f] × [0, %.3f] × [0, %.3f] - skipping", 
-              loc[0], loc[1], loc[2], dim[0], dim[1], dim[2]);
+      message(
+          "Warning: Grid point (%.3f, %.3f, %.3f) is outside simulation box "
+          "[0, %.3f] x [0, %.3f] x [0, %.3f] - skipping",
+          loc[0], loc[1], loc[2], dim[0], dim[1], dim[2]);
       continue;
     }
 
@@ -335,18 +354,21 @@ static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
     try {
       grid->grid_points.emplace_back(loc);
       valid_points++;
-    } catch (const std::bad_alloc& e) {
+    } catch (const std::bad_alloc &e) {
       error("Memory allocation failed while creating grid point %d from file. "
-            "System out of memory. Error: %s", valid_points + 1, e.what());
+            "System out of memory. Error: %s",
+            valid_points + 1, e.what());
     }
   }
 
   if (outside_box > 0) {
-    message("Warning: %d grid points were outside the simulation box and were skipped", 
+    message("Warning: %d grid points were outside the simulation box and were "
+            "skipped",
             outside_box);
   }
 
-  message("Created %d grid points from file %s", valid_points, grid->grid_file.c_str());
+  message("Created %d grid points from file %s", valid_points,
+          grid->grid_file.c_str());
 
   // Initialize mass and count maps for all grid points
   message("Initializing grid point maps for %d kernel radii", grid->nkernels);
