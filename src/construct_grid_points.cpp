@@ -259,8 +259,16 @@ readGridPointCoordinates(const std::string &filename,
   while (std::getline(file, line)) {
     line_number++;
 
-    // Skip empty lines and comments (lines starting with #)
-    if (line.empty() || line[0] == '#') {
+    // Find first non-whitespace character
+    size_t first_char = line.find_first_not_of(" \t\r\n");
+
+    // Skip empty lines and whitespace-only lines
+    if (first_char == std::string::npos) {
+      continue;
+    }
+
+    // Skip comments (lines starting with #)
+    if (line[first_char] == '#') {
       continue;
     }
 
@@ -304,7 +312,22 @@ static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
 
   // Read coordinates from the specified file
   std::vector<std::array<double, 3>> coordinates;
-  int num_points = readGridPointCoordinates(grid->grid_file, coordinates);
+  int num_points;
+  try {
+    num_points = readGridPointCoordinates(grid->grid_file, coordinates);
+  } catch (const std::runtime_error &e) {
+    throw std::runtime_error("Failed to read grid points from file '" +
+                             grid->grid_file + "': " + e.what());
+  }
+
+  // Validate the number of points matches user specification (if provided)
+  if (grid->n_grid_points > 0 && grid->n_grid_points != num_points) {
+    throw std::runtime_error(
+        "Grid point count mismatch: parameter file specified " +
+        std::to_string(grid->n_grid_points) + " points, but file '" +
+        grid->grid_file + "' contains " + std::to_string(num_points) +
+        " points");
+  }
 
   // Update the grid with the actual number of points read
   grid->n_grid_points = num_points;

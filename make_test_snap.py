@@ -5,6 +5,7 @@ SWIFT snapshot file including the cell structure.
 """
 
 import argparse
+import os
 
 import h5py
 import numpy as np
@@ -246,10 +247,15 @@ def make_ics(filepath, cdim, gdim, boxsize, doner_path):
     # Create random coordinates file in data directory
     np.random.seed(42)  # For reproducible results
     random_coords = np.random.uniform(0, boxsize, (10, 3))
-    
+
     coord_filename = "data/random_coordinates.txt"
     print(f"Writing random coordinates to {coord_filename}")
-    
+
+    # Ensure the directory exists
+    coord_dir = os.path.dirname(coord_filename)
+    if coord_dir:
+        os.makedirs(coord_dir, exist_ok=True)
+
     with open(coord_filename, "w") as coord_file:
         coord_file.write("# Random coordinates within the simulation box\n")
         coord_file.write("# Format: x y z\n")

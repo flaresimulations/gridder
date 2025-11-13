@@ -94,8 +94,12 @@ def analyze_grid_file(filename):
                 if len(positions) > 1:
                     # For uniform grids, find minimum non-zero distance
                     distances = pdist(positions[:min(100, len(positions))])  # Sample for speed
-                    min_dist = np.min(distances[distances > 0])
-                    print(f"  Estimated grid spacing: {min_dist:.3f}")
+                    positive_distances = distances[distances > 0]
+                    if len(positive_distances) > 0:
+                        min_dist = np.min(positive_distances)
+                        print(f"  Estimated grid spacing: {min_dist:.3f}")
+                    else:
+                        print(f"  Warning: All sampled points are co-located")
             
     except FileNotFoundError:
         print(f"Error: File '{filename}' not found.")
