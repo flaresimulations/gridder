@@ -208,15 +208,18 @@ case "${1:-run}" in
     echo -e "${GREEN}=============================================="
     echo "✓ ALL TESTS PASSED!"
     echo "==============================================${NC}"
+    exit 0
     ;;
 "clean")
     cleanup
+    exit 0
     ;;
 "help")
     echo "Usage: $0 [run|clean|help]"
     echo "  run   - Run the simple test (default)"
     echo "  clean - Clean up test files"
     echo "  help  - Show this help message"
+    exit 0
     ;;
 *)
     echo "Unknown command: $1"

@@ -137,6 +137,9 @@ if [ "$RUN_UNIT" = true ]; then
     echo -e "${BLUE}=============================================${NC}"
     echo ""
 
+    # Temporarily disable exit on error so all tests run
+    set +e
+
     if command -v pytest &> /dev/null; then
         cd "$PROJECT_ROOT"
         run_test "Python unit tests" "pytest tests/test_gridder.py -v"
@@ -145,6 +148,9 @@ if [ "$RUN_UNIT" = true ]; then
         echo -e "${YELLOW}Install with: pip install pytest${NC}"
         echo ""
     fi
+
+    # Re-enable exit on error
+    set -e
 fi
 
 # Run integration tests
@@ -154,23 +160,29 @@ if [ "$RUN_INTEGRATION" = true ]; then
     echo -e "${BLUE}=============================================${NC}"
     echo ""
 
+    # Temporarily disable exit on error so all tests run
+    set +e
+
     # Test 1: Simple test (existing)
     run_test "Simple test (uniform grid)" "bash $SCRIPT_DIR/run_simple_test.sh run"
 
     # Test 2: File-based grid points
-    run_test "File-based grid points" "bash -c '
+    run_test "File-based grid points" "bash -c \"
         cd $PROJECT_ROOT
         $BUILD_DIR/parent_gridder tests/file_grid_test_params.yml 1 > /dev/null 2>&1 &&
         [ -f tests/data/file_grid_test.hdf5 ]
-    '"
+    \""
 
     # Test 3: Random grid (if parameters exist)
     if [ -f "$SCRIPT_DIR/random_test_params.yml" ]; then
-        run_test "Random grid generation" "bash -c '
+        run_test "Random grid generation" "bash -c \"
             cd $PROJECT_ROOT
             $BUILD_DIR/parent_gridder tests/random_test_params.yml 1 > /dev/null 2>&1
-        '"
+        \""
     fi
+
+    # Re-enable exit on error
+    set -e
 fi
 
 # Print summary
