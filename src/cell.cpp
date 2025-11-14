@@ -549,7 +549,6 @@ void readParticlesInChunks(Simulation *sim,
   tic();
 
   Metadata *metadata = &Metadata::getInstance();
-  std::vector<Cell> &cells = sim->cells;
 
 #ifdef WITH_MPI
   const int rank = metadata->rank;

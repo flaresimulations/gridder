@@ -228,7 +228,6 @@ void flagProxyCells(Simulation *sim) {
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
-  const int size = metadata->size;
 
   // Clear any existing proxy information
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
@@ -624,7 +623,7 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
         size_t npart = cells[cid].part_count;
         for (size_t p = 0; p < npart; p++) {
           cells[cid].particles.push_back(
-              new Particle(chunk.positions[particle_offset + p],
+              new Particle(chunk.positions[particle_offset + p].data(),
                            chunk.masses[particle_offset + p]));
         }
 
@@ -664,7 +663,7 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
         if (rank == reading_rank) {
           for (size_t p = 0; p < npart; p++) {
             cells[cid].particles.push_back(
-                new Particle(chunk.positions[particle_offset + p],
+                new Particle(chunk.positions[particle_offset + p].data(),
                              chunk.masses[particle_offset + p]));
           }
           // Calculate cell mass as sum of particle masses
@@ -711,7 +710,7 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
           // Attach to cell
           cells[cid].mass = 0.0;
           for (size_t p = 0; p < recv_count; p++) {
-            Particle *part = new Particle(recv_positions[p], recv_masses[p]);
+            Particle *part = new Particle(recv_positions[p].data(), recv_masses[p]);
             cells[cid].particles.push_back(part);
             cells[cid].mass += part->mass;
           }
@@ -753,6 +752,9 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
  */
 void exchangeProxyCells(Simulation *sim, std::vector<ParticleChunk> &chunks) {
   tic();
+
+  // Suppress unused parameter warning (kept for API consistency)
+  (void)chunks;
 
   Metadata *metadata = &Metadata::getInstance();
   std::vector<Cell> &cells = sim->cells;
@@ -833,7 +835,8 @@ void exchangeProxyCells(Simulation *sim, std::vector<ParticleChunk> &chunks) {
 
         for (size_t p = 0; p < npart; p++) {
           send_data.masses[p] = cell->particles[p]->mass;
-          send_data.positions[p] = cell->particles[p]->pos;
+          std::copy(cell->particles[p]->pos, cell->particles[p]->pos + 3,
+                    send_data.positions[p].data());
         }
 
         // Post sends
@@ -886,7 +889,7 @@ void exchangeProxyCells(Simulation *sim, std::vector<ParticleChunk> &chunks) {
     Cell *cell = &cells[recv_data.cid];
     cell->mass = 0.0;
     for (size_t p = 0; p < recv_data.npart; p++) {
-      Particle *part = new Particle(recv_data.positions[p], recv_data.masses[p]);
+      Particle *part = new Particle(recv_data.positions[p].data(), recv_data.masses[p]);
       cell->particles.push_back(part);
       cell->mass += part->mass;
     }
