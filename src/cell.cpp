@@ -684,22 +684,22 @@ void assignPartsToCells(Simulation *sim) {
   HDF5Helper hdf(metadata->input_file);
 
 #ifdef WITH_MPI
-  // Read the particle data slice for this rank
+  // Read the particle data slice for this rank (use hsize_t for HDF5 compatibility)
   std::vector<double> masses;
-  std::array<unsigned long long, 1> mass_dims = {
-      static_cast<unsigned long long>(metadata->nr_local_particles)};
-  std::array<unsigned long long, 1> start_index = {
-      static_cast<unsigned long long>(metadata->first_local_part_ind)};
+  std::array<hsize_t, 1> mass_dims = {
+      static_cast<hsize_t>(metadata->nr_local_particles)};
+  std::array<hsize_t, 1> start_index = {
+      static_cast<hsize_t>(metadata->first_local_part_ind)};
   if (!hdf.readDatasetSlice<double>("PartType1/Masses", masses, start_index,
                                     mass_dims)) {
     error("Failed to read particle masses");
   }
 
   std::vector<double> poss;
-  std::array<unsigned long long, 2> pos_dims = {
-      static_cast<unsigned long long>(metadata->nr_local_particles), 3};
-  std::array<unsigned long long, 2> pos_start_index = {
-      static_cast<unsigned long long>(metadata->first_local_part_ind), 0};
+  std::array<hsize_t, 2> pos_dims = {
+      static_cast<hsize_t>(metadata->nr_local_particles), 3};
+  std::array<hsize_t, 2> pos_start_index = {
+      static_cast<hsize_t>(metadata->first_local_part_ind), 0};
   if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss,
                                     pos_start_index, pos_dims)) {
     error("Failed to read particle positions");
@@ -916,7 +916,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   // We need to tell everyone how many particles to expect from each
   // rank, so we can allocate the right amount of memory for the receives
   std::vector<int> send_counts(metadata->size, 0);
-  for (size_t rank = 0; rank < metadata->size; rank++) {
+  for (int rank = 0; rank < metadata->size; rank++) {
     // Count the number of particles to send to this rank
     send_counts[rank] = static_cast<int>(send_particles[rank].size());
   }
@@ -932,7 +932,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   std::vector<std::vector<double>> recv_buffers;
 
   // First, post all receives
-  for (size_t rank = 0; rank < metadata->size; rank++) {
+  for (int rank = 0; rank < metadata->size; rank++) {
     if (recv_counts[rank] > 0 && rank != metadata->rank) {
       // Prepare the receive buffer
       recv_buffers.emplace_back(recv_counts[rank] * 4); // 1 mass + 3 positions
@@ -946,7 +946,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   }
 
   // Then, post all sends
-  for (size_t rank = 0; rank < metadata->size; rank++) {
+  for (int rank = 0; rank < metadata->size; rank++) {
     if (!send_particles[rank].empty() && rank != metadata->rank) {
       // Prepare the data to send
       send_buffers.emplace_back();
@@ -986,7 +986,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
 
   // Now process the received particles
   size_t recv_buffer_idx = 0;
-  for (size_t rank = 0; rank < metadata->size; rank++) {
+  for (int rank = 0; rank < metadata->size; rank++) {
     // If there are no particles to receive from this rank, skip it
     if (recv_counts[rank] == 0 || rank == metadata->rank)
       continue;
@@ -996,7 +996,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
     recv_buffer_idx++;
 
     // Loop over the received particles
-    for (size_t i = 0; i < recv_counts[rank]; i++) {
+    for (int i = 0; i < recv_counts[rank]; i++) {
       // Get the mass and position of the particle
       double mass = recv_buffer[i * 4];
       double pos[3] = {recv_buffer[i * 4 + 1], recv_buffer[i * 4 + 2],
