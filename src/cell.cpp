@@ -1035,12 +1035,17 @@ void checkAndMoveParticles(Simulation *sim) {
     // Get the cell
     Cell *cell = &cells[cid];
 
+    // Skip non-useful cells - they were intentionally not loaded with particles
+    if (!cell->is_useful) {
+      continue;
+    }
+
     // Skip cells with no particles
     if (cell->part_count == 0 || cell->particles.empty()) {
       continue;
     }
 
-    // Ensure part_count matches actual particle vector size
+    // Ensure part_count matches actual particle vector size for useful cells
     if (cell->part_count != cell->particles.size()) {
       error("Particle count mismatch in cell %zu: part_count=%zu, "
             "particles.size()=%zu",
