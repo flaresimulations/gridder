@@ -157,7 +157,7 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
           metadata->rank);
 
   // Use reproducible but rank-dependent seed
-  std::mt19937 rng(42 + metadata->rank);
+  std::mt19937 rng(grid->random_seed + metadata->rank);
   std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
   std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
   std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
@@ -195,8 +195,8 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
   // Serial mode - generate all points directly
   message("Generating %d random grid points", nr_grid_points);
 
-  // Use a fixed seed for reproducible results
-  std::mt19937 rng(42);
+  // Use seed from parameters for reproducible results
+  std::mt19937 rng(grid->random_seed);
   std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
   std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
   std::uniform_real_distribution<double> dist_z(0.0, dim[2]);

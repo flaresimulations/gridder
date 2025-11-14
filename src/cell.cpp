@@ -528,6 +528,132 @@ int getCellIndexContainingPoint(const double pos[3]) {
 }
 
 /**
+ * @brief Read particles in contiguous chunks for efficient I/O
+ *
+ * This function reads particle data from HDF5 in contiguous chunks, loading
+ * only particles for useful cells. Works in both serial and MPI modes.
+ *
+ * In serial mode: Reads all chunks and immediately attaches particles to cells
+ * In MPI mode: Each rank reads assigned chunks for later redistribution
+ *
+ * @param sim The simulation object
+ * @param chunks Vector of ParticleChunk structs to populate with data
+ */
+void readParticlesInChunks(Simulation *sim,
+                           std::vector<ParticleChunk> &chunks) {
+  tic();
+
+  Metadata *metadata = &Metadata::getInstance();
+  std::vector<Cell> &cells = sim->cells;
+
+#ifdef WITH_MPI
+  const int rank = metadata->rank;
+#endif
+
+  // Open the HDF5 file
+  HDF5Helper hdf(metadata->input_file);
+
+  int chunks_read = 0;
+  size_t total_particles_read = 0;
+
+  // Read each chunk (in serial: all chunks, in MPI: only assigned chunks)
+  for (auto &chunk : chunks) {
+#ifdef WITH_MPI
+    if (chunk.reading_rank != rank)
+      continue;
+
+    message("Rank %d: Reading chunk %zu-%zu (%zu particles, start_idx=%zu)",
+            rank, chunk.start_cell_id, chunk.end_cell_id, chunk.particle_count,
+            chunk.start_particle_idx);
+#else
+    message("Reading chunk %zu-%zu (%zu particles, start_idx=%zu)",
+            chunk.start_cell_id, chunk.end_cell_id, chunk.particle_count,
+            chunk.start_particle_idx);
+#endif
+
+    // Allocate storage for this chunk
+    chunk.masses.resize(chunk.particle_count);
+
+    // Read masses - 1D array
+    std::array<unsigned long long, 1> start_idx = {chunk.start_particle_idx};
+    std::array<unsigned long long, 1> count = {chunk.particle_count};
+
+    if (!hdf.readDatasetSlice<double>("PartType1/Masses", chunk.masses,
+                                      start_idx, count)) {
+      error("Failed to read particle masses for chunk %zu-%zu",
+            chunk.start_cell_id, chunk.end_cell_id);
+    }
+
+    // Read positions - 2D array [npart, 3]
+    chunk.positions.resize(chunk.particle_count);
+    std::vector<double> pos_flat(chunk.particle_count * 3);
+    std::array<unsigned long long, 2> pos_start = {chunk.start_particle_idx, 0};
+    std::array<unsigned long long, 2> pos_count = {chunk.particle_count, 3};
+
+    if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", pos_flat,
+                                      pos_start, pos_count)) {
+      error("Failed to read particle positions for chunk %zu-%zu",
+            chunk.start_cell_id, chunk.end_cell_id);
+    }
+
+    // Unpack flat array into array<double,3>
+    for (size_t p = 0; p < chunk.particle_count; p++) {
+      chunk.positions[p] = {pos_flat[p * 3], pos_flat[p * 3 + 1],
+                            pos_flat[p * 3 + 2]};
+    }
+
+#ifndef WITH_MPI
+    // In serial mode, immediately attach particles to cells
+    size_t particle_offset = 0;
+    for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
+      size_t npart = cells[cid].part_count;
+
+      // Skip non-useful cells but still advance particle_offset
+      if (!cells[cid].is_useful) {
+        particle_offset += npart;
+        continue;
+      }
+
+      for (size_t p = 0; p < npart; p++) {
+        cells[cid].particles.push_back(
+            new Particle(chunk.positions[particle_offset + p].data(),
+                         chunk.masses[particle_offset + p]));
+      }
+
+      // Calculate cell mass as sum of particle masses
+      cells[cid].mass = 0.0;
+      for (const auto *part : cells[cid].particles) {
+        cells[cid].mass += part->mass;
+      }
+
+      particle_offset += npart;
+    }
+
+    // Clear chunk data immediately in serial to save memory
+    chunk.masses.clear();
+    chunk.positions.clear();
+    chunk.masses.shrink_to_fit();
+    chunk.positions.shrink_to_fit();
+#endif
+
+    chunks_read++;
+    total_particles_read += chunk.particle_count;
+  }
+
+  hdf.close();
+
+#ifdef WITH_MPI
+  message("Rank %d: Read %d chunks containing %zu particles", rank, chunks_read,
+          total_particles_read);
+#else
+  message("Read %d chunks containing %zu particles", chunks_read,
+          total_particles_read);
+#endif
+
+  toc("Reading particles in chunks");
+}
+
+/**
  * @brief Assign particles to cells.
  *
  * @param sim The simulation object.

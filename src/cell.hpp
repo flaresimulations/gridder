@@ -185,6 +185,7 @@ void splitCells(Simulation *sim);
 Cell *getCellContainingPoint(const double pos[3]);
 int getCellIndexContainingPoint(const double pos[3]);
 void assignPartsToCells(Simulation *sim);
+void readParticlesInChunks(Simulation *sim, std::vector<ParticleChunk> &chunks);
 void checkAndMoveParticles(Simulation *sim);
 void assignGridPointsToCells(Simulation *sim, Grid *grid);
 

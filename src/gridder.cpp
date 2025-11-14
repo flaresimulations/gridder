@@ -216,17 +216,7 @@ int main(int argc, char *argv[]) {
 
   message("Number of top level cells: %d", sim->nr_cells);
 
-#ifdef WITH_MPI
-  // Decomose the cells over the MPI ranks
-  try {
-    partitionCells(sim);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-#endif
-
-  // Create the grid points (either from a file or tesselating the volume)
+  // Create the grid points (either from a file or tessellating the volume)
   try {
     createGridPoints(sim, grid);
   } catch (const std::exception &e) {
@@ -263,17 +253,83 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // Find and flag the proxy cells at the edges of the partition
+  // Prepare contiguous chunks of useful cells for efficient I/O
+  std::vector<ParticleChunk> particle_chunks;
+  try {
+    particle_chunks = prepareToReadParts(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Partition chunks across ranks for balanced reading
+  try {
+    partitionChunksForReading(particle_chunks, metadata->size);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Each rank reads its assigned chunks
+  try {
+    readParticlesInChunks(sim, particle_chunks);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Partition cells by computational work for load balancing
+  try {
+    partitionCellsByWork(sim, grid);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Flag proxy cells based on work partition
   try {
     flagProxyCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
-#endif
 
-  // Now we know which cells are where we can make the grid points, and assign
-  // them and the particles to the cells
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Redistribute particles for work balance
+  try {
+    redistributeParticles(sim, particle_chunks);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Exchange proxy cells
+  try {
+    exchangeProxyCells(sim, particle_chunks);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Clear chunk data to free memory
+  metadata->particle_chunks.clear();
+  particle_chunks.clear();
+
+#else
+  // Serial mode: load all particles using existing function
   try {
     assignPartsToCells(sim);
   } catch (const std::exception &e) {
@@ -284,17 +340,6 @@ int main(int argc, char *argv[]) {
   // Just to be safe check particles are all where they should be
   try {
     checkAndMoveParticles(sim);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-
-#ifdef WITH_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // Communicate the proxy cell particles
-  try {
-    exchangeProxyCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;

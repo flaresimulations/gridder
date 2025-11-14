@@ -11,6 +11,7 @@ Grid:
   cdim: 100 # number point along each dimension (applicable to uniform)
   grid_file: grid_points.txt # file containing grid points (applicable to file)
   n_grid_points: 1000000 # number of grid points to sample (applicable to random)
+  random_seed: 42 # seed for random grid point generation (applicable to random)
 
 Tree:
   max_leaf_count: 200
