@@ -348,8 +348,11 @@ void Cell::split() {
  * @brief Add a new particle to the cell.
  *
  * @param part The particle to add.
+ * @param mark_useful If true, mark the cell as useful. Default is true.
+ *                    Set to false when moving stray particles to avoid
+ *                    marking non-loaded cells as useful.
  */
-void Cell::addParticle(Particle *part) {
+void Cell::addParticle(Particle *part, bool mark_useful) {
 
 #ifdef DEBUGGING_CHECKS
   // Check if the particle is already in the cell
@@ -372,8 +375,10 @@ void Cell::addParticle(Particle *part) {
           e.what());
   }
 
-  // Mark the cell as useful
-  this->is_useful = true;
+  // Mark the cell as useful if requested
+  if (mark_useful) {
+    this->is_useful = true;
+  }
 }
 
 /**
@@ -1067,7 +1072,9 @@ void checkAndMoveParticles(Simulation *sim) {
         continue;
 
       // Otherwise, move it into the correct cell
-      containing_cell->addParticle(part);
+      // Don't mark the cell as useful - we're just moving stray particles
+      // and the target cell may not have been intentionally loaded
+      containing_cell->addParticle(part, false);
       moved_count++;
 
       // Remove the particle from the current cell

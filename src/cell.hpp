@@ -167,7 +167,7 @@ public:
   bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
   void split();
-  void addParticle(Particle *part);
+  void addParticle(Particle *part, bool mark_useful = true);
   void removeParticle(Particle *part) {
     auto it = std::find(this->particles.begin(), this->particles.end(), part);
     if (it != this->particles.end()) {
