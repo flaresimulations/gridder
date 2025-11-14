@@ -134,7 +134,6 @@ void partitionCells(Simulation *sim) {
 std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
   tic();
 
-  Metadata *metadata = &Metadata::getInstance();
   std::vector<Cell> &cells = sim->cells;
 
   // Build sorted list of useful cell IDs
@@ -168,11 +167,12 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
     size_t cid = useful_cells[i];
     size_t prev_cid = useful_cells[i - 1];
 
-    // Check if particles are contiguous in file
+    // Check if particles are contiguous in file (cast to size_t for comparison)
     size_t expected_next_idx =
-        sim->cell_part_starts[prev_cid] + sim->cell_part_counts[prev_cid];
+        static_cast<size_t>(sim->cell_part_starts[prev_cid]) +
+        static_cast<size_t>(sim->cell_part_counts[prev_cid]);
 
-    if (sim->cell_part_starts[cid] == expected_next_idx) {
+    if (static_cast<size_t>(sim->cell_part_starts[cid]) == expected_next_idx) {
       // Extend current chunk
       current_chunk.end_cell_id = cid;
       current_chunk.particle_count += sim->cell_part_counts[cid];

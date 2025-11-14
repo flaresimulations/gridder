@@ -136,6 +136,11 @@ public:
     // Initialise the depth
     this->depth = parent ? parent->depth + 1 : 0;
 
+    // Initialize children array to nullptr
+    for (int i = 0; i < OCTREE_CHILDREN; i++) {
+      this->children[i] = nullptr;
+    }
+
 #ifdef WITH_MPI
     // Initialise the rank and proxy flags
     this->rank = 0;
