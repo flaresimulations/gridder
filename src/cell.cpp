@@ -611,6 +611,9 @@ void readParticlesInChunks(Simulation *sim,
       // Skip non-useful cells but still advance particle_offset
       if (!cells[cid].is_useful) {
         particle_offset += npart;
+        // Reset part_count for non-useful cells since we're not loading particles
+        cells[cid].part_count = 0;
+        cells[cid].mass = 0.0;
         continue;
       }
 

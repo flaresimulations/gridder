@@ -147,25 +147,26 @@ try:
         
         # Check kernels
         print('Available kernels:', list(f['Grids'].keys()))
-        
-        # Check mass data for kernel radius 1.0
-        kernel_1_0 = None
-        for kernel_name in f['Grids'].keys():
-            if 'Kernel_1.0' in kernel_name or 'Kernel_1' in kernel_name:
-                kernel_1_0 = kernel_name
-                break
-        
-        if kernel_1_0 is None:
-            print('ERROR: Could not find kernel with radius 1.0')
+
+        # Check mass data for kernel_radius_1 (which is Kernel_0 in 0-indexed naming)
+        kernel_name = 'Kernel_0'
+
+        if kernel_name not in f['Grids']:
+            print(f'ERROR: Could not find {kernel_name}')
             sys.exit(1)
-        
-        print(f'Found kernel: {kernel_1_0}')
-        
+
+        print(f'Found kernel: {kernel_name}')
+
+        # Check kernel radius attribute
+        if 'KernelRadius' in f['Grids'][kernel_name].attrs:
+            kernel_radius = f['Grids'][kernel_name].attrs['KernelRadius']
+            print(f'Kernel radius: {kernel_radius}')
+
         # Check if masses exist
-        if 'GridPointMasses' in f['Grids'][kernel_1_0]:
-            masses = f['Grids'][kernel_1_0]['GridPointMasses'][:]
+        if 'GridPointMasses' in f['Grids'][kernel_name]:
+            masses = f['Grids'][kernel_name]['GridPointMasses'][:]
             print(f'Grid point masses: {masses}')
-            
+
             # For simple test, we expect at least one mass value of 1.0
             if np.any(np.isclose(masses, 1.0, rtol=1e-10)):
                 print('✓ Found expected mass value of 1.0')
@@ -173,10 +174,10 @@ try:
                 print(f'WARNING: Expected mass value 1.0, got: {masses}')
         else:
             print('INFO: Mass data not written (write_masses may be disabled)')
-        
+
         # Check overdensities
-        if 'GridPointOverDensities' in f['Grids'][kernel_1_0]:
-            overdens = f['Grids'][kernel_1_0]['GridPointOverDensities'][:]
+        if 'GridPointOverDensities' in f['Grids'][kernel_name]:
+            overdens = f['Grids'][kernel_name]['GridPointOverDensities'][:]
             print(f'Grid point overdensities: {overdens}')
         
         print('✓ Output file structure is valid')

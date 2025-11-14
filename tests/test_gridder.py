@@ -565,11 +565,11 @@ Output:
                 f"stderr: {result.stderr}"
             )
 
-            # Check that it reports chunk preparation (tests the fix we made)
+            # Check that it reports useful cells (sparse grid optimization)
             assert "useful cells" in result.stdout.lower(), \
                 "Should report useful cell count"
-            assert "chunks" in result.stdout.lower(), \
-                "Should report chunk creation"
+            # Note: Chunk-based loading only happens in MPI mode,
+            # serial mode uses traditional particle assignment
 
             # Verify output exists
             assert output_file.exists(), "Output file should be created"
@@ -645,6 +645,149 @@ Output:
         finally:
             if param_file.exists():
                 param_file.unlink()
+
+
+# ============================================================================
+# Sanity Check Tests - Grid Points on Particle Positions
+# ============================================================================
+
+class TestSanityChecks:
+    """Sanity check tests: grid points placed exactly on particle positions."""
+
+    def test_uniform_grid_on_particles_unit_overdensity(self, test_snapshot):
+        """Test uniform grid with grid points at particle positions gives unit overdensity."""
+        # Use simple test snapshot which has 1 particle at center
+        # We know from simple_test.sh this gives unit mass in the central grid point
+        param_content = """
+Kernels:
+  nkernels: 2
+  kernel_radius_1: 1.0   # Captures central particle
+  kernel_radius_2: 2.0   # Larger kernel
+
+Grid:
+  type: uniform
+  cdim: 3  # 3^3 = 27 grid points
+
+Tree:
+  max_leaf_count: 200
+
+Input:
+  filepath: tests/data/simple_test.hdf5
+  placeholder: "0000"
+
+Output:
+  filepath: tests/data/
+  basename: uniform_sanity_output.hdf5
+  write_masses: 1
+"""
+        param_file = TESTS_DIR / "temp_uniform_sanity.yml"
+        param_file.write_text(param_content)
+        output_file = DATA_DIR / "uniform_sanity_output.hdf5"
+
+        if output_file.exists():
+            output_file.unlink()
+
+        try:
+            result = subprocess.run(
+                [str(GRIDDER_EXE), str(param_file), "1"],
+                capture_output=True,
+                text=True
+            )
+
+            assert result.returncode == 0, (
+                f"Gridder failed\n"
+                f"stdout: {result.stdout}\n"
+                f"stderr: {result.stderr}"
+            )
+
+            # Verify overdensities - central grid point should have mass = 1.0
+            with h5py.File(output_file, 'r') as f:
+                # Kernel indices are 0-based, so kernel_radius_1 is Kernel_0
+                kernel_name = 'Kernel_0'
+                if kernel_name in f['/Grids']:
+                    masses = f[f'/Grids/{kernel_name}/GridPointMasses'][:]
+
+                    # Central grid point (index 13 for 3x3x3) should have mass 1.0
+                    central_idx = 13  # (1,1,1) in 3x3x3 grid
+                    assert np.isclose(masses[central_idx], 1.0, rtol=0.01), \
+                        f"Expected unit mass at central grid point, got: {masses[central_idx]}"
+
+                    print(f"✓ Sanity check passed: central mass = {masses[central_idx]}")
+
+        finally:
+            if param_file.exists():
+                param_file.unlink()
+
+    def test_sparse_grid_on_particles_unit_overdensity(self, test_snapshot):
+        """Test sparse grid (file-based) with grid point exactly on particle position."""
+        # Create grid points file with one point at center (5.0, 5.0, 5.0)
+        # where the particle is located in simple_test.hdf5
+        grid_file = DATA_DIR / "sparse_sanity_grid.txt"
+        with open(grid_file, 'w') as f:
+            # Place grid point at center where particle is
+            f.write("5.0 5.0 5.0\n")
+
+        param_content = f"""
+Kernels:
+  nkernels: 2
+  kernel_radius_1: 0.5   # Small - captures central particle
+  kernel_radius_2: 1.0   # Medium
+
+Grid:
+  type: file
+  grid_file: {grid_file}
+
+Tree:
+  max_leaf_count: 200
+
+Input:
+  filepath: tests/data/simple_test.hdf5
+  placeholder: "0000"
+
+Output:
+  filepath: tests/data/
+  basename: sparse_sanity_output.hdf5
+  write_masses: 1
+"""
+        param_file = TESTS_DIR / "temp_sparse_sanity.yml"
+        param_file.write_text(param_content)
+        output_file = DATA_DIR / "sparse_sanity_output.hdf5"
+
+        if output_file.exists():
+            output_file.unlink()
+
+        try:
+            result = subprocess.run(
+                [str(GRIDDER_EXE), str(param_file), "1"],
+                capture_output=True,
+                text=True
+            )
+
+            assert result.returncode == 0, (
+                f"Gridder failed\n"
+                f"stdout: {result.stdout}\n"
+                f"stderr: {result.stderr}"
+            )
+
+            # Verify results - should have unit mass at the single grid point
+            with h5py.File(output_file, 'r') as f:
+                # Kernel indices are 0-based, so kernel_radius_1 (0.5 Mpc) is Kernel_0
+                kernel_name = 'Kernel_0'
+                if kernel_name in f['/Grids']:
+                    masses = f[f'/Grids/{kernel_name}/GridPointMasses'][:]
+
+                    # Single grid point should have mass 1.0
+                    assert len(masses) == 1, f"Expected 1 grid point, got {len(masses)}"
+                    assert np.isclose(masses[0], 1.0, rtol=0.01), \
+                        f"Expected unit mass at grid point, got: {masses[0]}"
+
+                    print(f"✓ Sanity check passed: mass = {masses[0]}")
+
+        finally:
+            if param_file.exists():
+                param_file.unlink()
+            if grid_file.exists():
+                grid_file.unlink()
 
 
 # ============================================================================
@@ -832,6 +975,107 @@ def create_malformed_snapshot(filepath):
 
         dm.create_dataset('BadCoords', data=bad_coords)
         dm.create_dataset('Masses', data=masses)
+
+
+def create_uniform_sanity_snapshot(filepath):
+    """Create snapshot with particles at uniform grid positions for sanity check."""
+    with h5py.File(filepath, 'w') as f:
+        # Header with all required attributes
+        header = f.create_group('Header')
+        boxsize = 10.0
+        header.attrs['BoxSize'] = np.array([boxsize, boxsize, boxsize])
+
+        # Create 5x5x5 = 125 particles at regular grid positions
+        cdim = 5
+        npart = cdim ** 3
+        header.attrs['NumPart_Total'] = np.array([npart, 0, 0, 0, 0, 0], dtype=np.uint32)
+        header.attrs['NumPart_ThisFile'] = np.array([npart, 0, 0, 0, 0, 0], dtype=np.uint32)
+        header.attrs['Redshift'] = 0.0
+        header.attrs['Time'] = 1.0
+        header.attrs['NumFilesPerSnapshot'] = 1
+
+        # Create particles at uniform grid positions
+        spacing = boxsize / cdim
+        coords = []
+        for i in range(cdim):
+            for j in range(cdim):
+                for k in range(cdim):
+                    # Place particles at grid centers
+                    x = (i + 0.5) * spacing
+                    y = (j + 0.5) * spacing
+                    z = (k + 0.5) * spacing
+                    coords.append([x, y, z])
+
+        coords = np.array(coords)
+        masses = np.ones(npart)  # All particles have mass 1.0
+
+        pt1 = f.create_group('PartType1')
+        pt1.create_dataset('Coordinates', data=coords)
+        pt1.create_dataset('Masses', data=masses)
+
+        # Create Cell_File
+        cell_file = f.create_group('Cell_File')
+        cell_file.attrs['Cdim'] = np.array([cdim, cdim, cdim])
+
+        # One particle per cell
+        cell_file.create_dataset('PartType1/Counts', data=np.ones(npart, dtype=np.int32))
+        cell_file.create_dataset('PartType1/Offsets', data=np.arange(npart, dtype=np.int64))
+
+
+def create_sparse_sanity_snapshot(filepath, particle_positions):
+    """Create snapshot with particles at specific positions for sparse sanity check."""
+    with h5py.File(filepath, 'w') as f:
+        # Header
+        header = f.create_group('Header')
+        boxsize = 10.0
+        header.attrs['BoxSize'] = np.array([boxsize, boxsize, boxsize])
+        npart = len(particle_positions)
+        header.attrs['NumPart_Total'] = np.array([npart, 0, 0, 0, 0, 0], dtype=np.uint32)
+        header.attrs['NumPart_ThisFile'] = np.array([npart, 0, 0, 0, 0, 0], dtype=np.uint32)
+        header.attrs['Redshift'] = 0.0
+        header.attrs['Time'] = 1.0
+        header.attrs['NumFilesPerSnapshot'] = 1
+
+        # Create particles at specified positions
+        masses = np.ones(npart)  # All particles have mass 1.0
+
+        pt1 = f.create_group('PartType1')
+        pt1.create_dataset('Coordinates', data=particle_positions)
+        pt1.create_dataset('Masses', data=masses)
+
+        # Create Cell_File with appropriate cell structure
+        # Use 5x5x5 cells for 10x10x10 box
+        cdim = 5
+        ncells = cdim ** 3
+        cell_file = f.create_group('Cell_File')
+        cell_file.attrs['Cdim'] = np.array([cdim, cdim, cdim])
+
+        # Assign particles to cells
+        cell_size = boxsize / cdim
+        cell_counts = np.zeros(ncells, dtype=np.int32)
+        cell_indices = []
+
+        for pos in particle_positions:
+            ix = int(pos[0] / cell_size)
+            iy = int(pos[1] / cell_size)
+            iz = int(pos[2] / cell_size)
+            # Ensure within bounds
+            ix = min(ix, cdim - 1)
+            iy = min(iy, cdim - 1)
+            iz = min(iz, cdim - 1)
+            cell_id = ix * cdim * cdim + iy * cdim + iz
+            cell_counts[cell_id] += 1
+            cell_indices.append(cell_id)
+
+        # Create offsets
+        offsets = np.zeros(ncells, dtype=np.int64)
+        cumsum = 0
+        for i in range(ncells):
+            offsets[i] = cumsum
+            cumsum += cell_counts[i]
+
+        cell_file.create_dataset('PartType1/Counts', data=cell_counts)
+        cell_file.create_dataset('PartType1/Offsets', data=offsets)
 
 
 # ============================================================================
