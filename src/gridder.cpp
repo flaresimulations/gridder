@@ -18,11 +18,9 @@
 #include "logger.hpp"
 #include "metadata.hpp"
 #include "params.hpp"
+#include "partition.hpp"  // Now needed in both serial and MPI for chunked reading
 #include "simulation.hpp"
 #include "talking.hpp"
-#ifdef WITH_MPI
-#include "partition.hpp"
-#endif
 
 /**
  * @brief Function to handle the command line arguments using robust parser
@@ -329,13 +327,25 @@ int main(int argc, char *argv[]) {
   particle_chunks.clear();
 
 #else
-  // Serial mode: load all particles using existing function
+  // Serial mode: use chunked reading for sparse grids
+  std::vector<ParticleChunk> particle_chunks;
   try {
-    assignPartsToCells(sim);
+    particle_chunks = prepareToReadParts(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+  // Read particles in chunks (all chunks in serial mode)
+  try {
+    readParticlesInChunks(sim, particle_chunks);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  // Clear chunk data to free memory
+  particle_chunks.clear();
 
   // Just to be safe check particles are all where they should be
   try {
