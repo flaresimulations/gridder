@@ -574,9 +574,9 @@ void readParticlesInChunks(Simulation *sim,
     // Allocate storage for this chunk
     chunk.masses.resize(chunk.particle_count);
 
-    // Read masses - 1D array
-    std::array<unsigned long long, 1> start_idx = {chunk.start_particle_idx};
-    std::array<unsigned long long, 1> count = {chunk.particle_count};
+    // Read masses - 1D array (use hsize_t for HDF5 compatibility)
+    std::array<hsize_t, 1> start_idx = {static_cast<hsize_t>(chunk.start_particle_idx)};
+    std::array<hsize_t, 1> count = {static_cast<hsize_t>(chunk.particle_count)};
 
     if (!hdf.readDatasetSlice<double>("PartType1/Masses", chunk.masses,
                                       start_idx, count)) {
@@ -584,11 +584,11 @@ void readParticlesInChunks(Simulation *sim,
             chunk.start_cell_id, chunk.end_cell_id);
     }
 
-    // Read positions - 2D array [npart, 3]
+    // Read positions - 2D array [npart, 3] (use hsize_t for HDF5 compatibility)
     chunk.positions.resize(chunk.particle_count);
     std::vector<double> pos_flat(chunk.particle_count * 3);
-    std::array<unsigned long long, 2> pos_start = {chunk.start_particle_idx, 0};
-    std::array<unsigned long long, 2> pos_count = {chunk.particle_count, 3};
+    std::array<hsize_t, 2> pos_start = {static_cast<hsize_t>(chunk.start_particle_idx), 0};
+    std::array<hsize_t, 2> pos_count = {static_cast<hsize_t>(chunk.particle_count), 3};
 
     if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", pos_flat,
                                       pos_start, pos_count)) {
