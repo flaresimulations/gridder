@@ -46,7 +46,8 @@ void partitionCells(Simulation *sim) {
 
   // Check for pathological case: too few particles for MPI
   if (sim->nr_dark_matter < static_cast<size_t>(size)) {
-    error("Insufficient particles for MPI partitioning: %zu particles across %d ranks.\n"
+    error("Insufficient particles for MPI partitioning: %zu particles across "
+          "%d ranks.\n"
           "This simulation should be run in serial mode instead.\n"
           "MPI is only beneficial when particle count >> rank count.",
           sim->nr_dark_matter, size);
@@ -271,8 +272,7 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
 
   // Gap filling: merge chunks with small gaps between them
   // Threshold: merge if gap is <1% of total particles
-  const size_t gap_threshold =
-      static_cast<size_t>(0.01 * sim->nr_dark_matter);
+  const size_t gap_threshold = static_cast<size_t>(0.01 * sim->nr_dark_matter);
 
   std::vector<ParticleChunk> merged_chunks;
   if (!chunks.empty()) {
@@ -283,8 +283,8 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
       const ParticleChunk &current = chunks[i];
 
       // Calculate gap size in particles
-      size_t last_end_idx = last_merged.start_particle_idx +
-                            last_merged.particle_count;
+      size_t last_end_idx =
+          last_merged.start_particle_idx + last_merged.particle_count;
       size_t gap_size = current.start_particle_idx - last_end_idx;
 
       if (gap_size < gap_threshold) {
@@ -294,9 +294,6 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
             (current.start_particle_idx + current.particle_count) -
             last_merged.start_particle_idx;
         last_merged.grid_point_count += current.grid_point_count;
-
-        message("Merged chunks (gap of %zu particles < threshold %zu)",
-                gap_size, gap_threshold);
       } else {
         // Gap too large - keep as separate chunk
         merged_chunks.push_back(current);
@@ -497,7 +494,8 @@ void exchangeProxyCells(Simulation *sim) {
       // Send particle data (mass + positions for each particle)
       send_buffers.emplace_back();
       std::vector<double> &particle_data = send_buffers.back();
-      // Use particles.size() instead of part_count to handle ranks with no local particles
+      // Use particles.size() instead of part_count to handle ranks with no
+      // local particles
       for (size_t p = 0; p < cell->particles.size(); p++) {
         particle_data.push_back(cell->particles[p]->mass);
         particle_data.push_back(cell->particles[p]->pos[0]);
@@ -560,7 +558,8 @@ void exchangeProxyCells(Simulation *sim) {
     }
 
     // Data was received in the order: mass, pos[0], pos[1], pos[2] per particle
-    // Use actual received data size instead of part_count to handle ranks with no local particles
+    // Use actual received data size instead of part_count to handle ranks with
+    // no local particles
     size_t num_particles = recv_particle_data.size() / 4;
     for (size_t p = 0; p < num_particles; p++) {
       double mass = recv_particle_data[p * 4];
