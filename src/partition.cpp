@@ -147,8 +147,9 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
 
   std::vector<Cell> &cells = sim->cells;
 
-#ifdef WITH_MPI
   Metadata *metadata = &Metadata::getInstance();
+
+#ifdef WITH_MPI
   const int rank = metadata->rank;
 
   // Count useful cells on this rank
