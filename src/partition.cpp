@@ -656,6 +656,8 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
   };
   std::vector<SendData> send_buffers;
 
+  message("Rank %d: Starting first pass - posting non-blocking sends", rank);
+
   // First pass: post all non-blocking sends
   for (auto &chunk : chunks) {
     int reading_rank = chunk.reading_rank;
@@ -709,6 +711,9 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
     }
   }
 
+  message("Rank %d: Finished first pass - posted %d non-blocking sends", rank, nr_sends);
+  message("Rank %d: Starting second pass - receiving data", rank);
+
   // Second pass: receive data (blocking receives are safe now that sends are non-blocking)
   for (auto &chunk : chunks) {
     int reading_rank = chunk.reading_rank;
@@ -753,6 +758,9 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
     }
   }
 
+  message("Rank %d: Finished second pass - received %d cells", rank, nr_receives);
+  message("Rank %d: Waiting for %zu sends to complete", rank, send_buffers.size());
+
   // Wait for all sends to complete
   for (auto &send_data : send_buffers) {
     MPI_Wait(&send_data.req_count, MPI_STATUS_IGNORE);
@@ -760,7 +768,9 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
     MPI_Wait(&send_data.req_positions, MPI_STATUS_IGNORE);
   }
 
+  message("Rank %d: All sends completed, hitting barrier", rank);
   MPI_Barrier(MPI_COMM_WORLD);
+  message("Rank %d: Passed barrier", rank);
 
   message("Rank %d: Particle redistribution complete (sent %d, received %d cells)",
           rank, nr_sends, nr_receives);
