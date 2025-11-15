@@ -21,7 +21,7 @@ Tree:
 Input:
   filepath: uniform_test_0000.hdf5
   placeholder: "0000"
-  part_gap_fill_fraction: 1e-4 # Fraction of Npart below which we will read cells out of range of kernels just to read fewer chunks of particles
+  part_gap_fill_fraction: 0.0001 # Fraction of Npart below which we will read cells out of range of kernels just to read fewer chunks of particles
 
 Output:
   filepath: data/

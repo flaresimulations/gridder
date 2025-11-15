@@ -276,7 +276,7 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
   const size_t gap_threshold =
       static_cast<size_t>(gap_fraction * sim->nr_dark_matter);
 
-  message("Filling gaps smaller than %zu particles (%.3f%% of total)",
+  message("Filling gaps smaller than %zu particles (%.3e%% of total)",
           gap_threshold, gap_fraction * 100.0);
 
   std::vector<ParticleChunk> merged_chunks;
