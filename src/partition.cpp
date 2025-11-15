@@ -647,6 +647,16 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
   int nr_sends = 0;
   int nr_receives = 0;
 
+  // Structure to hold send data and keep buffers alive
+  struct SendData {
+    size_t npart;
+    MPI_Request req_count;
+    MPI_Request req_masses;
+    MPI_Request req_positions;
+  };
+  std::vector<SendData> send_buffers;
+
+  // First pass: post all non-blocking sends
   for (auto &chunk : chunks) {
     int reading_rank = chunk.reading_rank;
 
@@ -673,54 +683,81 @@ void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) 
           }
         }
       } else {
-        // Need MPI transfer
+        // Need MPI transfer - use non-blocking sends to avoid deadlock
         if (rank == reading_rank) {
-          // Send particles to final_rank
-          // Tag = cell ID to match sends/receives
-          MPI_Send(&npart, 1, MPI_UNSIGNED_LONG, final_rank, (int)cid,
-                   MPI_COMM_WORLD);
+          // Post non-blocking sends
+          SendData send_data;
+          send_data.npart = npart;
 
-          // Send masses
-          MPI_Send(chunk.masses.data() + particle_offset, (int)npart, MPI_DOUBLE,
-                   final_rank, (int)cid + 1000000, MPI_COMM_WORLD);
+          MPI_Isend(&send_data.npart, 1, MPI_UNSIGNED_LONG, final_rank, (int)cid,
+                    MPI_COMM_WORLD, &send_data.req_count);
 
-          // Send positions (3 doubles per particle)
-          MPI_Send(chunk.positions.data() + particle_offset, (int)npart * 3,
-                   MPI_DOUBLE, final_rank, (int)cid + 2000000, MPI_COMM_WORLD);
+          MPI_Isend(chunk.masses.data() + particle_offset, (int)npart, MPI_DOUBLE,
+                    final_rank, (int)cid + 1000000, MPI_COMM_WORLD,
+                    &send_data.req_masses);
 
+          MPI_Isend(chunk.positions.data() + particle_offset, (int)npart * 3,
+                    MPI_DOUBLE, final_rank, (int)cid + 2000000, MPI_COMM_WORLD,
+                    &send_data.req_positions);
+
+          send_buffers.push_back(send_data);
           nr_sends++;
-        }
-
-        if (rank == final_rank) {
-          // Receive particles
-          size_t recv_count;
-          MPI_Status status;
-          MPI_Recv(&recv_count, 1, MPI_UNSIGNED_LONG, reading_rank, (int)cid,
-                   MPI_COMM_WORLD, &status);
-
-          std::vector<double> recv_masses(recv_count);
-          std::vector<std::array<double, 3>> recv_positions(recv_count);
-
-          MPI_Recv(recv_masses.data(), (int)recv_count, MPI_DOUBLE, reading_rank,
-                   (int)cid + 1000000, MPI_COMM_WORLD, &status);
-
-          MPI_Recv(recv_positions.data(), (int)recv_count * 3, MPI_DOUBLE,
-                   reading_rank, (int)cid + 2000000, MPI_COMM_WORLD, &status);
-
-          // Attach to cell
-          cells[cid].mass = 0.0;
-          for (size_t p = 0; p < recv_count; p++) {
-            Particle *part = new Particle(recv_positions[p].data(), recv_masses[p]);
-            cells[cid].particles.push_back(part);
-            cells[cid].mass += part->mass;
-          }
-
-          nr_receives++;
         }
       }
 
       particle_offset += npart;
     }
+  }
+
+  // Second pass: receive data (blocking receives are safe now that sends are non-blocking)
+  for (auto &chunk : chunks) {
+    int reading_rank = chunk.reading_rank;
+
+    size_t particle_offset = 0;
+    for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
+      if (!cells[cid].is_useful) {
+        continue;
+      }
+
+      int final_rank = cells[cid].rank;
+      size_t npart = cells[cid].part_count;
+
+      if (reading_rank != final_rank && rank == final_rank) {
+        // Receive particles
+        size_t recv_count;
+        MPI_Status status;
+        MPI_Recv(&recv_count, 1, MPI_UNSIGNED_LONG, reading_rank, (int)cid,
+                 MPI_COMM_WORLD, &status);
+
+        std::vector<double> recv_masses(recv_count);
+        std::vector<std::array<double, 3>> recv_positions(recv_count);
+
+        MPI_Recv(recv_masses.data(), (int)recv_count, MPI_DOUBLE, reading_rank,
+                 (int)cid + 1000000, MPI_COMM_WORLD, &status);
+
+        MPI_Recv(recv_positions.data(), (int)recv_count * 3, MPI_DOUBLE,
+                 reading_rank, (int)cid + 2000000, MPI_COMM_WORLD, &status);
+
+        // Attach to cell
+        cells[cid].mass = 0.0;
+        for (size_t p = 0; p < recv_count; p++) {
+          Particle *part = new Particle(recv_positions[p].data(), recv_masses[p]);
+          cells[cid].particles.push_back(part);
+          cells[cid].mass += part->mass;
+        }
+
+        nr_receives++;
+      }
+
+      particle_offset += npart;
+    }
+  }
+
+  // Wait for all sends to complete
+  for (auto &send_data : send_buffers) {
+    MPI_Wait(&send_data.req_count, MPI_STATUS_IGNORE);
+    MPI_Wait(&send_data.req_masses, MPI_STATUS_IGNORE);
+    MPI_Wait(&send_data.req_positions, MPI_STATUS_IGNORE);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
