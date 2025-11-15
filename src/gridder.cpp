@@ -214,6 +214,16 @@ int main(int argc, char *argv[]) {
 
   message("Number of top level cells: %d", sim->nr_cells);
 
+#ifdef WITH_MPI
+  // Partition the cells across MPI ranks before creating grid points
+  try {
+    partitionCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+#endif
+
   // Create the grid points (either from a file or tessellating the volume)
   try {
     createGridPoints(sim, grid);
