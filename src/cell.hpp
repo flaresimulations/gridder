@@ -197,5 +197,6 @@ void assignGridPointsToCells(Simulation *sim, Grid *grid);
 // Prototypes for functions defined in cell_search.cpp
 void getKernelMasses(Simulation *sim, Grid *grid);
 void limitToUsefulCells(Simulation *sim);
+void cleanupNonUsefulCells(Simulation *sim);
 
 #endif // CELL_HPP

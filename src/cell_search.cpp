@@ -26,7 +26,8 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
   double *dim = metadata->sim->dim;
 
   // Loop over the particles in the cell and assign them to the grid point
-  for (size_t p = 0; p < cell->part_count; p++) {
+  // Use particles.size() instead of part_count to handle ranks with no local particles
+  for (size_t p = 0; p < cell->particles.size(); p++) {
     Particle *part = cell->particles[p];
 
     // Get the distance between the particle and the grid point

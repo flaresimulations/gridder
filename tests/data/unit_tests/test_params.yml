@@ -1,0 +1,18 @@
+Kernels:
+  nkernels: 1
+  kernel_radius_1: 1.0
+
+Grid:
+  type: uniform
+  cdim: 5
+
+Tree:
+  max_leaf_count: 200
+
+Input:
+  filepath: tests/data/unit_tests/mpi_balance.hdf5
+
+Output:
+  filepath: tests/data/unit_tests/
+  basename: mpi_balance_out.hdf5
+  write_masses: 1

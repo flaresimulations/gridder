@@ -126,7 +126,8 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
 #ifdef DEBUGGING_CHECKS
   // Ensure we aren't reporting we're outside when particles are inside
   if (r2 > kernel_rad2) {
-    for (size_t p = 0; p < this->part_count; p++) {
+    // Use particles.size() instead of part_count to handle ranks with no local particles
+    for (size_t p = 0; p < this->particles.size(); p++) {
       Particle *part = this->particles[p];
       const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
       const double p_dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
@@ -544,7 +545,7 @@ int getCellIndexContainingPoint(const double pos[3]) {
  * @param sim The simulation object
  * @param chunks Vector of ParticleChunk structs to populate with data
  */
-void readParticlesInChunks(Simulation *sim,
+void readParticlesInChunks([[maybe_unused]] Simulation *sim,
                            std::vector<ParticleChunk> &chunks) {
   tic();
 
@@ -555,18 +556,13 @@ void readParticlesInChunks(Simulation *sim,
 
   int chunks_read = 0;
   size_t total_particles_read = 0;
+#ifndef WITH_MPI
+  size_t useful_particles = 0;
+  size_t useful_cells_processed = 0;
+#endif
 
   // Read each chunk (all chunks belong to this rank)
   for (auto &chunk : chunks) {
-#ifdef WITH_MPI
-    message("Rank %d: Reading chunk %zu-%zu (%zu particles, start_idx=%zu)",
-            metadata->rank, chunk.start_cell_id, chunk.end_cell_id, chunk.particle_count,
-            chunk.start_particle_idx);
-#else
-    message("Reading chunk %zu-%zu (%zu particles, start_idx=%zu)",
-            chunk.start_cell_id, chunk.end_cell_id, chunk.particle_count,
-            chunk.start_particle_idx);
-#endif
 
     // Allocate storage for this chunk
     chunk.masses.resize(chunk.particle_count);
@@ -615,6 +611,10 @@ void readParticlesInChunks(Simulation *sim,
         continue;
       }
 
+      // Track useful cells and particles
+      useful_cells_processed++;
+      useful_particles += npart;
+
       for (size_t p = 0; p < npart; p++) {
         cells[cid].particles.push_back(
             new Particle(chunk.positions[particle_offset + p].data(),
@@ -643,12 +643,19 @@ void readParticlesInChunks(Simulation *sim,
 
   hdf.close();
 
+  // Print summary statistics
 #ifdef WITH_MPI
   message("Rank %d: Read %d chunks containing %zu particles", metadata->rank,
           chunks_read, total_particles_read);
 #else
-  message("Read %d chunks containing %zu particles", chunks_read,
-          total_particles_read);
+  // Calculate efficiency metrics for serial mode
+  double efficiency = (total_particles_read > 0)
+                          ? (100.0 * useful_particles / total_particles_read)
+                          : 0.0;
+  message("Read %d chunks: %zu particles total, %zu in %zu useful cells "
+          "(efficiency: %.1f%%)",
+          chunks_read, total_particles_read, useful_particles,
+          useful_cells_processed, efficiency);
 #endif
 
   toc("Reading particles in chunks");
@@ -673,50 +680,62 @@ void assignPartsToCells(Simulation *sim) {
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
 
+  // Declare particle data vectors (will be empty if no local particles)
+  std::vector<double> masses;
+  std::vector<double> poss;
+
+#ifdef WITH_MPI
+  // In MPI mode, only read if this rank has local particles
+  // (but still participate in MPI_Allreduce later)
+  if (metadata->nr_local_particles > 0 && metadata->first_local_part_ind >= 0) {
+    // Open the HDF5 file
+    HDF5Helper hdf(metadata->input_file);
+
+    // Read the particle data slice for this rank (use hsize_t for HDF5 compatibility)
+    std::array<hsize_t, 1> mass_dims = {
+        static_cast<hsize_t>(metadata->nr_local_particles)};
+    std::array<hsize_t, 1> start_index = {
+        static_cast<hsize_t>(metadata->first_local_part_ind)};
+    if (!hdf.readDatasetSlice<double>("PartType1/Masses", masses, start_index,
+                                      mass_dims)) {
+      error("Failed to read particle masses");
+    }
+
+    std::array<hsize_t, 2> pos_dims = {
+        static_cast<hsize_t>(metadata->nr_local_particles), 3};
+    std::array<hsize_t, 2> pos_start_index = {
+        static_cast<hsize_t>(metadata->first_local_part_ind), 0};
+    if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss,
+                                      pos_start_index, pos_dims)) {
+      error("Failed to read particle positions");
+    }
+  } else {
+    message("No local particles to read on this rank");
+  }
+#else
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
 
-#ifdef WITH_MPI
-  // Read the particle data slice for this rank (use hsize_t for HDF5 compatibility)
-  std::vector<double> masses;
-  std::array<hsize_t, 1> mass_dims = {
-      static_cast<hsize_t>(metadata->nr_local_particles)};
-  std::array<hsize_t, 1> start_index = {
-      static_cast<hsize_t>(metadata->first_local_part_ind)};
-  if (!hdf.readDatasetSlice<double>("PartType1/Masses", masses, start_index,
-                                    mass_dims)) {
-    error("Failed to read particle masses");
-  }
-
-  std::vector<double> poss;
-  std::array<hsize_t, 2> pos_dims = {
-      static_cast<hsize_t>(metadata->nr_local_particles), 3};
-  std::array<hsize_t, 2> pos_start_index = {
-      static_cast<hsize_t>(metadata->first_local_part_ind), 0};
-  if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss,
-                                    pos_start_index, pos_dims)) {
-    error("Failed to read particle positions");
-  }
-#else
   // Read the particle data all at once
-  std::vector<double> masses;
   if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses)) {
     error("Failed to read particle masses");
   }
-  std::vector<double> poss;
   if (!hdf.readDataset<double>("PartType1/Coordinates", poss)) {
     error("Failed to read particle positions");
   }
 #endif
 
-  // Loop over cells attaching particles and grid points
+  // Only process cells if we have particle data
+  // (skip if rank has no local particles in MPI mode)
+  if (!masses.empty()) {
+    // Loop over cells attaching particles and grid points
 #ifdef DEBUGGING_CHECKS
-  size_t total_part_count = 0;
+    size_t total_part_count = 0;
 #endif
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
-    // Get the cell
-    Cell *cell = &cells[cid];
+      // Get the cell
+      Cell *cell = &cells[cid];
 
     // Skip unuseful cells
     if (!cell->is_useful)
@@ -783,6 +802,7 @@ void assignPartsToCells(Simulation *sim) {
 #endif
     }
   }
+  }  // End if (!masses.empty())
 
   // Compute the total mass in the simulation from the masses vector
   double total_mass = 0.0;
@@ -852,58 +872,66 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   // Initialise a vector to hold the particles we will send to each rank
   std::vector<std::vector<Particle *>> send_particles(metadata->size);
 
-  // Loop over the cells and check the particles
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+  // Only check and move particles if this rank has local particles
+  // (skip if rank has no local particles in MPI mode, but still participate
+  // in MPI_Alltoall later)
+  if (metadata->nr_local_particles > 0 && metadata->first_local_part_ind >= 0) {
+    // Loop over the cells and check the particles
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
-    // Get the cell
-    Cell *cell = &cells[cid];
+      // Get the cell
+      Cell *cell = &cells[cid];
 
-    // Skip unuseful cells
-    if (!cell->is_useful)
-      continue;
-
-    // Loop over the particles in this cell (backwards to handle removal safely)
-    for (size_t p = cell->part_count; p > 0; p--) {
-      size_t idx = p - 1;
-
-      // Get the particle
-      Particle *part = cell->particles[idx];
-
-      // Get the cell containing this particle
-      Cell *containing_cell = getCellContainingPoint(part->pos);
-
-      // If the particle is in the right cell, continue
-      if (containing_cell == cell)
+      // Skip unuseful cells
+      if (!cell->is_useful)
         continue;
 
-      // Get the rank of the containing cell
-      int target_rank = containing_cell->rank;
-      if (target_rank < 0 || target_rank >= metadata->size) {
-        error("Particle %zu in cell %zu has invalid target rank %d", idx, cid,
-              target_rank);
-      }
+      // Loop over the particles in this cell (backwards to handle removal safely)
+      // Use particles.size() instead of part_count to handle ranks with no local particles
+      for (size_t p = cell->particles.size(); p > 0; p--) {
+        size_t idx = p - 1;
 
-      // If the containing cell is local, move the particle to it
-      if (containing_cell->rank == metadata->rank) {
-        containing_cell->addParticle(part);
-        moved_count++;
-        // Remove the particle from the current cell after moving it locally
+        // Get the particle
+        Particle *part = cell->particles[idx];
+
+        // Get the cell containing this particle
+        Cell *containing_cell = getCellContainingPoint(part->pos);
+
+        // If the particle is in the right cell, continue
+        if (containing_cell == cell)
+          continue;
+
+        // Get the rank of the containing cell
+        int target_rank = containing_cell->rank;
+        if (target_rank < 0 || target_rank >= metadata->size) {
+          error("Particle %zu in cell %zu has invalid target rank %d", idx, cid,
+                target_rank);
+        }
+
+        // If the containing cell is local, move the particle to it
+        if (containing_cell->rank == metadata->rank) {
+          containing_cell->addParticle(part);
+          moved_count++;
+          // Remove the particle from the current cell after moving it locally
+          cell->removeParticle(part);
+          continue;
+        }
+
+        // Otherwise, store it to send shortly
+        try {
+          send_particles[target_rank].push_back(part);
+        } catch (const std::bad_alloc &e) {
+          error("Memory allocation failed while adding particle to send vector "
+                "for rank %d. System out of memory. Error: %s",
+                target_rank, e.what());
+        }
+
+        // Remove the particle from the current cell
         cell->removeParticle(part);
-        continue;
       }
-
-      // Otherwise, store it to send shortly
-      try {
-        send_particles[target_rank].push_back(part);
-      } catch (const std::bad_alloc &e) {
-        error("Memory allocation failed while adding particle to send vector "
-              "for rank %d. System out of memory. Error: %s",
-              target_rank, e.what());
-      }
-
-      // Remove the particle from the current cell
-      cell->removeParticle(part);
     }
+  } else {
+    message("No local particles to check/move on this rank");
   }
 
   // We need to tell everyone how many particles to expect from each
@@ -1017,7 +1045,8 @@ void checkAndMoveParticles(Simulation *sim) {
   tic();
 
 #ifdef WITH_MPI
-  // If we are using MPI, use the MPI version
+  // If we are using MPI, use the MPI version (even if rank has no particles,
+  // must participate in MPI collective operations like MPI_Alltoall)
   checkAndMoveParticlesMPI(sim);
 #else
 
@@ -1051,7 +1080,8 @@ void checkAndMoveParticles(Simulation *sim) {
     }
 
     // Loop over the particles in this cell (backwards to handle removal safely)
-    for (size_t p = cell->part_count; p > 0; p--) {
+    // Use particles.size() instead of part_count to handle ranks with no local particles
+    for (size_t p = cell->particles.size(); p > 0; p--) {
       size_t idx = p - 1;
 
       // Get the particle
@@ -1076,6 +1106,12 @@ void checkAndMoveParticles(Simulation *sim) {
   }
 
   message("Moved %zu particles to correct cells", moved_count);
+
+  // Update part_count to reflect actual particle count after redistribution
+  // This is critical for proxy exchange which uses part_count to size buffers
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    cells[cid].part_count = cells[cid].particles.size();
+  }
 
 #endif // WITH_MPI
 
@@ -1195,25 +1231,57 @@ void limitToUsefulCells(Simulation *sim) {
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
 
-  // Loop over the cells and label the useful ones
+  // Phase 1: Flag locally useful cells
+  // (cells with grid points or neighboring cells with grid points)
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
     // Get the cell
     Cell *cell = &cells[cid];
 
-    // Check if the cell is useful
+    // Check if the cell is useful locally
     if (cell->grid_points.size() > 0) {
       cell->is_useful = true;
     } else {
       continue;
     }
 
-    // If we got here we have a useful cell, so we need to label the
-    // neighbours as useful too
+    // If we got here we have a useful cell, label neighbors as useful too
     for (Cell *neighbour : cell->neighbours) {
       neighbour->is_useful = true;
     }
   }
+
+#ifdef WITH_MPI
+  // Phase 2: MPI communication - find globally useful cells
+  // A cell is globally useful if ANY rank considers it useful
+  // This prevents deadlocks where rank A doesn't send a cell that rank B needs
+
+  Metadata *metadata = &Metadata::getInstance();
+
+  // Create arrays for local and global useful flags
+  std::vector<int> local_useful(sim->nr_cells, 0);
+  std::vector<int> global_useful(sim->nr_cells, 0);
+
+  // Populate local useful flags
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    local_useful[cid] = cells[cid].is_useful ? 1 : 0;
+  }
+
+  // Reduce across all ranks using logical OR
+  // This ensures every rank knows which cells ANY rank considers useful
+  MPI_Allreduce(local_useful.data(), global_useful.data(), sim->nr_cells,
+                MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+
+  // Phase 3: Update useful flags based on global information
+  // Mark cells as useful if ANY rank needs them
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (global_useful[cid]) {
+      cells[cid].is_useful = true;
+    }
+  }
+
+  message("Rank %d: Synchronized useful cells across all ranks", metadata->rank);
+#endif
 
   // Count the number of useful cells
   int useful_count = 0;
@@ -1223,8 +1291,108 @@ void limitToUsefulCells(Simulation *sim) {
     }
   }
 
+#ifdef WITH_MPI
+  message("Rank %d: Number of useful cells: %d (out of %d)",
+          metadata->rank, useful_count, sim->nr_cells);
+#else
   message("Number of useful cells: %d (out of %d)", useful_count,
           sim->nr_cells);
+#endif
+
+  // Phase 4: Zero particle counts for truly non-useful cells
+  // Now it's safe because we know NO rank needs these cells
+  int cleared_count = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *cell = &cells[cid];
+
+    // Skip useful cells - at least one rank needs their particles
+    if (cell->is_useful)
+      continue;
+
+#ifdef WITH_MPI
+    // In MPI mode, also keep proxy cells - they participate in exchange
+    if (cell->is_proxy)
+      continue;
+#endif
+
+    // This cell is neither useful nor a proxy - zero its part_count
+    // so assignPartsToCells won't load particles for it
+    cell->part_count = 0;
+    cleared_count++;
+  }
+
+  if (cleared_count > 0) {
+#ifdef WITH_MPI
+    message("Rank %d: Cleared %d non-useful cells (zeroed part_count)",
+            metadata->rank, cleared_count);
+#else
+    message("Cleared %d non-useful cells (zeroed part_count)", cleared_count);
+#endif
+  }
 
   toc("Flagging useful cells");
+}
+
+/**
+ * @brief Clean up non-useful cells to free memory.
+ *
+ * After proxy cell exchange is complete, deallocate particles for cells that
+ * are neither useful nor proxy cells. This reduces memory footprint.
+ *
+ * @param sim The simulation object.
+ */
+void cleanupNonUsefulCells(Simulation *sim) {
+
+  tic();
+
+  // Get the cells
+  std::vector<Cell> &cells = sim->cells;
+
+  size_t particles_deallocated = 0;
+  size_t cells_cleaned = 0;
+  size_t memory_freed = 0;
+
+  // Loop over cells and deallocate particles for non-useful, non-proxy cells
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *cell = &cells[cid];
+
+    // Skip useful cells - they need their particles
+    if (cell->is_useful)
+      continue;
+
+#ifdef WITH_MPI
+    // In MPI mode, also keep proxy cells - they have exchanged particles
+    if (cell->is_proxy)
+      continue;
+#endif
+
+    // This cell is neither useful nor a proxy - deallocate its particles
+    if (!cell->particles.empty()) {
+      particles_deallocated += cell->particles.size();
+      memory_freed += cell->particles.size() * sizeof(Particle);
+
+      // Delete particle objects
+      for (Particle *part : cell->particles) {
+        delete part;
+      }
+
+      // Clear and shrink the vector to free memory
+      cell->particles.clear();
+      cell->particles.shrink_to_fit();
+
+      // Reset cell properties
+      cell->part_count = 0;
+      cell->mass = 0.0;
+
+      cells_cleaned++;
+    }
+  }
+
+  if (cells_cleaned > 0) {
+    message("Cleaned up %zu cells: deallocated %zu particles, freed %.2f MB",
+            cells_cleaned, particles_deallocated,
+            memory_freed / (1024.0 * 1024.0));
+  }
+
+  toc("Cleaning up non-useful cells");
 }

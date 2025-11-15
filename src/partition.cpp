@@ -44,6 +44,14 @@ void partitionCells(Simulation *sim) {
     return;
   }
 
+  // Check for pathological case: too few particles for MPI
+  if (sim->nr_dark_matter < static_cast<size_t>(size)) {
+    error("Insufficient particles for MPI partitioning: %zu particles across %d ranks.\n"
+          "This simulation should be run in serial mode instead.\n"
+          "MPI is only beneficial when particle count >> rank count.",
+          sim->nr_dark_matter, size);
+  }
+
   // Intialise an array to hold the number of particles on each rank
   std::vector<int> rank_part_counts(size, 0);
 
@@ -137,9 +145,9 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
   tic();
 
   std::vector<Cell> &cells = sim->cells;
-  Metadata *metadata = &Metadata::getInstance();
 
 #ifdef WITH_MPI
+  Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
 
   // Count useful cells on this rank
@@ -454,7 +462,27 @@ void exchangeProxyCells(Simulation *sim) {
   std::vector<std::vector<double>> recv_buffers;
   std::vector<size_t> recv_cell_ids;
 
-  // Post non-blocking sends for all local cells that need to be sent
+  // Step 1: Exchange particle counts first
+  // After checkAndMoveParticles, part_count may have changed on owning ranks
+  // We need to communicate these updated counts before exchanging particles
+  std::vector<size_t> local_part_counts(sim->nr_cells);
+  std::vector<size_t> global_part_counts(sim->nr_cells);
+
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    local_part_counts[cid] = sim->cells[cid].part_count;
+  }
+
+  // Use Allreduce with MAX to get the actual counts from owning ranks
+  // (only the owning rank will have the correct count)
+  MPI_Allreduce(local_part_counts.data(), global_part_counts.data(),
+                sim->nr_cells, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
+
+  // Update local part_counts with the global values
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    sim->cells[cid].part_count = global_part_counts[cid];
+  }
+
+  // Step 2: Post non-blocking sends for all local cells that need to be sent
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &sim->cells[cid];
 
@@ -469,7 +497,8 @@ void exchangeProxyCells(Simulation *sim) {
       // Send particle data (mass + positions for each particle)
       send_buffers.emplace_back();
       std::vector<double> &particle_data = send_buffers.back();
-      for (size_t p = 0; p < cell->part_count; p++) {
+      // Use particles.size() instead of part_count to handle ranks with no local particles
+      for (size_t p = 0; p < cell->particles.size(); p++) {
         particle_data.push_back(cell->particles[p]->mass);
         particle_data.push_back(cell->particles[p]->pos[0]);
         particle_data.push_back(cell->particles[p]->pos[1]);
@@ -531,7 +560,9 @@ void exchangeProxyCells(Simulation *sim) {
     }
 
     // Data was received in the order: mass, pos[0], pos[1], pos[2] per particle
-    for (size_t p = 0; p < cell->part_count; p++) {
+    // Use actual received data size instead of part_count to handle ranks with no local particles
+    size_t num_particles = recv_particle_data.size() / 4;
+    for (size_t p = 0; p < num_particles; p++) {
       double mass = recv_particle_data[p * 4];
       double pos[3] = {recv_particle_data[p * 4 + 1],
                        recv_particle_data[p * 4 + 2],

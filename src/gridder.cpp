@@ -327,6 +327,20 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
+  // Clean up non-useful cells to free memory
+  // After proxy exchange, we can safely deallocate particles from cells that
+  // are neither useful nor proxies
+  try {
+    cleanupNonUsefulCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
   // And before we can actually get going we need to split the cells into the
   // cell tree. Each top level cell will become the root of an octree that
   // we can walk as we search for particles to associate with grid points
