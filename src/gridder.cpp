@@ -215,13 +215,15 @@ int main(int argc, char *argv[]) {
   message("Number of top level cells: %d", sim->nr_cells);
 
 #ifdef WITH_MPI
-  // Partition the cells across MPI ranks before creating grid points
+  // Partition the cells across MPI ranks (work-based partition)
   try {
     partitionCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   // Create the grid points (either from a file or tessellating the volume)
@@ -261,48 +263,7 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // Prepare contiguous chunks of useful cells for efficient I/O
-  std::vector<ParticleChunk> particle_chunks;
-  try {
-    particle_chunks = prepareToReadParts(sim);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // Partition chunks across ranks for balanced reading
-  try {
-    partitionChunksForReading(particle_chunks, metadata->size);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // Each rank reads its assigned chunks
-  try {
-    readParticlesInChunks(sim, particle_chunks);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // Partition cells by computational work for load balancing
-  try {
-    partitionCellsByWork(sim, grid);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // Flag proxy cells based on work partition
+  // Flag proxy cells at partition boundaries
   try {
     flagProxyCells(sim);
   } catch (const std::exception &e) {
@@ -311,33 +272,9 @@ int main(int argc, char *argv[]) {
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
-  // Redistribute particles for work balance
-  try {
-    redistributeParticles(sim, particle_chunks);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // Exchange proxy cells
-  try {
-    exchangeProxyCells(sim, particle_chunks);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // Clear chunk data to free memory
-  metadata->particle_chunks.clear();
-  particle_chunks.clear();
-
-#else
-  // Serial mode: use chunked reading for sparse grids
+  // Determine optimal particle reading strategy (full vs chunked)
   std::vector<ParticleChunk> particle_chunks;
   try {
     particle_chunks = prepareToReadParts(sim);
@@ -346,16 +283,27 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // Read particles in chunks (all chunks in serial mode)
-  try {
-    readParticlesInChunks(sim, particle_chunks);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
+  // Read particles using the optimal strategy
+  if (particle_chunks.empty()) {
+    // >75% of cells are useful - use full read
+    try {
+      assignPartsToCells(sim);
+    } catch (const std::exception &e) {
+      std::cerr << e.what() << std::endl;
+      return 1;
+    }
+  } else {
+    // <25% of cells are useful - use chunked read
+    try {
+      readParticlesInChunks(sim, particle_chunks);
+    } catch (const std::exception &e) {
+      std::cerr << e.what() << std::endl;
+      return 1;
+    }
 
-  // Clear chunk data to free memory
-  particle_chunks.clear();
+    // Clear chunk data to free memory
+    particle_chunks.clear();
+  }
 
   // Just to be safe check particles are all where they should be
   try {
@@ -364,6 +312,19 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Exchange proxy cell particles
+  try {
+    exchangeProxyCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   // And before we can actually get going we need to split the cells into the

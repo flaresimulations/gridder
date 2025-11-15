@@ -550,24 +550,17 @@ void readParticlesInChunks(Simulation *sim,
 
   Metadata *metadata = &Metadata::getInstance();
 
-#ifdef WITH_MPI
-  const int rank = metadata->rank;
-#endif
-
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
 
   int chunks_read = 0;
   size_t total_particles_read = 0;
 
-  // Read each chunk (in serial: all chunks, in MPI: only assigned chunks)
+  // Read each chunk (all chunks belong to this rank)
   for (auto &chunk : chunks) {
 #ifdef WITH_MPI
-    if (chunk.reading_rank != rank)
-      continue;
-
     message("Rank %d: Reading chunk %zu-%zu (%zu particles, start_idx=%zu)",
-            rank, chunk.start_cell_id, chunk.end_cell_id, chunk.particle_count,
+            metadata->rank, chunk.start_cell_id, chunk.end_cell_id, chunk.particle_count,
             chunk.start_particle_idx);
 #else
     message("Reading chunk %zu-%zu (%zu particles, start_idx=%zu)",
@@ -608,6 +601,7 @@ void readParticlesInChunks(Simulation *sim,
 
 #ifndef WITH_MPI
     // In serial mode, immediately attach particles to cells
+    std::vector<Cell> &cells = sim->cells;
     size_t particle_offset = 0;
     for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
       size_t npart = cells[cid].part_count;
@@ -650,8 +644,8 @@ void readParticlesInChunks(Simulation *sim,
   hdf.close();
 
 #ifdef WITH_MPI
-  message("Rank %d: Read %d chunks containing %zu particles", rank, chunks_read,
-          total_particles_read);
+  message("Rank %d: Read %d chunks containing %zu particles", metadata->rank,
+          chunks_read, total_particles_read);
 #else
   message("Read %d chunks containing %zu particles", chunks_read,
           total_particles_read);

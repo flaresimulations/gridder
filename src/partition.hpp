@@ -9,22 +9,16 @@
 #include "metadata.hpp"
 #include "simulation.hpp"
 
-// Partition prototypes
-void partitionCells(Simulation *sim);
-
-// Proxy prototypes
-void flagProxyCells(Simulation *sim);
-void exchangeProxyCells(Simulation *sim);
-
 // Efficient particle loading (used in both serial and MPI)
+// Returns empty vector if >75% cells useful (use full read)
+// Returns chunks if <25% cells useful (use chunked read with gap filling)
 std::vector<ParticleChunk> prepareToReadParts(Simulation *sim);
 
 #ifdef WITH_MPI
-// MPI-specific particle loading prototypes
-void partitionChunksForReading(std::vector<ParticleChunk> &chunks, int size);
-void partitionCellsByWork(Simulation *sim, Grid *grid);
-void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks);
-void exchangeProxyCells(Simulation *sim, std::vector<ParticleChunk> &chunks);
+// MPI partition and proxy prototypes
+void partitionCells(Simulation *sim);
+void flagProxyCells(Simulation *sim);
+void exchangeProxyCells(Simulation *sim);
 #endif
 
 #endif // PARTITION_HPP

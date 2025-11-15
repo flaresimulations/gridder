@@ -121,20 +121,92 @@ void partitionCells(Simulation *sim) {
 /**
  * @brief Prepare particle chunks for efficient reading
  *
- * This function identifies contiguous ranges of useful cells (cells that
- * contain or are neighbors of grid points) and groups them into chunks for
- * efficient HDF5 reading. Since cells are ijk-ordered in the file, contiguous
- * cell IDs correspond to contiguous particle ranges.
+ * This function determines the optimal strategy for reading particles:
+ * - If >75% of cells are useful: return empty vector (signal full read)
+ * - If <25% of cells are useful: create chunks with gap filling
+ *
+ * Gap filling: Merge chunks separated by small gaps (<1% of particles)
+ * to reduce HDF5 I/O overhead.
  *
  * Works in both serial and MPI modes.
  *
  * @param sim The simulation object
- * @return Vector of ParticleChunk structs describing contiguous ranges
+ * @return Vector of ParticleChunk structs (empty if full read recommended)
  */
 std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
   tic();
 
   std::vector<Cell> &cells = sim->cells;
+  Metadata *metadata = &Metadata::getInstance();
+
+#ifdef WITH_MPI
+  const int rank = metadata->rank;
+
+  // Count useful cells on this rank
+  size_t nr_useful_local = 0;
+  size_t nr_local = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].rank == rank) {
+      nr_local++;
+      if (cells[cid].is_useful) {
+        nr_useful_local++;
+      }
+    }
+  }
+
+  if (nr_local == 0) {
+    message("No cells assigned to this rank");
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  double useful_fraction = (double)nr_useful_local / (double)nr_local;
+
+  // If >75% are useful, use full read (return empty vector as signal)
+  if (useful_fraction > 0.75) {
+    message("%.1f%% of local cells are useful - using full read strategy",
+            useful_fraction * 100.0);
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  message("%.1f%% of local cells are useful - using chunked read strategy",
+          useful_fraction * 100.0);
+
+  // Build sorted list of useful cell IDs for this rank
+  std::vector<size_t> useful_cells;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].rank == rank && cells[cid].is_useful) {
+      useful_cells.push_back(cid);
+    }
+  }
+#else
+  // Serial mode - check fraction of all cells
+  size_t nr_useful = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].is_useful) {
+      nr_useful++;
+    }
+  }
+
+  if (nr_useful == 0) {
+    message("No useful cells found - nothing to read");
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  double useful_fraction = (double)nr_useful / (double)sim->nr_cells;
+
+  // If >75% are useful, use full read
+  if (useful_fraction > 0.75) {
+    message("%.1f%% of cells are useful - using full read strategy",
+            useful_fraction * 100.0);
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  message("%.1f%% of cells are useful - using chunked read strategy",
+          useful_fraction * 100.0);
 
   // Build sorted list of useful cell IDs
   std::vector<size_t> useful_cells;
@@ -143,17 +215,14 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
       useful_cells.push_back(cid);
     }
   }
+#endif
 
   if (useful_cells.empty()) {
-    message("No useful cells found - nothing to read");
     toc("Preparing to read particles");
     return {};
   }
 
-  message("Found %zu useful cells out of %zu total cells",
-          useful_cells.size(), sim->nr_cells);
-
-  // Build chunks where consecutive cells have contiguous particles
+  // Build initial chunks where consecutive cells have contiguous particles
   std::vector<ParticleChunk> chunks;
   ParticleChunk current_chunk;
 
@@ -167,7 +236,7 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
     size_t cid = useful_cells[i];
     size_t prev_cid = useful_cells[i - 1];
 
-    // Check if particles are contiguous in file (cast to size_t for comparison)
+    // Check if particles are contiguous in file
     size_t expected_next_idx =
         static_cast<size_t>(sim->cell_part_starts[prev_cid]) +
         static_cast<size_t>(sim->cell_part_counts[prev_cid]);
@@ -188,23 +257,67 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
       current_chunk.grid_point_count = cells[cid].grid_points.size();
     }
   }
-  chunks.push_back(current_chunk); // Don't forget last chunk
+  chunks.push_back(current_chunk);
 
-  message("Created %zu contiguous chunks from useful cells", chunks.size());
+  message("Created %zu initial chunks from useful cells", chunks.size());
 
-  // Report statistics
-  if (chunks.size() > 1) {
-    size_t total_useful_particles = 0;
-    for (const auto &chunk : chunks) {
-      total_useful_particles += chunk.particle_count;
+  // Gap filling: merge chunks with small gaps between them
+  // Threshold: merge if gap is <1% of total particles
+  const size_t gap_threshold =
+      static_cast<size_t>(0.01 * sim->nr_dark_matter);
+
+  std::vector<ParticleChunk> merged_chunks;
+  if (!chunks.empty()) {
+    merged_chunks.push_back(chunks[0]);
+
+    for (size_t i = 1; i < chunks.size(); i++) {
+      ParticleChunk &last_merged = merged_chunks.back();
+      const ParticleChunk &current = chunks[i];
+
+      // Calculate gap size in particles
+      size_t last_end_idx = last_merged.start_particle_idx +
+                            last_merged.particle_count;
+      size_t gap_size = current.start_particle_idx - last_end_idx;
+
+      if (gap_size < gap_threshold) {
+        // Merge: extend last chunk to include gap and current chunk
+        last_merged.end_cell_id = current.end_cell_id;
+        last_merged.particle_count =
+            (current.start_particle_idx + current.particle_count) -
+            last_merged.start_particle_idx;
+        last_merged.grid_point_count += current.grid_point_count;
+
+        message("Merged chunks (gap of %zu particles < threshold %zu)",
+                gap_size, gap_threshold);
+      } else {
+        // Gap too large - keep as separate chunk
+        merged_chunks.push_back(current);
+      }
     }
-    double efficiency =
-        100.0 * total_useful_particles / (double)sim->nr_dark_matter;
-    message("Useful cells contain %.1f%% of total particles", efficiency);
   }
 
+  message("After gap filling: %zu chunks", merged_chunks.size());
+
+  // Report statistics
+  size_t total_chunk_particles = 0;
+  for (const auto &chunk : merged_chunks) {
+    total_chunk_particles += chunk.particle_count;
+  }
+
+#ifdef WITH_MPI
+  double efficiency =
+      100.0 * total_chunk_particles / (double)metadata->nr_local_particles;
+  message("Chunks contain %.1f%% of local particles (including gaps)",
+          efficiency);
+#else
+  double efficiency =
+      100.0 * total_chunk_particles / (double)sim->nr_dark_matter;
+  message("Chunks contain %.1f%% of total particles (including gaps)",
+          efficiency);
+#endif
+
   toc("Preparing to read particles");
-  return chunks;
+  return merged_chunks;
 }
 
 #ifdef WITH_MPI
@@ -431,523 +544,6 @@ void exchangeProxyCells(Simulation *sim) {
   }
 
   message("Rank %d: Proxy cell exchange completed", rank);
-  toc("Exchanging proxy cells");
-}
-
-/**
- * @brief Partition chunks across ranks for balanced reading
- *
- * Assigns each chunk to an MPI rank such that each rank reads approximately
- * the same number of particles. This balances I/O workload while maintaining
- * contiguous reads.
- *
- * @param chunks Vector of ParticleChunk structs to assign
- * @param size Number of MPI ranks
- */
-void partitionChunksForReading(std::vector<ParticleChunk> &chunks, int size) {
-  tic();
-
-  if (size <= 1) {
-    // Single rank - assign all chunks to rank 0
-    for (auto &chunk : chunks) {
-      chunk.reading_rank = 0;
-    }
-    toc("Partitioning chunks for reading");
-    return;
-  }
-
-  // Calculate total particles across all chunks
-  size_t total_particles = 0;
-  for (const auto &chunk : chunks) {
-    total_particles += chunk.particle_count;
-  }
-
-  size_t particles_per_rank = total_particles / size;
-
-  message("Assigning %zu chunks across %d ranks (target: %zu particles/rank)",
-          chunks.size(), size, particles_per_rank);
-
-  // Assign chunks to ranks to balance read workload
-  int current_rank = 0;
-  size_t rank_particle_count = 0;
-
-  for (auto &chunk : chunks) {
-    chunk.reading_rank = current_rank;
-    rank_particle_count += chunk.particle_count;
-
-    // Move to next rank if this one has enough particles
-    if (rank_particle_count >= particles_per_rank && current_rank < size - 1) {
-      message("Rank %d will read %zu particles", current_rank,
-              rank_particle_count);
-      current_rank++;
-      rank_particle_count = 0;
-    }
-  }
-
-  // Report final rank assignment
-  if (current_rank == size - 1 && rank_particle_count > 0) {
-    message("Rank %d will read %zu particles", current_rank,
-            rank_particle_count);
-  }
-
-  toc("Partitioning chunks for reading");
-}
-
-/**
- * @brief Partition cells by computational work for load balancing
- *
- * After particles are read, this function redistributes cells across ranks
- * based on computational cost = n_particles * n_grid_points * n_kernels.
- * This ensures balanced computation during kernel mass calculations.
- *
- * @param sim The simulation object
- * @param grid The grid object containing kernel information
- */
-void partitionCellsByWork(Simulation *sim, Grid *grid) {
-  tic();
-
-  Metadata *metadata = &Metadata::getInstance();
-  std::vector<Cell> &cells = sim->cells;
-
-  const int rank = metadata->rank;
-  const int size = metadata->size;
-
-  if (size <= 1) {
-    // Single rank - assign all cells to rank 0
-    metadata->local_work_cost = 0;
-    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-      if (cells[cid].is_useful) {
-        cells[cid].rank = 0;
-        size_t cost = cells[cid].part_count * cells[cid].grid_points.size() *
-                      grid->nkernels;
-        metadata->local_work_cost += cost;
-      }
-    }
-    toc("Partitioning cells by work");
-    return;
-  }
-
-  // Calculate work cost for each useful cell
-  // cost = n_particles * n_grid_points * n_kernel_radii
-  size_t n_kernels = grid->nkernels;
-
-  std::vector<size_t> useful_cell_ids;
-  std::vector<size_t> cell_costs;
-  size_t total_cost = 0;
-
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    if (!cells[cid].is_useful)
-      continue;
-
-    size_t cost =
-        cells[cid].part_count * cells[cid].grid_points.size() * n_kernels;
-
-    useful_cell_ids.push_back(cid);
-    cell_costs.push_back(cost);
-    total_cost += cost;
-  }
-
-  message("Total computational cost across all useful cells: %zu", total_cost);
-
-  // Partition to balance total cost across ranks
-  size_t cost_per_rank = total_cost / size;
-
-  message("Target cost per rank: %zu", cost_per_rank);
-
-  int current_rank = 0;
-  size_t rank_cost = 0;
-
-  for (size_t i = 0; i < useful_cell_ids.size(); i++) {
-    size_t cid = useful_cell_ids[i];
-    cells[cid].rank = current_rank;
-    rank_cost += cell_costs[i];
-
-    // Move to next rank if target reached and not last rank
-    if (rank_cost >= cost_per_rank && current_rank < size - 1) {
-      message("Assigned cost %zu to rank %d", rank_cost, current_rank);
-      current_rank++;
-      rank_cost = 0;
-    }
-  }
-
-  // Report final rank assignment
-  if (current_rank == size - 1 && rank_cost > 0) {
-    message("Assigned cost %zu to rank %d", rank_cost, current_rank);
-  }
-
-  // Track local work for this rank
-  metadata->local_work_cost = 0;
-  int nr_local_useful_cells = 0;
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    if (cells[cid].rank == rank && cells[cid].is_useful) {
-      size_t cost =
-          cells[cid].part_count * cells[cid].grid_points.size() * n_kernels;
-      metadata->local_work_cost += cost;
-      nr_local_useful_cells++;
-    }
-  }
-
-  message("Rank %d: assigned %d useful cells with total cost %zu", rank,
-          nr_local_useful_cells, metadata->local_work_cost);
-
-  toc("Partitioning cells by work");
-}
-
-/**
- * @brief Redistribute particles from reading ranks to compute ranks
- *
- * This function moves particles from the ranks that read them (based on I/O
- * partitioning) to the ranks that will compute with them (based on work
- * partitioning). After this function, each rank has particles for all cells
- * it owns according to the work partition.
- *
- * @param sim The simulation object
- * @param chunks Vector of ParticleChunk structs containing read particle data
- */
-void redistributeParticles(Simulation *sim, std::vector<ParticleChunk> &chunks) {
-  tic();
-
-  Metadata *metadata = &Metadata::getInstance();
-  std::vector<Cell> &cells = sim->cells;
-  const int rank = metadata->rank;
-  const int size = metadata->size;
-
-  if (size <= 1) {
-    // Single rank - just attach particles to cells directly
-    for (auto &chunk : chunks) {
-      size_t particle_offset = 0;
-      for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
-        if (!cells[cid].is_useful)
-          continue;
-
-        size_t npart = cells[cid].part_count;
-        for (size_t p = 0; p < npart; p++) {
-          cells[cid].particles.push_back(
-              new Particle(chunk.positions[particle_offset + p].data(),
-                           chunk.masses[particle_offset + p]));
-        }
-
-        // Calculate cell mass as sum of all particle masses in this cell
-        cells[cid].mass = 0.0;
-        if (cells[cid].part_count > 0) {
-          for (size_t p = 0; p < npart; p++) {
-            cells[cid].mass += chunk.masses[particle_offset + p];
-          }
-        }
-
-        particle_offset += npart;
-      }
-    }
-    toc("Redistributing particles (serial - no MPI)");
-    return;
-  }
-
-  message("Rank %d: Starting particle redistribution for work balance", rank);
-
-  int nr_sends = 0;
-  int nr_receives = 0;
-
-  // Structure to hold send data and keep buffers alive
-  struct SendData {
-    size_t npart;
-    MPI_Request req_count;
-    MPI_Request req_masses;
-    MPI_Request req_positions;
-  };
-  std::vector<SendData> send_buffers;
-
-  message("Rank %d: Starting first pass - posting non-blocking sends", rank);
-
-  // First pass: post all non-blocking sends
-  for (auto &chunk : chunks) {
-    int reading_rank = chunk.reading_rank;
-
-    size_t particle_offset = 0;
-    for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
-      if (!cells[cid].is_useful)
-        continue;
-
-      int final_rank = cells[cid].rank;
-      size_t npart = cells[cid].part_count;
-
-      if (reading_rank == final_rank) {
-        // Already on correct rank - attach particles directly
-        if (rank == reading_rank) {
-          for (size_t p = 0; p < npart; p++) {
-            cells[cid].particles.push_back(
-                new Particle(chunk.positions[particle_offset + p].data(),
-                             chunk.masses[particle_offset + p]));
-          }
-          // Calculate cell mass as sum of particle masses
-          cells[cid].mass = 0.0;
-          for (const auto *part : cells[cid].particles) {
-            cells[cid].mass += part->mass;
-          }
-        }
-      } else {
-        // Need MPI transfer - use non-blocking sends to avoid deadlock
-        if (rank == reading_rank) {
-          // Post non-blocking sends
-          SendData send_data;
-          send_data.npart = npart;
-
-          MPI_Isend(&send_data.npart, 1, MPI_UNSIGNED_LONG, final_rank, (int)cid,
-                    MPI_COMM_WORLD, &send_data.req_count);
-
-          MPI_Isend(chunk.masses.data() + particle_offset, (int)npart, MPI_DOUBLE,
-                    final_rank, (int)cid + 1000000, MPI_COMM_WORLD,
-                    &send_data.req_masses);
-
-          MPI_Isend(chunk.positions.data() + particle_offset, (int)npart * 3,
-                    MPI_DOUBLE, final_rank, (int)cid + 2000000, MPI_COMM_WORLD,
-                    &send_data.req_positions);
-
-          send_buffers.push_back(send_data);
-          nr_sends++;
-        }
-      }
-
-      particle_offset += npart;
-    }
-  }
-
-  message("Rank %d: Finished first pass - posted %d non-blocking sends", rank, nr_sends);
-  message("Rank %d: Starting second pass - receiving data", rank);
-
-  // Second pass: receive data (blocking receives are safe now that sends are non-blocking)
-  for (auto &chunk : chunks) {
-    int reading_rank = chunk.reading_rank;
-
-    size_t particle_offset = 0;
-    for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
-      if (!cells[cid].is_useful) {
-        continue;
-      }
-
-      int final_rank = cells[cid].rank;
-      size_t npart = cells[cid].part_count;
-
-      if (reading_rank != final_rank && rank == final_rank) {
-        // Receive particles
-        size_t recv_count;
-        MPI_Status status;
-        MPI_Recv(&recv_count, 1, MPI_UNSIGNED_LONG, reading_rank, (int)cid,
-                 MPI_COMM_WORLD, &status);
-
-        std::vector<double> recv_masses(recv_count);
-        std::vector<std::array<double, 3>> recv_positions(recv_count);
-
-        MPI_Recv(recv_masses.data(), (int)recv_count, MPI_DOUBLE, reading_rank,
-                 (int)cid + 1000000, MPI_COMM_WORLD, &status);
-
-        MPI_Recv(recv_positions.data(), (int)recv_count * 3, MPI_DOUBLE,
-                 reading_rank, (int)cid + 2000000, MPI_COMM_WORLD, &status);
-
-        // Attach to cell
-        cells[cid].mass = 0.0;
-        for (size_t p = 0; p < recv_count; p++) {
-          Particle *part = new Particle(recv_positions[p].data(), recv_masses[p]);
-          cells[cid].particles.push_back(part);
-          cells[cid].mass += part->mass;
-        }
-
-        nr_receives++;
-      }
-
-      particle_offset += npart;
-    }
-  }
-
-  message("Rank %d: Finished second pass - received %d cells", rank, nr_receives);
-  message("Rank %d: Waiting for %zu sends to complete", rank, send_buffers.size());
-
-  // Wait for all sends to complete
-  for (auto &send_data : send_buffers) {
-    MPI_Wait(&send_data.req_count, MPI_STATUS_IGNORE);
-    MPI_Wait(&send_data.req_masses, MPI_STATUS_IGNORE);
-    MPI_Wait(&send_data.req_positions, MPI_STATUS_IGNORE);
-  }
-
-  message("Rank %d: All sends completed, hitting barrier", rank);
-  MPI_Barrier(MPI_COMM_WORLD);
-  message("Rank %d: Passed barrier", rank);
-
-  message("Rank %d: Particle redistribution complete (sent %d, received %d cells)",
-          rank, nr_sends, nr_receives);
-
-  // Clear chunk data to free memory
-  for (auto &chunk : chunks) {
-    chunk.masses.clear();
-    chunk.positions.clear();
-    chunk.masses.shrink_to_fit();
-    chunk.positions.shrink_to_fit();
-  }
-
-  toc("Redistributing particles");
-}
-
-/**
- * @brief Exchange proxy cells between neighboring ranks
- *
- * This function sends copies of boundary cells to neighboring ranks that
- * need them for kernel computations. After this function, each rank has:
- * - Particles for all cells it owns (from work partitioning)
- * - Particles for all proxy cells (neighbors within kernel radius)
- *
- * @param sim The simulation object
- * @param chunks Vector of ParticleChunk structs (unused but kept for consistency)
- */
-void exchangeProxyCells(Simulation *sim, std::vector<ParticleChunk> &chunks) {
-  tic();
-
-  // Suppress unused parameter warning (kept for API consistency)
-  (void)chunks;
-
-  Metadata *metadata = &Metadata::getInstance();
-  std::vector<Cell> &cells = sim->cells;
-  const int rank = metadata->rank;
-  const int size = metadata->size;
-
-  if (size <= 1) {
-    toc("Exchanging proxy cells (serial - no MPI)");
-    return;
-  }
-
-  message("Rank %d: Starting proxy cell exchange", rank);
-
-  int nr_proxy_sends = 0;
-  int nr_proxy_receives = 0;
-
-  // Structure to hold send data (must persist until MPI_Waitall)
-  struct SendData {
-    size_t npart;
-    std::vector<double> masses;
-    std::vector<std::array<double, 3>> positions;
-    MPI_Request req_count;
-    MPI_Request req_masses;
-    MPI_Request req_positions;
-  };
-
-  // Structure to hold receive data
-  struct RecvData {
-    size_t cid;
-    size_t npart;
-    std::vector<double> masses;
-    std::vector<std::array<double, 3>> positions;
-    MPI_Request req_count;
-    MPI_Request req_masses;
-    MPI_Request req_positions;
-  };
-
-  std::vector<SendData> send_buffers;
-  std::vector<RecvData> recv_buffers;
-
-  // Phase 1: Post all non-blocking receives first
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell *cell = &cells[cid];
-
-    // Receive cells we need as proxy (using is_proxy flag set by flagProxyCells)
-    if (cell->rank != rank && cell->is_proxy) {
-      int owner_rank = cell->rank;
-      int tag_base = 10000000 + (int)(cid % 1000000); // Safe tag modulo
-
-      RecvData recv_data;
-      recv_data.cid = cid;
-
-      // Post receive for particle count
-      MPI_Irecv(&recv_data.npart, 1, MPI_UNSIGNED_LONG, owner_rank, tag_base,
-                MPI_COMM_WORLD, &recv_data.req_count);
-
-      recv_buffers.push_back(std::move(recv_data));
-      nr_proxy_receives++;
-    }
-  }
-
-  // Phase 2: Post all non-blocking sends
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell *cell = &cells[cid];
-
-    // Send this cell to ranks that need it as proxy
-    if (cell->rank == rank && !cell->send_ranks.empty()) {
-      size_t npart = cell->particles.size();
-
-      // Pack particle data
-      for (int dest_rank : cell->send_ranks) {
-        int tag_base = 10000000 + (int)(cid % 1000000); // Safe tag modulo
-
-        SendData send_data;
-        send_data.npart = npart;
-        send_data.masses.resize(npart);
-        send_data.positions.resize(npart);
-
-        for (size_t p = 0; p < npart; p++) {
-          send_data.masses[p] = cell->particles[p]->mass;
-          std::copy(cell->particles[p]->pos, cell->particles[p]->pos + 3,
-                    send_data.positions[p].data());
-        }
-
-        // Post sends
-        MPI_Isend(&send_data.npart, 1, MPI_UNSIGNED_LONG, dest_rank, tag_base,
-                  MPI_COMM_WORLD, &send_data.req_count);
-        MPI_Isend(send_data.masses.data(), (int)npart, MPI_DOUBLE, dest_rank,
-                  tag_base + 1000000, MPI_COMM_WORLD, &send_data.req_masses);
-        MPI_Isend(send_data.positions.data(), (int)npart * 3, MPI_DOUBLE,
-                  dest_rank, tag_base + 2000000, MPI_COMM_WORLD,
-                  &send_data.req_positions);
-
-        send_buffers.push_back(std::move(send_data));
-        nr_proxy_sends++;
-      }
-    }
-  }
-
-  // Phase 3: Wait for count receives, then post data receives
-  for (auto &recv_data : recv_buffers) {
-    MPI_Wait(&recv_data.req_count, MPI_STATUS_IGNORE);
-
-    // Now we know how many particles to receive
-    recv_data.masses.resize(recv_data.npart);
-    recv_data.positions.resize(recv_data.npart);
-
-    Cell *cell = &cells[recv_data.cid];
-    int owner_rank = cell->rank;
-    int tag_base = 10000000 + (int)(recv_data.cid % 1000000);
-
-    MPI_Irecv(recv_data.masses.data(), (int)recv_data.npart, MPI_DOUBLE,
-              owner_rank, tag_base + 1000000, MPI_COMM_WORLD,
-              &recv_data.req_masses);
-    MPI_Irecv(recv_data.positions.data(), (int)recv_data.npart * 3, MPI_DOUBLE,
-              owner_rank, tag_base + 2000000, MPI_COMM_WORLD,
-              &recv_data.req_positions);
-  }
-
-  // Phase 4: Wait for all sends to complete
-  for (auto &send_data : send_buffers) {
-    MPI_Wait(&send_data.req_count, MPI_STATUS_IGNORE);
-    MPI_Wait(&send_data.req_masses, MPI_STATUS_IGNORE);
-    MPI_Wait(&send_data.req_positions, MPI_STATUS_IGNORE);
-  }
-
-  // Phase 5: Wait for all data receives and attach particles
-  for (auto &recv_data : recv_buffers) {
-    MPI_Wait(&recv_data.req_masses, MPI_STATUS_IGNORE);
-    MPI_Wait(&recv_data.req_positions, MPI_STATUS_IGNORE);
-
-    Cell *cell = &cells[recv_data.cid];
-    cell->mass = 0.0;
-    for (size_t p = 0; p < recv_data.npart; p++) {
-      Particle *part = new Particle(recv_data.positions[p].data(), recv_data.masses[p]);
-      cell->particles.push_back(part);
-      cell->mass += part->mass;
-    }
-    cell->is_proxy = true;
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  message("Rank %d: Proxy exchange complete (sent %d, received %d proxies)",
-          rank, nr_proxy_sends, nr_proxy_receives);
-
   toc("Exchanging proxy cells");
 }
 #endif
