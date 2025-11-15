@@ -32,11 +32,11 @@ struct ParticleChunk {
   size_t start_particle_idx = 0; ///< Starting index in HDF5 particle arrays
   size_t particle_count = 0;     ///< Total number of particles in this chunk
   size_t grid_point_count = 0;   ///< Total number of grid points in this chunk
-  int reading_rank = 0;          ///< MPI rank assigned to read this chunk (0 in serial)
+  int reading_rank = 0; ///< MPI rank assigned to read this chunk (0 in serial)
 
   // Temporary storage after reading (cleared after use)
-  std::vector<double> masses;                      ///< Particle masses
-  std::vector<std::array<double, 3>> positions;    ///< Particle positions
+  std::vector<double> masses;                   ///< Particle masses
+  std::vector<std::array<double, 3>> positions; ///< Particle positions
 };
 
 // This is a Singleton class to store the necessary metadata used in the
@@ -74,6 +74,11 @@ public:
 
   //! Pointer to the grid object (set after Grid instantiation)
   Grid *grid;
+
+  //! The fraction of Npart above below which we will fill gaps when reading
+  // chunks of particles to perform fewer reads (higher, more unused particles
+  // read but fewer I/O calls)
+  double gap_fill_fraction;
 
 #ifdef WITH_MPI
   //! How many cells do we have locally?

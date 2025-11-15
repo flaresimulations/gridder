@@ -271,8 +271,9 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
   message("Created %zu initial chunks from useful cells", chunks.size());
 
   // Gap filling: merge chunks with small gaps between them
-  // Threshold: merge if gap is <1% of total particles
-  const size_t gap_threshold = static_cast<size_t>(0.01 * sim->nr_dark_matter);
+  double gap_fraction = metadata->gap_fill_fraction;
+  const size_t gap_threshold =
+      static_cast<size_t>(gap_fraction * sim->nr_dark_matter);
 
   std::vector<ParticleChunk> merged_chunks;
   if (!chunks.empty()) {
