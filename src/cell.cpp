@@ -589,7 +589,8 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
             chunk.start_cell_id, chunk.end_cell_id);
     }
 
-    // Unpack flat array into array<double,3>
+    // Unpack flat array into array<double,3> - parallelizable
+    #pragma omp parallel for schedule(static)
     for (size_t p = 0; p < chunk.particle_count; p++) {
       chunk.positions[p] = {pos_flat[p * 3], pos_flat[p * 3 + 1],
                             pos_flat[p * 3 + 2]};
