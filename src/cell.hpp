@@ -64,6 +64,10 @@ public:
   // is a neighbour of a useful cell)
   bool is_useful = false;
 
+  //! Flag for whether this cell is needed for LOCAL grid points
+  //! (as opposed to being a proxy cell needed only for other ranks)
+  bool is_locally_useful = false;
+
   //! Particles within the cell
   std::vector<Particle *> particles;
 
@@ -179,6 +183,38 @@ public:
   }
   void addGridPoint(GridPoint *grid_point) {
     this->grid_points.push_back(grid_point);
+  }
+
+  //! Check if this cell should be split (needed for local grid points)
+  inline bool shouldSplit() const {
+#ifdef WITH_MPI
+    // In MPI mode, only split cells that are locally useful
+    // (not just proxy cells needed by other ranks)
+    return this->is_locally_useful;
+#else
+    // In serial mode, split all useful cells
+    return this->is_useful;
+#endif
+  }
+
+  //! Check if this cell should have particles loaded
+  inline bool shouldLoadParticles() const {
+#ifdef WITH_MPI
+    // Load particles if locally useful OR if it's a proxy cell
+    return this->is_locally_useful ||
+           (this->is_proxy && this->is_useful);
+#else
+    return this->is_useful;
+#endif
+  }
+
+  //! Check if this cell is only a proxy (not needed locally)
+  inline bool isOnlyProxy() const {
+#ifdef WITH_MPI
+    return this->is_proxy && !this->is_locally_useful;
+#else
+    return false;
+#endif
   }
 };
 

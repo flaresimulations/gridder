@@ -127,8 +127,16 @@ void splitCells(Simulation *sim) {
 #ifdef WITH_MPI
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
-    // Skip cells that aren't on this rank and aren't proxies
-    if (cells[cid].rank != metadata->rank && !cells[cid].is_proxy)
+    // Only split cells that are:
+    // 1. On this rank AND
+    // 2. Locally useful (not just proxy cells)
+    if (cells[cid].rank != metadata->rank)
+      continue;
+    if (!cells[cid].shouldSplit())
+      continue;
+#else
+    // In serial mode, skip non-useful cells
+    if (!cells[cid].shouldSplit())
       continue;
 #endif
 

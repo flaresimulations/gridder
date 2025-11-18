@@ -602,27 +602,17 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
     for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
       size_t npart = cells[cid].part_count;
 
-#ifdef WITH_MPI
-      // In MPI mode, only load particles for useful cells that are local or proxies
-      if (!cells[cid].is_useful ||
-          (cells[cid].rank != metadata->rank && !cells[cid].is_proxy)) {
+      // Check if we should load particles for this cell
+      if (!cells[cid].shouldLoadParticles()) {
         particle_offset += npart;
         // Reset part_count for cells where we're not loading particles
         cells[cid].part_count = 0;
         cells[cid].mass = 0.0;
         continue;
       }
-#else
-      // In serial mode, skip non-useful cells but still advance particle_offset
-      if (!cells[cid].is_useful) {
-        particle_offset += npart;
-        // Reset part_count for non-useful cells since we're not loading particles
-        cells[cid].part_count = 0;
-        cells[cid].mass = 0.0;
-        continue;
-      }
 
-      // Track useful cells and particles
+#ifndef WITH_MPI
+      // Track useful cells and particles (serial mode only)
       useful_cells_processed++;
       useful_particles += npart;
 #endif
@@ -1253,6 +1243,10 @@ void limitToUsefulCells(Simulation *sim) {
     // Check if the cell is useful locally
     if (cell->grid_points.size() > 0) {
       cell->is_useful = true;
+#ifdef WITH_MPI
+      // Mark as locally useful (needed for THIS rank's grid points)
+      cell->is_locally_useful = true;
+#endif
     } else {
       continue;
     }
@@ -1260,6 +1254,10 @@ void limitToUsefulCells(Simulation *sim) {
     // If we got here we have a useful cell, label neighbors as useful too
     for (Cell *neighbour : cell->neighbours) {
       neighbour->is_useful = true;
+#ifdef WITH_MPI
+      // Neighbors are also locally useful
+      neighbour->is_locally_useful = true;
+#endif
     }
   }
 
