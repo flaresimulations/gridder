@@ -596,14 +596,24 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
                             pos_flat[p * 3 + 2]};
     }
 
-#ifndef WITH_MPI
-    // In serial mode, immediately attach particles to cells
+    // Attach particles from chunks to cells
     std::vector<Cell> &cells = sim->cells;
     size_t particle_offset = 0;
     for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
       size_t npart = cells[cid].part_count;
 
-      // Skip non-useful cells but still advance particle_offset
+#ifdef WITH_MPI
+      // In MPI mode, only load particles for useful cells that are local or proxies
+      if (!cells[cid].is_useful ||
+          (cells[cid].rank != metadata->rank && !cells[cid].is_proxy)) {
+        particle_offset += npart;
+        // Reset part_count for cells where we're not loading particles
+        cells[cid].part_count = 0;
+        cells[cid].mass = 0.0;
+        continue;
+      }
+#else
+      // In serial mode, skip non-useful cells but still advance particle_offset
       if (!cells[cid].is_useful) {
         particle_offset += npart;
         // Reset part_count for non-useful cells since we're not loading particles
@@ -615,7 +625,9 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
       // Track useful cells and particles
       useful_cells_processed++;
       useful_particles += npart;
+#endif
 
+      // Attach particles to this cell
       for (size_t p = 0; p < npart; p++) {
         cells[cid].particles.push_back(
             new Particle(chunk.positions[particle_offset + p].data(),
@@ -631,12 +643,11 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
       particle_offset += npart;
     }
 
-    // Clear chunk data immediately in serial to save memory
+    // Clear chunk data immediately to save memory
     chunk.masses.clear();
     chunk.positions.clear();
     chunk.masses.shrink_to_fit();
     chunk.positions.shrink_to_fit();
-#endif
 
     chunks_read++;
     total_particles_read += chunk.particle_count;

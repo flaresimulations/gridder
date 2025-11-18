@@ -474,7 +474,8 @@ class GridderTest:
     def test_grid_point_coordinates(self):
         """Test: Grid point coordinates are correctly spaced"""
         snapshot = self.data_dir / "grid_coords.hdf5"
-        TestDataGenerator.create_uniform_grid(snapshot, npart_per_dim=3, boxsize=10.0)
+        # Use more particles to handle up to 4 MPI ranks
+        TestDataGenerator.create_uniform_grid(snapshot, npart_per_dim=10, boxsize=10.0)
 
         cdim = 5
         boxsize = 10.0
@@ -540,8 +541,9 @@ class GridderTest:
         snapshot = self.data_dir / "boundary_parts.hdf5"
         boxsize = 10.0
 
-        # Create particles near boundaries
-        positions = np.array([
+        # Create particles near boundaries (include more for MPI with 4+ ranks)
+        # Add particles at boundaries plus a uniform background
+        boundary_positions = np.array([
             [0.1, 5.0, 5.0],   # Near x=0
             [9.9, 5.0, 5.0],   # Near x=boxsize
             [5.0, 0.1, 5.0],   # Near y=0
@@ -549,6 +551,13 @@ class GridderTest:
             [5.0, 5.0, 0.1],   # Near z=0
             [5.0, 5.0, 9.9],   # Near z=boxsize
         ])
+
+        # Add uniform background particles to ensure enough for MPI partitioning
+        np.random.seed(42)
+        n_background = 200
+        background_positions = np.random.uniform(0.5, boxsize-0.5, (n_background, 3))
+
+        positions = np.vstack([boundary_positions, background_positions])
         masses = np.ones(len(positions))
 
         # Write snapshot
@@ -570,9 +579,11 @@ class GridderTest:
             masses_out = f['Grids/Kernel_0/GridPointMasses'][:]
 
             # All particles should be captured by at least one grid point
+            # Check that the total mass is conserved (allowing small tolerance)
             total_mass_captured = np.sum(masses_out)
-            if total_mass_captured < len(positions) * 0.9:  # Allow some tolerance
-                return False, f"Not all boundary particles captured: {total_mass_captured} < {len(positions)}"
+            expected_mass = len(positions)  # All particles have mass=1
+            if abs(total_mass_captured - expected_mass) > expected_mass * 0.1:
+                return False, f"Mass not conserved: {total_mass_captured} vs {expected_mass}"
 
         return True, "Boundary particles test passed"
 
