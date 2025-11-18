@@ -748,13 +748,14 @@ void assignPartsToCells(Simulation *sim) {
   }
 #endif
 
+#ifdef DEBUGGING_CHECKS
+  size_t total_part_count = 0;
+#endif
+
   // Only process cells if we have particle data
   // (skip if rank has no local particles in MPI mode)
   if (!masses.empty()) {
     // Loop over cells attaching particles and grid points
-#ifdef DEBUGGING_CHECKS
-    size_t total_part_count = 0;
-#endif
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
       // Get the cell
