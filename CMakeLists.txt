@@ -169,6 +169,7 @@ set(SOURCE_FILES
   src/construct_cells.cpp
   src/grid_point.cpp
   src/hdf_io.cpp
+  src/logger.cpp
   src/metadata.cpp
   src/output.cpp
   src/partition.cpp

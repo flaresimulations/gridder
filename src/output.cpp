@@ -67,11 +67,40 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
     return;
   }
 
-  // Loop over cells and collect grid point counts
-  // (grid points have been percolated to top level before output)
+  // Helper lambda to recursively count grid points in a cell and all its descendants
+  std::function<int(const Cell*)> countGridPointsRecursive = [&](const Cell* cell) -> int {
+    int count = static_cast<int>(cell->grid_points.size());
+    if (cell->is_split) {
+      for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
+        if (cell->children[i] != nullptr) {
+          count += countGridPointsRecursive(cell->children[i]);
+        }
+      }
+    }
+    return count;
+  };
+
+  // Helper lambda to recursively collect grid points from a cell and all its descendants
+  std::function<void(const Cell*, std::vector<const GridPoint*>&)> collectGridPointsRecursive =
+      [&](const Cell* cell, std::vector<const GridPoint*>& gp_list) -> void {
+    // Add grid points from this cell
+    for (const GridPoint* gp : cell->grid_points) {
+      gp_list.push_back(gp);
+    }
+    // Recursively collect from children
+    if (cell->is_split) {
+      for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
+        if (cell->children[i] != nullptr) {
+          collectGridPointsRecursive(cell->children[i], gp_list);
+        }
+      }
+    }
+  };
+
+  // Loop over cells and collect grid point counts (including descendants)
   std::vector<int> grid_point_counts(sim->nr_cells, 0);
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    grid_point_counts[cid] = static_cast<int>(cells[cid].grid_points.size());
+    grid_point_counts[cid] = countGridPointsRecursive(&cells[cid]);
   }
 
   // Convert counts to start indices for cell lookup
@@ -153,13 +182,18 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
       Cell *cell = &cells[cid];
 
-      // Skip empty cells
-      if (cell->grid_points.size() == 0) {
+      // Skip cells with no grid points (including descendants)
+      if (grid_point_counts[cid] == 0) {
         continue;
       }
 
       const int start_idx = grid_point_start[cid];
       const int count = grid_point_counts[cid];
+
+      // Collect all grid points from this cell and its descendants
+      std::vector<const GridPoint*> cell_grid_points;
+      cell_grid_points.reserve(count);
+      collectGridPointsRecursive(cell, cell_grid_points);
 
       // Prepare data arrays
       std::vector<double> cell_grid_overdens;
@@ -171,8 +205,8 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
         cell_grid_masses.reserve(count);
       }
 
-      // Extract data from grid points
-      for (const GridPoint *gp : cell->grid_points) {
+      // Extract data from collected grid points
+      for (const GridPoint *gp : cell_grid_points) {
         // Get overdensity for this kernel
         cell_grid_overdens.push_back(gp->getOverDensity(kernel_rad, sim));
 
@@ -269,6 +303,36 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   // Unpack the cells
   std::vector<Cell> &cells = sim->cells;
 
+  // Helper lambda to recursively count grid points in a cell and all its descendants
+  std::function<int(const Cell*)> countGridPointsRecursive = [&](const Cell* cell) -> int {
+    int count = static_cast<int>(cell->grid_points.size());
+    if (cell->is_split) {
+      for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
+        if (cell->children[i] != nullptr) {
+          count += countGridPointsRecursive(cell->children[i]);
+        }
+      }
+    }
+    return count;
+  };
+
+  // Helper lambda to recursively collect grid points from a cell and all its descendants
+  std::function<void(const Cell*, std::vector<const GridPoint*>&)> collectGridPointsRecursive =
+      [&](const Cell* cell, std::vector<const GridPoint*>& gp_list) -> void {
+    // Add grid points from this cell
+    for (const GridPoint* gp : cell->grid_points) {
+      gp_list.push_back(gp);
+    }
+    // Recursively collect from children
+    if (cell->is_split) {
+      for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
+        if (cell->children[i] != nullptr) {
+          collectGridPointsRecursive(cell->children[i], gp_list);
+        }
+      }
+    }
+  };
+
   // Calculate local cell range for this rank
   int nr_cells_before = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
@@ -282,12 +346,11 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   const int nr_local_cells = metadata->nr_local_cells;
   const int last_local_cell = first_local_cell + nr_local_cells;
 
-  // Count grid points per local cell only
-  // (grid points have been percolated to top level before output)
+  // Count grid points per local cell (including descendants)
   std::vector<int> local_grid_point_counts;
   std::vector<int> local_cell_ids;
   for (int cid = first_local_cell; cid < last_local_cell; cid++) {
-    int count = static_cast<int>(cells[cid].grid_points.size());
+    int count = countGridPointsRecursive(&cells[cid]);
     if (count > 0) {
       local_grid_point_counts.push_back(count);
       local_cell_ids.push_back(cid);
@@ -374,10 +437,15 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
       }
     }
 
-    // Extract data from local grid points
+    // Extract data from local grid points (including those in descendant cells)
     for (int cid = first_local_cell; cid < last_local_cell; cid++) {
       Cell *cell = &cells[cid];
-      for (const GridPoint *gp : cell->grid_points) {
+
+      // Collect all grid points from this cell and its descendants
+      std::vector<const GridPoint*> cell_grid_points;
+      collectGridPointsRecursive(cell, cell_grid_points);
+
+      for (const GridPoint *gp : cell_grid_points) {
         // Store positions
         local_positions.push_back(gp->loc[0]);
         local_positions.push_back(gp->loc[1]);

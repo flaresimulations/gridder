@@ -148,7 +148,7 @@ public:
   }
 
   /**
-   * @brief Log a regular log message.
+   * @brief Log a regular log message (respects verbosity and rank).
    *
    * @tparam Args Variadic template for message formatting.
    *
@@ -158,10 +158,17 @@ public:
   template <typename... Args>
   void message(const char *file, const char *func, const char *format,
                Args... args) {
-    if (_level >= LOG) {
+    if (_level >= LOG && shouldPrint()) {
       log(file, func, format, args...);
     }
   }
+
+  /**
+   * @brief Determine if this rank should print based on verbosity setting.
+   *
+   * @return true if this rank should print, false otherwise.
+   */
+  bool shouldPrint() const;
 
   /**
    * @brief Start measuring time.
@@ -176,21 +183,15 @@ public:
   void toc(const char *file, const char *func, const char *message) {
     _toc = std::chrono::high_resolution_clock::now();
 
-    // // Get MPI information
-    // int rank;
-    // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    int rank = 0;
-
-    // Only rank 0 should print
-    if (rank != 0) {
+    if (!shouldPrint()) {
       return;
     }
 
-    // Calculate the duration...
+    // Calculate the duration
     auto duration =
         std::chrono::duration_cast<std::chrono::milliseconds>(_toc - _tic);
 
-    // And report it...
+    // Report it
     log(file, func, "%s took %lld ms", message,
         static_cast<long long>(duration.count()));
   }
@@ -204,21 +205,15 @@ public:
    * @brief Report the full runtime of the program.
    */
   void finish(const char *file, const char *func) {
-    // // Get MPI information
-    // int rank;
-    // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    int rank = 0;
-
-    // Only rank 0 should print
-    if (rank != 0) {
+    if (!shouldPrint()) {
       return;
     }
 
-    // Calculate the duration...
+    // Calculate the duration
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::high_resolution_clock::now() - _start);
 
-    // And report it...
+    // Report it
     log(file, func, "Total runtime: %lld ms",
         static_cast<long long>(duration.count()));
   }

@@ -63,6 +63,9 @@ public:
   // Should we write out masses?
   bool write_masses = false;
 
+  // Verbosity level (0=minimal, 1=rank 0 only, 2=all ranks)
+  int verbosity = 1;
+
   // The snapshot number we are working with (set in main.parseCmdArgs)
   int nsnap;
 

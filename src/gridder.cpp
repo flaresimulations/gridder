@@ -52,6 +52,7 @@ CommandLineArgs parseCmdArgs(int argc, char *argv[], int rank = 0,
   // Set parsed values on metadata
   metadata->nsnap = args.nsnap;
   metadata->param_file = args.parameter_file;
+  metadata->verbosity = args.verbosity;
 
   // Set the number of threads (this is a global setting)
   omp_set_num_threads(args.nthreads);
@@ -367,16 +368,6 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
-
-  // Percolate grid points from leaf cells back to top-level cells for output
-  // This must happen AFTER getKernelMasses (which needs the octree structure)
-  // but BEFORE writing output (which iterates over top-level cells)
-  try {
-    percolateGridPointsToTop(sim);
-  } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    return 1;
-  }
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);

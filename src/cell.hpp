@@ -221,7 +221,6 @@ public:
 // Prototypes for functions defined in construct_cells.cpp
 void getTopCells(Simulation *sim, Grid *grid);
 void splitCells(Simulation *sim);
-void percolateGridPointsToTop(Simulation *sim);
 
 // Prototypes for functions defined in cell.cpp
 Cell *getCellContainingPoint(const double pos[3]);
