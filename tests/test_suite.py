@@ -283,7 +283,7 @@ class GridderTest:
     def test_uniform_distribution(self):
         """Test: Uniform particle distribution"""
         snapshot = self.data_dir / "uniform.hdf5"
-        npart, boxsize = TestDataGenerator.create_uniform_grid(snapshot, npart_per_dim=5, boxsize=10.0)
+        TestDataGenerator.create_uniform_grid(snapshot, npart_per_dim=5, boxsize=10.0)
 
         param_file = self._create_param_file(snapshot, "uniform_out.hdf5", cdim=5, kernel_radii=[1.0])
 
