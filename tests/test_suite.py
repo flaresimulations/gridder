@@ -818,6 +818,247 @@ class MPIGridderTest(GridderTest):
         return True, "Output generated (proxy messages may vary)"
 
 
+class SerialMPIComparisonTest:
+    """Test that serial and MPI runs produce identical results"""
+
+    def __init__(self, serial_executable, mpi_executable, data_dir, mpi_ranks=2):
+        self.serial_exe = serial_executable
+        self.mpi_exe = mpi_executable
+        self.data_dir = Path(data_dir)
+        self.mpi_ranks = mpi_ranks
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+
+    def _run_serial(self, param_file):
+        """Run serial gridder"""
+        cmd = [self.serial_exe, str(param_file), "1"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0, result.stdout, result.stderr
+
+    def _run_mpi(self, param_file):
+        """Run MPI gridder"""
+        cmd = ["mpirun", "-n", str(self.mpi_ranks), self.mpi_exe, str(param_file), "1"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0, result.stdout, result.stderr
+
+    def _create_param_file(self, snapshot, basename, cdim=5, kernel_radii=[0.5, 1.0]):
+        """Create parameter file"""
+        params = {
+            'Kernels': {
+                'nkernels': len(kernel_radii),
+                **{f'kernel_radius_{i+1}': r for i, r in enumerate(kernel_radii)}
+            },
+            'Grid': {
+                'type': 'uniform',
+                'cdim': cdim
+            },
+            'Tree': {
+                'max_leaf_count': 50
+            },
+            'Input': {
+                'filepath': str(snapshot),
+                'placeholder': '0000'
+            },
+            'Output': {
+                'filepath': str(self.data_dir),
+                'basename': basename
+            }
+        }
+
+        param_file = self.data_dir / f"params_{basename.replace('.hdf5', '.yml')}"
+        with open(param_file, 'w') as f:
+            yaml.dump(params, f)
+        return param_file
+
+    def _compare_outputs(self, serial_files, mpi_files, tolerance=1e-10):
+        """Compare serial and MPI output files"""
+        # For MPI, we need to combine outputs from all ranks
+        mpi_data = {}
+
+        # Read all MPI rank outputs
+        for mpi_file in mpi_files:
+            with h5py.File(mpi_file, 'r') as f:
+                # Get grid point coordinates (check both possible names)
+                if 'Grids/GridPointPositions' in f:
+                    coords = f['Grids/GridPointPositions'][:]
+                elif 'Grids/GridPointCoordinates' in f:
+                    coords = f['Grids/GridPointCoordinates'][:]
+                else:
+                    continue
+
+                # Read overdensities for each kernel
+                for key in f['Grids'].keys():
+                    if key.startswith('Kernel_'):
+                        kernel_key = key
+                        overdensities = f[f'Grids/{kernel_key}/GridPointOverDensities'][:]
+
+                        # Store by grid point coordinates (use tuple as key)
+                        for i, coord in enumerate(coords):
+                            coord_key = tuple(coord)
+                            if kernel_key not in mpi_data:
+                                mpi_data[kernel_key] = {}
+                            mpi_data[kernel_key][coord_key] = overdensities[i]
+
+        # Read serial output
+        serial_data = {}
+        with h5py.File(serial_files[0], 'r') as f:
+            # Get grid point coordinates (check both possible names)
+            if 'Grids/GridPointPositions' in f:
+                coords = f['Grids/GridPointPositions'][:]
+            elif 'Grids/GridPointCoordinates' in f:
+                coords = f['Grids/GridPointCoordinates'][:]
+            else:
+                return False, "No grid point coordinates found in serial output"
+
+            for key in f['Grids'].keys():
+                if key.startswith('Kernel_'):
+                    kernel_key = key
+                    overdensities = f[f'Grids/{kernel_key}/GridPointOverDensities'][:]
+
+                    serial_data[kernel_key] = {}
+                    for i, coord in enumerate(coords):
+                        coord_key = tuple(coord)
+                        serial_data[kernel_key][coord_key] = overdensities[i]
+
+        # Compare
+        for kernel_key in serial_data:
+            if kernel_key not in mpi_data:
+                return False, f"Kernel {kernel_key} missing in MPI output"
+
+            serial_kernel = serial_data[kernel_key]
+            mpi_kernel = mpi_data[kernel_key]
+
+            # Check all grid points match
+            if len(serial_kernel) != len(mpi_kernel):
+                return False, f"Different number of grid points: serial={len(serial_kernel)}, mpi={len(mpi_kernel)}"
+
+            # Compare each grid point
+            max_diff = 0.0
+            for coord_key in serial_kernel:
+                if coord_key not in mpi_kernel:
+                    return False, f"Grid point {coord_key} missing in MPI output"
+
+                serial_val = serial_kernel[coord_key]
+                mpi_val = mpi_kernel[coord_key]
+                diff = abs(serial_val - mpi_val)
+                max_diff = max(max_diff, diff)
+
+                if diff > tolerance:
+                    return False, f"Mismatch at {coord_key}: serial={serial_val}, mpi={mpi_val}, diff={diff}"
+
+        return True, f"Results match within tolerance (max diff: {max_diff:.2e})"
+
+    def test_small_uniform(self):
+        """Test: Small uniform distribution - serial vs MPI"""
+        snapshot = self.data_dir / "comparison_small_uniform.hdf5"
+
+        # Create small but representative test case
+        # 6^3 = 216 particles, 4^3 = 64 grid points
+        TestDataGenerator.create_uniform_grid(snapshot, npart_per_dim=6, boxsize=10.0)
+
+        # Run serial
+        param_file = self._create_param_file(snapshot, "serial_small_uniform.hdf5",
+                                            cdim=4, kernel_radii=[0.5, 1.0, 1.5])
+        success, stdout, stderr = self._run_serial(param_file)
+        if not success:
+            return False, f"Serial run failed: {stderr}"
+
+        serial_output = self.data_dir / "serial_small_uniform.hdf5"
+        if not serial_output.exists():
+            return False, "Serial output file not found"
+
+        # Run MPI
+        param_file = self._create_param_file(snapshot, "mpi_small_uniform.hdf5",
+                                            cdim=4, kernel_radii=[0.5, 1.0, 1.5])
+        success, stdout, stderr = self._run_mpi(param_file)
+        if not success:
+            return False, f"MPI run failed: {stderr}"
+
+        # Find all MPI output files
+        import glob
+        mpi_pattern = str(self.data_dir / "mpi_small_uniform*.hdf5")
+        mpi_files = sorted(glob.glob(mpi_pattern))
+
+        if len(mpi_files) == 0:
+            return False, "No MPI output files found"
+
+        # Compare outputs
+        return self._compare_outputs([serial_output], mpi_files)
+
+    def test_medium_uniform(self):
+        """Test: Medium uniform distribution - serial vs MPI"""
+        snapshot = self.data_dir / "comparison_medium_uniform.hdf5"
+
+        # 8^3 = 512 particles, 6^3 = 216 grid points
+        TestDataGenerator.create_uniform_grid(snapshot, npart_per_dim=8, boxsize=10.0)
+
+        # Run serial
+        param_file = self._create_param_file(snapshot, "serial_medium_uniform.hdf5",
+                                            cdim=6, kernel_radii=[0.5, 1.0])
+        success, stdout, stderr = self._run_serial(param_file)
+        if not success:
+            return False, f"Serial run failed: {stderr}"
+
+        serial_output = self.data_dir / "serial_medium_uniform.hdf5"
+        if not serial_output.exists():
+            return False, "Serial output file not found"
+
+        # Run MPI
+        param_file = self._create_param_file(snapshot, "mpi_medium_uniform.hdf5",
+                                            cdim=6, kernel_radii=[0.5, 1.0])
+        success, stdout, stderr = self._run_mpi(param_file)
+        if not success:
+            return False, f"MPI run failed: {stderr}"
+
+        # Find all MPI output files
+        import glob
+        mpi_pattern = str(self.data_dir / "mpi_medium_uniform*.hdf5")
+        mpi_files = sorted(glob.glob(mpi_pattern))
+
+        if len(mpi_files) == 0:
+            return False, "No MPI output files found"
+
+        # Compare outputs
+        return self._compare_outputs([serial_output], mpi_files)
+
+    def test_boundary_coverage(self):
+        """Test: Particles at boundaries - serial vs MPI"""
+        snapshot = self.data_dir / "comparison_boundary.hdf5"
+
+        # Create distribution with particles at domain boundaries
+        # 5^3 = 125 particles ensures particles at box boundaries
+        # which will be split across MPI ranks
+        TestDataGenerator.create_uniform_grid(snapshot, npart_per_dim=5, boxsize=10.0)
+
+        # Use larger kernel to ensure boundary interactions
+        param_file = self._create_param_file(snapshot, "serial_boundary.hdf5",
+                                            cdim=4, kernel_radii=[1.0, 2.0])
+        success, stdout, stderr = self._run_serial(param_file)
+        if not success:
+            return False, f"Serial run failed: {stderr}"
+
+        serial_output = self.data_dir / "serial_boundary.hdf5"
+        if not serial_output.exists():
+            return False, "Serial output file not found"
+
+        # Run MPI
+        param_file = self._create_param_file(snapshot, "mpi_boundary.hdf5",
+                                            cdim=4, kernel_radii=[1.0, 2.0])
+        success, stdout, stderr = self._run_mpi(param_file)
+        if not success:
+            return False, f"MPI run failed: {stderr}"
+
+        # Find all MPI output files
+        import glob
+        mpi_pattern = str(self.data_dir / "mpi_boundary*.hdf5")
+        mpi_files = sorted(glob.glob(mpi_pattern))
+
+        if len(mpi_files) == 0:
+            return False, "No MPI output files found"
+
+        # Compare outputs
+        return self._compare_outputs([serial_output], mpi_files)
+
+
 def run_test_suite(executable, mode='serial', data_dir='tests/data/unit_tests', mpi_ranks=2):
     """Run the complete test suite"""
     print(f"\n{'='*60}")
@@ -884,8 +1125,8 @@ def run_test_suite(executable, mode='serial', data_dir='tests/data/unit_tests', 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run gridder test suite")
-    parser.add_argument('--mode', choices=['serial', 'mpi'], default='serial',
-                      help='Run in serial or MPI mode')
+    parser.add_argument('--mode', choices=['serial', 'mpi', 'comparison'], default='serial',
+                      help='Run in serial, MPI, or comparison mode')
     parser.add_argument('--executable', default='./build/parent_gridder',
                       help='Path to gridder executable')
     parser.add_argument('--mpi-executable', default='./build_mpi/parent_gridder',
@@ -897,7 +1138,52 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Select executable based on mode
+    # Comparison mode requires both executables
+    if args.mode == 'comparison':
+        if not os.path.exists(args.executable):
+            print(f"{Colors.FAIL}Error: Serial executable not found: {args.executable}{Colors.ENDC}")
+            sys.exit(1)
+        if not os.path.exists(args.mpi_executable):
+            print(f"{Colors.FAIL}Error: MPI executable not found: {args.mpi_executable}{Colors.ENDC}")
+            sys.exit(1)
+
+        # Run comparison tests
+        print(f"\n{'='*60}")
+        print(f"{Colors.BOLD}{Colors.HEADER}SERIAL vs MPI COMPARISON TESTS{Colors.ENDC}")
+        print(f"{'='*60}")
+        print(f"Serial executable: {args.executable}")
+        print(f"MPI executable: {args.mpi_executable}")
+        print(f"MPI Ranks: {args.ranks}")
+        print(f"Data directory: {args.data_dir}")
+        print(f"{'='*60}\n")
+
+        results = TestResult()
+        tester = SerialMPIComparisonTest(args.executable, args.mpi_executable,
+                                        args.data_dir, args.ranks)
+
+        tests = [
+            ("Comparison: Small uniform (6³ particles, 4³ grid)", tester.test_small_uniform),
+            ("Comparison: Medium uniform (8³ particles, 6³ grid)", tester.test_medium_uniform),
+            ("Comparison: Boundary coverage (5³ particles, large kernels)", tester.test_boundary_coverage),
+        ]
+
+        print(f"{Colors.BOLD}Running {len(tests)} comparison tests...{Colors.ENDC}\n")
+
+        for test_name, test_func in tests:
+            try:
+                success, message = test_func()
+                if success:
+                    results.add_pass(test_name)
+                else:
+                    results.add_fail(test_name, message)
+            except Exception as e:
+                results.add_fail(test_name, f"Exception: {str(e)}")
+
+        # Print summary
+        success = results.summary()
+        sys.exit(0 if success else 1)
+
+    # Regular serial or MPI mode
     if args.mode == 'mpi':
         executable = args.mpi_executable
     else:

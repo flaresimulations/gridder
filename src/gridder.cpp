@@ -366,6 +366,20 @@ int main(int argc, char *argv[]) {
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // Percolate grid points from leaf cells back to top-level cells for output
+  // This must happen AFTER getKernelMasses (which needs the octree structure)
+  // but BEFORE writing output (which iterates over top-level cells)
+  try {
+    percolateGridPointsToTop(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // We're done write the output in parallel
   try {

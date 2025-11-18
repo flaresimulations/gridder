@@ -15,6 +15,7 @@
 #include "metadata.hpp"
 #include "simulation.hpp"
 
+
 /**
  * @brief Write grid data to HDF5 file in serial mode
  *
@@ -67,6 +68,7 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
   }
 
   // Loop over cells and collect grid point counts
+  // (grid points have been percolated to top level before output)
   std::vector<int> grid_point_counts(sim->nr_cells, 0);
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     grid_point_counts[cid] = static_cast<int>(cells[cid].grid_points.size());
@@ -281,6 +283,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   const int last_local_cell = first_local_cell + nr_local_cells;
 
   // Count grid points per local cell only
+  // (grid points have been percolated to top level before output)
   std::vector<int> local_grid_point_counts;
   std::vector<int> local_cell_ids;
   for (int cid = first_local_cell; cid < last_local_cell; cid++) {
@@ -657,6 +660,7 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   std::vector<int> global_grid_point_start(sim->nr_cells, 0);
 
   // Build global cell information from all ranks
+  // (grid points have been percolated to top level before output)
   int current_offset = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     global_grid_point_start[cid] = current_offset;

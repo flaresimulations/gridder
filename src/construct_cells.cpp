@@ -154,3 +154,56 @@ void splitCells(Simulation *sim) {
 
   toc("Splitting cells");
 }
+
+/**
+ * @brief Recursively collect grid points from children back to parent
+ *
+ * @param cell The cell to collect grid points for
+ */
+static void collectGridPointsFromChildren(Cell *cell) {
+  // If not split, nothing to do
+  if (!cell->is_split) {
+    return;
+  }
+
+  // Recursively process children first
+  for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
+    if (cell->children[i] != nullptr) {
+      collectGridPointsFromChildren(cell->children[i]);
+    }
+  }
+
+  // Move grid points from all children to parent
+  for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
+    if (cell->children[i] != nullptr) {
+      // Move grid points from child to parent (not copy!)
+      for (GridPoint *gp : cell->children[i]->grid_points) {
+        cell->grid_points.push_back(gp);
+      }
+      // Clear the child's vector to avoid double-counting
+      cell->children[i]->grid_points.clear();
+    }
+  }
+}
+
+/**
+ * @brief Percolate grid points from leaf cells back up to top-level cells
+ *
+ * This ensures that all grid points within a top-level cell (including those
+ * in its octree descendants) are collected in the top-level cell's grid_points
+ * vector. This is needed for output where we iterate over top-level cells.
+ *
+ * @param sim The simulation object
+ */
+void percolateGridPointsToTop(Simulation *sim) {
+  tic();
+
+  std::vector<Cell> &cells = sim->cells;
+
+#pragma omp parallel for
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    collectGridPointsFromChildren(&cells[cid]);
+  }
+
+  toc("Percolating grid points to top level");
+}

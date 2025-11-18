@@ -298,6 +298,10 @@ void Cell::split() {
     child->addGridPoint(this->grid_points[p]);
   }
 
+  // Clear parent's grid points now that they've been distributed to children
+  // (They will be percolated back up before output)
+  this->grid_points.clear();
+
   // Loop over the children and recursively split them if they have too many
   for (int i = 0; i < OCTREE_CHILDREN; i++) {
     Cell *child = this->children[i];
