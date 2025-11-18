@@ -116,32 +116,39 @@ void splitCells(Simulation *sim) {
 
   tic();
 
-  // Unpack the cells
-  const size_t nr_cells = sim->nr_cells;
-  std::vector<Cell> &cells = sim->cells;
-
-  // Loop over the cells and split them
-#pragma omp parallel for
-  for (size_t cid = 0; cid < nr_cells; cid++) {
-
 #ifdef WITH_MPI
-    // Get the metadata instance for MPI rank checking
-    Metadata *metadata = &Metadata::getInstance();
-    // Only split cells that are:
-    // 1. On this rank AND
-    // 2. Locally useful (not just proxy cells)
-    if (cells[cid].rank != metadata->rank)
-      continue;
-    if (!cells[cid].shouldSplit())
-      continue;
-#else
-    // In serial mode, skip non-useful cells
-    if (!cells[cid].shouldSplit())
-      continue;
-#endif
+  // Get the metadata instance for MPI rank checking
+  Metadata *metadata = &Metadata::getInstance();
 
-    cells[cid].split();
+  // In MPI mode, use the locally_useful_cells lookup vector
+  // Only split cells on this rank
+  std::vector<Cell *> cells_to_split;
+  cells_to_split.reserve(sim->locally_useful_cells.size());
+
+  for (Cell *cell : sim->locally_useful_cells) {
+    if (cell->rank == metadata->rank) {
+      cells_to_split.push_back(cell);
+    }
   }
+
+  // Loop over locally useful cells on this rank and split them
+#pragma omp parallel for
+  for (size_t i = 0; i < cells_to_split.size(); i++) {
+    cells_to_split[i]->split();
+  }
+
+  message("Rank %d: Split %zu locally useful cells", metadata->rank,
+          cells_to_split.size());
+#else
+  // In serial mode, use the useful_cells lookup vector
+  // Loop over useful cells and split them
+#pragma omp parallel for
+  for (size_t i = 0; i < sim->useful_cells.size(); i++) {
+    sim->useful_cells[i]->split();
+  }
+
+  message("Split %zu useful cells", sim->useful_cells.size());
+#endif
 
   message("Maximum depth in the tree: %d", sim->max_depth);
 

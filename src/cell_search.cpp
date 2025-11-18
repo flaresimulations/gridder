@@ -195,17 +195,16 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
 
   tic();
 
-  // Get the cells
-  std::vector<Cell> &cells = sim->cells;
-
+#ifdef WITH_MPI
   // Get the metadata instance for MPI rank checking
   Metadata *metadata = &Metadata::getInstance();
 
   // Build a list of local useful cells for efficient iteration
+  // (only cells on this rank)
   std::vector<Cell *> local_useful_cells;
-  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell *cell = &cells[cid];
-    if (cell->is_useful && cell->rank == metadata->rank) {
+  local_useful_cells.reserve(sim->locally_useful_cells.size());
+  for (Cell *cell : sim->locally_useful_cells) {
+    if (cell->rank == metadata->rank) {
       local_useful_cells.push_back(cell);
     }
   }
@@ -214,6 +213,12 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
 #pragma omp parallel for
   for (size_t i = 0; i < local_useful_cells.size(); i++) {
     Cell *cell = local_useful_cells[i];
+#else
+  // In serial mode, use the useful_cells lookup vector directly
+#pragma omp parallel for
+  for (size_t i = 0; i < sim->useful_cells.size(); i++) {
+    Cell *cell = sim->useful_cells[i];
+#endif
 
     // Loop over kernels
     for (double kernel_rad : grid->kernel_radii) {

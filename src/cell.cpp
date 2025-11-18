@@ -1340,6 +1340,45 @@ void limitToUsefulCells(Simulation *sim) {
 #endif
   }
 
+  // Phase 5: Populate lookup vectors for efficient iteration
+  // Clear any existing entries
+  sim->useful_cells.clear();
+#ifdef WITH_MPI
+  sim->locally_useful_cells.clear();
+#endif
+
+  // Reserve space to avoid reallocation
+  sim->useful_cells.reserve(useful_count);
+#ifdef WITH_MPI
+  int locally_useful_count = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].is_locally_useful) {
+      locally_useful_count++;
+    }
+  }
+  sim->locally_useful_cells.reserve(locally_useful_count);
+#endif
+
+  // Populate the vectors
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].is_useful) {
+      sim->useful_cells.push_back(&cells[cid]);
+    }
+#ifdef WITH_MPI
+    if (cells[cid].is_locally_useful) {
+      sim->locally_useful_cells.push_back(&cells[cid]);
+    }
+#endif
+  }
+
+#ifdef WITH_MPI
+  message("Rank %d: Populated lookup vectors: %zu useful, %zu locally useful",
+          metadata->rank, sim->useful_cells.size(),
+          sim->locally_useful_cells.size());
+#else
+  message("Populated lookup vector: %zu useful cells", sim->useful_cells.size());
+#endif
+
   toc("Flagging useful cells");
 }
 
