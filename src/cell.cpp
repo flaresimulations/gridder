@@ -342,6 +342,27 @@ void Cell::split() {
           "%d, "
           "this->grid_points.size = %d)",
           this->ph_ind, child_grid_point_count, this->grid_points.size());
+
+  // Verify each grid point in parent exists in the appropriate child
+  for (const GridPoint *gp : this->grid_points) {
+    bool found_in_child = false;
+    for (int i = 0; i < OCTREE_CHILDREN; i++) {
+      if (this->children[i] != nullptr) {
+        for (const GridPoint *child_gp : this->children[i]->grid_points) {
+          if (child_gp == gp) {
+            found_in_child = true;
+            break;
+          }
+        }
+        if (found_in_child) break;
+      }
+    }
+    if (!found_in_child) {
+      error("Grid point at (%f, %f, %f) in parent cell %d not found in any "
+            "child after split",
+            gp->loc[0], gp->loc[1], gp->loc[2], this->ph_ind);
+    }
+  }
 #endif
 }
 

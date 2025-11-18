@@ -90,7 +90,7 @@ public:
               << getMaxThreads() << ")\n";
     std::cerr << "  snapshot_number Optional snapshot number (>=0, replaces "
                  "placeholder)\n";
-    std::cerr << "  verbosity       Optional verbosity level: 0=minimal, 1=rank 0 only (default), 2=all ranks\n\n";
+    std::cerr << "  verbosity       Optional verbosity level: 0=errors only, 1=rank 0 only (default), 2=all ranks\n\n";
     std::cerr << "Options:\n";
     std::cerr << "  -h, --help      Show this help message\n\n";
     std::cerr << "Examples:\n";
@@ -274,7 +274,7 @@ private:
       throw std::runtime_error("Verbosity is out of range");
     }
 
-    // Validate range (0=minimal, 1=rank 0 only, 2=all ranks)
+    // Validate range (0=errors only, 1=rank 0 only, 2=all ranks)
     if (verbosity < 0 || verbosity > 2) {
       throw std::runtime_error("Verbosity must be 0, 1, or 2 (got " +
                                std::to_string(verbosity) + ")");

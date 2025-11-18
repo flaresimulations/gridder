@@ -658,7 +658,7 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   std::vector<int> global_grid_point_start(sim->nr_cells, 0);
 
   // Build global cell information from all ranks
-  // (grid points have been percolated to top level before output)
+  // (grid points remain in top-level cells throughout splitting)
   int current_offset = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     global_grid_point_start[cid] = current_offset;
