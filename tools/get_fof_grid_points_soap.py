@@ -26,6 +26,13 @@ def parse_args():
         type=str,
         help="Output file for the grid point positions.",
     )
+    parser.add_argument(
+        "--mass_output_file",
+        "-m",
+        default="fof_masses.txt",
+        type=str,
+        help="Output file for the FOF halo masses.",
+    )
     return parser.parse_args()
 
 
@@ -60,8 +67,7 @@ def main():
         pos_file.writelines(position_lines)
 
     # Write the masses to a separate file
-    mass_output_file = args.output_file.replace(".h5", "_masses.txt")
-    with open(mass_output_file, "w") as mass_file:
+    with open(args.mass_output_file, "w") as mass_file:
         mass_file.writelines(mass_lines)
 
 
