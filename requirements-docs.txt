@@ -1,0 +1,13 @@
+# Documentation dependencies for MkDocs
+
+# Core MkDocs
+mkdocs>=1.5.0
+
+# Material theme for MkDocs
+mkdocs-material>=9.5.0
+
+# Plugins
+mkdocs-autorefs>=0.5.0
+
+# Extensions for enhanced markdown
+pymdown-extensions>=10.0
