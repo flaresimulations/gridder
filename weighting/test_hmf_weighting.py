@@ -559,21 +559,30 @@ def main():
             f"but mass file has {len(truth_masses):,} entries"
         )
 
-    # Drop NaNs
+    # Clean parent data
+    print("\n[Cleaning] Removing NaN entries from parent...")
     parent_overdens = drop_nan_rows_per_scale(parent_overdens)
-    sample_overdens = drop_nan_rows_per_scale(sample_overdens)
 
-    # After NaN drop, masses may need filtering
-    first_scale_after = next(iter(sample_overdens.values()))
-    if len(first_scale_after) != len(first_scale):
+    # Clean full sample data - need to synchronize masses with NaN filtering
+    print("[Cleaning] Removing NaN entries from full sample...")
+    n_before = len(next(iter(sample_overdens.values())))
+
+    # Build NaN mask from overdensities
+    mask = np.ones(n_before, dtype=bool)
+    for arr in sample_overdens.values():
+        mask &= ~np.isnan(arr)
+
+    n_dropped = n_before - np.sum(mask)
+    if n_dropped > 0:
         print(
-            f"[WARNING] NaN filtering reduced sample from {len(first_scale):,} "
-            f"to {len(first_scale_after):,}. This requires the mass file to have "
-            f"matching NaN entries, which is not currently supported."
+            f"[NaN] Dropped {n_dropped:,}/{n_before:,} "
+            f"({100.0 * n_dropped / n_before:.2f}%) entries containing NaN."
         )
-        print("[WARNING] Proceeding anyway - results may be incorrect!")
+        # Apply mask to both overdensities and masses
+        sample_overdens = {scale: arr[mask] for scale, arr in sample_overdens.items()}
+        truth_masses = truth_masses[mask]
 
-    # Subsample from the full sample
+    # Subsample from the cleaned full sample
     if args.subsample is None:
         raise ValueError(
             "--subsample is required. Specify how many halos to randomly select "
