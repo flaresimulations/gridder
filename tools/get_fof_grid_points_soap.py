@@ -63,3 +63,7 @@ def main():
     mass_output_file = args.output_file.replace(".h5", "_masses.txt")
     with open(mass_output_file, "w") as mass_file:
         mass_file.writelines(mass_lines)
+
+
+if __name__ == "__main__":
+    main()
