@@ -38,6 +38,8 @@ private:
 // Prototypes for helper functions (defined in params.cpp)
 std::string getInputFilePath(Parameters *params, const int nsnap);
 std::string getOutputFilePath(Parameters *params, const int nsnap);
+std::string getGridFilePath(Parameters *params, const int nsnap,
+                            const std::string &grid_file);
 Parameters *parseParams(const std::string &filename);
 
 // Prototypes for helper functions (defined in params.cpp)
