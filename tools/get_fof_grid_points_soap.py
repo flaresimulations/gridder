@@ -42,7 +42,7 @@ def main():
 
     # Open the SOAP catalogue
     with h5py.File(args.soap_catalogue, "r") as soap_file:
-        input_halos = soap_file["InputHalos"]
+        input_halos = soap_file["InputHalos/FOF"]
         positions = input_halos["Centres"][...]
         masses = input_halos["Masses"][...]
 
