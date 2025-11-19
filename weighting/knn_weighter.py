@@ -163,6 +163,56 @@ def whiten_by_parent(
     return (Xp - mu) @ Linv, (Xs - mu) @ Linv
 
 
+def filter_and_transform_overdensities(
+    overdens: Dict[float, np.ndarray],
+) -> Tuple[Dict[float, np.ndarray], np.ndarray]:
+    """Filter out -1 values and apply log10(1 + delta) transform.
+
+    Grid points with overdensity = -1 indicate no particles nearby.
+    These must be removed before applying the log transform to avoid NaN.
+
+    Args:
+        overdens: Mapping from scale to raw overdensity arrays (may contain -1).
+
+    Returns:
+        Tuple (transformed_overdens, mask) where:
+            - transformed_overdens: log10(1 + delta) for valid points
+            - mask: Boolean array indicating which rows were kept
+
+    Raises:
+        ValueError: If arrays have mismatched lengths.
+    """
+    if not overdens:
+        return overdens, np.array([], dtype=bool)
+
+    first = next(iter(overdens.values()))
+    length = len(first)
+
+    # Build mask: keep rows where ALL scales have delta > -1
+    mask = np.ones(length, dtype=bool)
+    for scale, arr in overdens.items():
+        if len(arr) != length:
+            raise ValueError(
+                "All arrays must have the same length; found mismatched lengths."
+            )
+        mask &= (arr > -1.0)
+
+    n_dropped = length - np.sum(mask)
+    if n_dropped > 0:
+        print(
+            f"[Filter] Dropped {n_dropped:,}/{length:,} "
+            f"({100.0 * n_dropped / length:.2f}%) grid points with delta <= -1 "
+            f"(no particles nearby)."
+        )
+
+    # Apply log transform to filtered data
+    transformed = {
+        scale: np.log10(arr[mask] + 1.0) for scale, arr in overdens.items()
+    }
+
+    return transformed, mask
+
+
 def drop_nan_rows_per_scale(
     samples: Dict[float, np.ndarray],
 ) -> Dict[float, np.ndarray]:
@@ -619,7 +669,7 @@ def load_multiscale_overdensities(
     parent_path: str,
     sample_path: str,
 ) -> Tuple[Dict[float, np.ndarray], Dict[float, np.ndarray]]:
-    """Load log10(1 + delta) overdensities from parent and sample HDF5 files.
+    """Load raw overdensities from parent and sample HDF5 files.
 
     The set of kernels is defined by the *sample* file. For every group
     ``Grids/Kernel_N`` present in the sample file:
@@ -627,11 +677,14 @@ def load_multiscale_overdensities(
     * The same group must exist in the parent file.
     * Each group must contain a dataset ``GridPointOverDensities``.
     * The kernel radius is read from the group's ``KernelRadius`` attribute.
-    * The values are read from both files and transformed as
-      ``log10(1 + delta)``.
+    * Raw overdensity values are returned (NOT log-transformed).
+
+    Note: Values of -1 indicate grid points with no particles nearby.
+    Use ``filter_and_transform_overdensities()`` to remove these and
+    apply the log10(1 + delta) transform.
 
     The returned dictionaries map the smoothing scale (from the KernelRadius
-    attribute) to a 1D NumPy array of overdensities.
+    attribute) to a 1D NumPy array of raw overdensities.
 
     Args:
         parent_path: Path to the parent/global population HDF5 file.
@@ -699,24 +752,10 @@ def load_multiscale_overdensities(
                     f"Missing 'GridPointOverDensities' for kernel '{key}'."
                 ) from exc
 
-            # Validate overdensity values before log transform
-            parent_min = np.min(parent_ds)
-            sample_min = np.min(sample_ds)
-            if parent_min <= -1.0:
-                print(
-                    f"[WARNING] Parent overdensities for kernel '{key}' (R={scale}) "
-                    f"contain � <= -1 (min={parent_min:.3f}). This will produce NaN "
-                    f"after log10(1 + �) transform."
-                )
-            if sample_min <= -1.0:
-                print(
-                    f"[WARNING] Sample overdensities for kernel '{key}' (R={scale}) "
-                    f"contain � <= -1 (min={sample_min:.3f}). This will produce NaN "
-                    f"after log10(1 + �) transform."
-                )
-
-            parent_data[scale] = np.log10(np.asarray(parent_ds, dtype=float) + 1.0)
-            sample_data[scale] = np.log10(np.asarray(sample_ds, dtype=float) + 1.0)
+            # Store raw overdensities (will be filtered and transformed later)
+            # Note: -1 values indicate grid points with no particles nearby
+            parent_data[scale] = np.asarray(parent_ds, dtype=float)
+            sample_data[scale] = np.asarray(sample_ds, dtype=float)
 
     return parent_data, sample_data
 

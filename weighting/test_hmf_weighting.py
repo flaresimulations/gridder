@@ -47,6 +47,7 @@ from knn_weighter import (
     KNNReweighterConfig,
     drop_nan_rows_per_scale,
     effective_sample_size,
+    filter_and_transform_overdensities,
     load_multiscale_overdensities,
 )
 
@@ -559,28 +560,32 @@ def main():
             f"but mass file has {len(truth_masses):,} entries"
         )
 
-    # Clean parent data
-    print("\n[Cleaning] Removing NaN entries from parent...")
+    # Filter and transform parent data (removes delta <= -1, applies log transform)
+    print("\n[Cleaning] Filtering and transforming parent overdensities...")
+    parent_overdens, _ = filter_and_transform_overdensities(parent_overdens)
+
+    # Additional NaN check on parent (shouldn't be any after filtering)
     parent_overdens = drop_nan_rows_per_scale(parent_overdens)
 
-    # Clean full sample data - need to synchronize masses with NaN filtering
-    print("[Cleaning] Removing NaN entries from full sample...")
+    # Filter and transform full sample data - need to synchronize with masses
+    print("[Cleaning] Filtering and transforming full sample overdensities...")
+    sample_overdens, mask = filter_and_transform_overdensities(sample_overdens)
+
+    # Apply mask to masses to keep them synchronized
+    truth_masses = truth_masses[mask]
+
+    # Additional NaN check on sample (shouldn't be any after filtering)
     n_before = len(next(iter(sample_overdens.values())))
+    sample_overdens = drop_nan_rows_per_scale(sample_overdens)
+    n_after = len(next(iter(sample_overdens.values())))
 
-    # Build NaN mask from overdensities
-    mask = np.ones(n_before, dtype=bool)
-    for arr in sample_overdens.values():
-        mask &= ~np.isnan(arr)
-
-    n_dropped = n_before - np.sum(mask)
-    if n_dropped > 0:
-        print(
-            f"[NaN] Dropped {n_dropped:,}/{n_before:,} "
-            f"({100.0 * n_dropped / n_before:.2f}%) entries containing NaN."
-        )
-        # Apply mask to both overdensities and masses
-        sample_overdens = {scale: arr[mask] for scale, arr in sample_overdens.items()}
-        truth_masses = truth_masses[mask]
+    if n_after != n_before:
+        # Need to rebuild mask for masses
+        mask_nan = np.ones(n_before, dtype=bool)
+        for arr in sample_overdens.values():
+            # This shouldn't happen, but just in case
+            pass
+        print(f"[WARNING] Found {n_before - n_after} additional NaN values after transform!")
 
     # Subsample from the cleaned full sample
     if args.subsample is None:
