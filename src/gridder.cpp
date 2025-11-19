@@ -22,6 +22,10 @@
 #include "simulation.hpp"
 #include "talking.hpp"
 
+#ifdef DEBUGGING_CHECKS
+#include "debugging_utils.hpp"
+#endif
+
 /**
  * @brief Function to handle the command line arguments using robust parser
  *
@@ -243,6 +247,11 @@ int main(int argc, char *argv[]) {
     return 0; // Clean exit, not an error
   }
 
+#ifdef DEBUGGING_CHECKS
+  // Validate file-based grid points are within simulation boundaries
+  validateFileGridPoints(grid, sim);
+#endif
+
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -254,6 +263,11 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef DEBUGGING_CHECKS
+  // Validate grid points are correctly assigned to cells
+  validateGridPointCellAssignment(sim, grid);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -268,6 +282,11 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef DEBUGGING_CHECKS
+  // Validate useful cells are correctly flagged
+  validateUsefulCells(sim, grid);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -322,6 +341,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+#ifdef DEBUGGING_CHECKS
+  // Validate particles are in the correct cells
+  validateParticleCellAssignment(sim);
+#endif
+
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -360,6 +384,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+#ifdef DEBUGGING_CHECKS
+  // Validate octree structure integrity
+  validateOctreeStructure(sim);
+#endif
+
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -372,6 +401,11 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef DEBUGGING_CHECKS
+  // Validate grid points have particles (sample check with brute force)
+  validateGridPointsHaveParticles(sim, grid);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
