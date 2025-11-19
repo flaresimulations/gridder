@@ -230,8 +230,16 @@ int main(int argc, char *argv[]) {
   try {
     createGridPoints(sim, grid);
   } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
+    error("Failed to create grid points: %s", e.what());
+    message("Program will now exit.");
     return 1;
+  }
+
+  // Check if we actually have grid points to process
+  if (grid->n_grid_points == 0) {
+    message("No grid points available for processing.");
+    message("Program will now exit.");
+    return 0; // Clean exit, not an error
   }
 
 #ifdef WITH_MPI
