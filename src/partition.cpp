@@ -44,6 +44,15 @@ void partitionCells(Simulation *sim) {
     return;
   }
 
+  // Check for pathological case: too few particles for MPI
+  if (sim->nr_dark_matter < static_cast<size_t>(size)) {
+    error("Insufficient particles for MPI partitioning: %zu particles across "
+          "%d ranks.\n"
+          "This simulation should be run in serial mode instead.\n"
+          "MPI is only beneficial when particle count >> rank count.",
+          sim->nr_dark_matter, size);
+  }
+
   // Intialise an array to hold the number of particles on each rank
   std::vector<int> rank_part_counts(size, 0);
 
@@ -118,6 +127,209 @@ void partitionCells(Simulation *sim) {
 }
 #endif
 
+/**
+ * @brief Prepare particle chunks for efficient reading
+ *
+ * This function determines the optimal strategy for reading particles:
+ * - If >75% of cells are useful: return empty vector (signal full read)
+ * - If <25% of cells are useful: create chunks with gap filling
+ *
+ * Gap filling: Merge chunks separated by small gaps (<1% of particles)
+ * to reduce HDF5 I/O overhead.
+ *
+ * Works in both serial and MPI modes.
+ *
+ * @param sim The simulation object
+ * @return Vector of ParticleChunk structs (empty if full read recommended)
+ */
+std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
+  tic();
+
+  std::vector<Cell> &cells = sim->cells;
+
+  Metadata *metadata = &Metadata::getInstance();
+
+#ifdef WITH_MPI
+  const int rank = metadata->rank;
+
+  // Count useful cells on this rank
+  size_t nr_useful_local = 0;
+  size_t nr_local = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].rank == rank) {
+      nr_local++;
+      if (cells[cid].is_useful) {
+        nr_useful_local++;
+      }
+    }
+  }
+
+  if (nr_local == 0) {
+    message("No cells assigned to this rank");
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  double useful_fraction = (double)nr_useful_local / (double)nr_local;
+
+  // If >75% are useful, use full read (return empty vector as signal)
+  if (useful_fraction > 0.75) {
+    message("%.1f%% of local cells are useful - using full read strategy",
+            useful_fraction * 100.0);
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  message("%.1f%% of local cells are useful - using chunked read strategy",
+          useful_fraction * 100.0);
+
+  // Build sorted list of useful cell IDs for this rank
+  std::vector<size_t> useful_cells;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].rank == rank && cells[cid].is_useful) {
+      useful_cells.push_back(cid);
+    }
+  }
+#else
+  // Serial mode - check fraction of all cells
+  size_t nr_useful = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].is_useful) {
+      nr_useful++;
+    }
+  }
+
+  if (nr_useful == 0) {
+    message("No useful cells found - nothing to read");
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  double useful_fraction = (double)nr_useful / (double)sim->nr_cells;
+
+  // If >75% are useful, use full read
+  if (useful_fraction > 0.75) {
+    message("%.1f%% of cells are useful - using full read strategy",
+            useful_fraction * 100.0);
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  message("%.1f%% of cells are useful - using chunked read strategy",
+          useful_fraction * 100.0);
+
+  // Build sorted list of useful cell IDs
+  std::vector<size_t> useful_cells;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    if (cells[cid].is_useful) {
+      useful_cells.push_back(cid);
+    }
+  }
+#endif
+
+  if (useful_cells.empty()) {
+    toc("Preparing to read particles");
+    return {};
+  }
+
+  // Build initial chunks where consecutive cells have contiguous particles
+  std::vector<ParticleChunk> chunks;
+  ParticleChunk current_chunk;
+
+  current_chunk.start_cell_id = useful_cells[0];
+  current_chunk.end_cell_id = useful_cells[0];
+  current_chunk.start_particle_idx = sim->cell_part_starts[useful_cells[0]];
+  current_chunk.particle_count = sim->cell_part_counts[useful_cells[0]];
+  current_chunk.grid_point_count = cells[useful_cells[0]].grid_points.size();
+
+  for (size_t i = 1; i < useful_cells.size(); i++) {
+    size_t cid = useful_cells[i];
+    size_t prev_cid = useful_cells[i - 1];
+
+    // Check if particles are contiguous in file
+    size_t expected_next_idx =
+        static_cast<size_t>(sim->cell_part_starts[prev_cid]) +
+        static_cast<size_t>(sim->cell_part_counts[prev_cid]);
+
+    if (static_cast<size_t>(sim->cell_part_starts[cid]) == expected_next_idx) {
+      // Extend current chunk
+      current_chunk.end_cell_id = cid;
+      current_chunk.particle_count += sim->cell_part_counts[cid];
+      current_chunk.grid_point_count += cells[cid].grid_points.size();
+    } else {
+      // Gap found - finalize current chunk and start new one
+      chunks.push_back(current_chunk);
+
+      current_chunk.start_cell_id = cid;
+      current_chunk.end_cell_id = cid;
+      current_chunk.start_particle_idx = sim->cell_part_starts[cid];
+      current_chunk.particle_count = sim->cell_part_counts[cid];
+      current_chunk.grid_point_count = cells[cid].grid_points.size();
+    }
+  }
+  chunks.push_back(current_chunk);
+
+  message("Created %zu initial chunks from useful cells", chunks.size());
+
+  // Gap filling: merge chunks with small gaps between them
+  double gap_fraction = metadata->gap_fill_fraction;
+  const size_t gap_threshold =
+      static_cast<size_t>(gap_fraction * sim->nr_dark_matter);
+
+  message("Filling gaps smaller than %zu particles (%.3e%% of total)",
+          gap_threshold, gap_fraction * 100.0);
+
+  std::vector<ParticleChunk> merged_chunks;
+  if (!chunks.empty()) {
+    merged_chunks.push_back(chunks[0]);
+
+    for (size_t i = 1; i < chunks.size(); i++) {
+      ParticleChunk &last_merged = merged_chunks.back();
+      const ParticleChunk &current = chunks[i];
+
+      // Calculate gap size in particles
+      size_t last_end_idx =
+          last_merged.start_particle_idx + last_merged.particle_count;
+      size_t gap_size = current.start_particle_idx - last_end_idx;
+
+      if (gap_size < gap_threshold) {
+        // Merge: extend last chunk to include gap and current chunk
+        last_merged.end_cell_id = current.end_cell_id;
+        last_merged.particle_count =
+            (current.start_particle_idx + current.particle_count) -
+            last_merged.start_particle_idx;
+        last_merged.grid_point_count += current.grid_point_count;
+      } else {
+        // Gap too large - keep as separate chunk
+        merged_chunks.push_back(current);
+      }
+    }
+  }
+
+  message("After gap filling: %zu chunks", merged_chunks.size());
+
+  // Report statistics
+  size_t total_chunk_particles = 0;
+  for (const auto &chunk : merged_chunks) {
+    total_chunk_particles += chunk.particle_count;
+  }
+
+#ifdef WITH_MPI
+  double efficiency =
+      100.0 * total_chunk_particles / (double)metadata->nr_local_particles;
+  message("Chunks contain %.1f%% of local particles (including gaps)",
+          efficiency);
+#else
+  double efficiency =
+      100.0 * total_chunk_particles / (double)sim->nr_dark_matter;
+  message("Chunks contain %.1f%% of total particles (including gaps)",
+          efficiency);
+#endif
+
+  toc("Preparing to read particles");
+  return merged_chunks;
+}
+
 #ifdef WITH_MPI
 /**
  * @brief Define the proxy cells we need at the boundaries of the partitions.
@@ -139,7 +351,6 @@ void flagProxyCells(Simulation *sim) {
   // Get the metadata
   Metadata *metadata = &Metadata::getInstance();
   const int rank = metadata->rank;
-  const int size = metadata->size;
 
   // Clear any existing proxy information
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
@@ -253,7 +464,27 @@ void exchangeProxyCells(Simulation *sim) {
   std::vector<std::vector<double>> recv_buffers;
   std::vector<size_t> recv_cell_ids;
 
-  // Post non-blocking sends for all local cells that need to be sent
+  // Step 1: Exchange particle counts first
+  // After checkAndMoveParticles, part_count may have changed on owning ranks
+  // We need to communicate these updated counts before exchanging particles
+  std::vector<size_t> local_part_counts(sim->nr_cells);
+  std::vector<size_t> global_part_counts(sim->nr_cells);
+
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    local_part_counts[cid] = sim->cells[cid].part_count;
+  }
+
+  // Use Allreduce with MAX to get the actual counts from owning ranks
+  // (only the owning rank will have the correct count)
+  MPI_Allreduce(local_part_counts.data(), global_part_counts.data(),
+                sim->nr_cells, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
+
+  // Update local part_counts with the global values
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    sim->cells[cid].part_count = global_part_counts[cid];
+  }
+
+  // Step 2: Post non-blocking sends for all local cells that need to be sent
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &sim->cells[cid];
 
@@ -268,7 +499,9 @@ void exchangeProxyCells(Simulation *sim) {
       // Send particle data (mass + positions for each particle)
       send_buffers.emplace_back();
       std::vector<double> &particle_data = send_buffers.back();
-      for (size_t p = 0; p < cell->part_count; p++) {
+      // Use particles.size() instead of part_count to handle ranks with no
+      // local particles
+      for (size_t p = 0; p < cell->particles.size(); p++) {
         particle_data.push_back(cell->particles[p]->mass);
         particle_data.push_back(cell->particles[p]->pos[0]);
         particle_data.push_back(cell->particles[p]->pos[1]);
@@ -330,7 +563,10 @@ void exchangeProxyCells(Simulation *sim) {
     }
 
     // Data was received in the order: mass, pos[0], pos[1], pos[2] per particle
-    for (size_t p = 0; p < cell->part_count; p++) {
+    // Use actual received data size instead of part_count to handle ranks with
+    // no local particles
+    size_t num_particles = recv_particle_data.size() / 4;
+    for (size_t p = 0; p < num_particles; p++) {
       double mass = recv_particle_data[p * 4];
       double pos[3] = {recv_particle_data[p * 4 + 1],
                        recv_particle_data[p * 4 + 2],

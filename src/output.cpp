@@ -15,6 +15,7 @@
 #include "metadata.hpp"
 #include "simulation.hpp"
 
+
 /**
  * @brief Write grid data to HDF5 file in serial mode
  *
@@ -110,13 +111,19 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
   bool written_positions = false;
 
   // Loop over kernel radii and write grid data
-  for (double kernel_rad : grid->kernel_radii) {
-    std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+  for (size_t kernel_idx = 0; kernel_idx < grid->kernel_radii.size(); kernel_idx++) {
+    double kernel_rad = grid->kernel_radii[kernel_idx];
+    std::string kernel_name = "Kernel_" + std::to_string(kernel_idx);
 
     // Create kernel group
     if (!hdf5.createGroup("Grids/" + kernel_name)) {
       error("Failed to create kernel group: %s", kernel_name.c_str());
       continue;
+    }
+
+    // Write kernel radius as attribute on the kernel group
+    if (!hdf5.writeAttribute<double>("Grids/" + kernel_name, "KernelRadius", kernel_rad)) {
+      error("Failed to write KernelRadius attribute for kernel %zu", kernel_idx);
     }
 
     // Create overdensity dataset for this kernel
@@ -125,8 +132,8 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
     if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
                                            "/GridPointOverDensities",
                                        grid_point_overdens_dims)) {
-      error("Failed to create GridPointOverDensities dataset for kernel %f",
-            kernel_rad);
+      error("Failed to create GridPointOverDensities dataset for kernel %zu (radius=%f)",
+            kernel_idx, kernel_rad);
       continue;
     }
 
@@ -135,8 +142,8 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
                                              "/GridPointMasses",
                                          grid_point_overdens_dims)) {
-        error("Failed to create GridPointMasses dataset for kernel %f",
-              kernel_rad);
+        error("Failed to create GridPointMasses dataset for kernel %zu (radius=%f)",
+              kernel_idx, kernel_rad);
         continue;
       }
     }
@@ -186,8 +193,8 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
               "Grids/" + kernel_name + "/GridPointOverDensities",
               cell_grid_overdens, {static_cast<hsize_t>(start_idx)},
               {static_cast<hsize_t>(count)})) {
-        error("Failed to write overdensity slice for cell %d, kernel %f", cid,
-              kernel_rad);
+        error("Failed to write overdensity slice for cell %zu, kernel %zu (radius=%f)",
+              cid, kernel_idx, kernel_rad);
         continue;
       }
 
@@ -197,8 +204,8 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
                 "Grids/" + kernel_name + "/GridPointMasses", cell_grid_masses,
                 {static_cast<hsize_t>(start_idx)},
                 {static_cast<hsize_t>(count)})) {
-          error("Failed to write masses slice for cell %d, kernel %f", cid,
-                kernel_rad);
+          error("Failed to write masses slice for cell %zu, kernel %zu (radius=%f)",
+                cid, kernel_idx, kernel_rad);
         }
       }
 
@@ -400,9 +407,9 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
     }
 
     // Write overdensity data for each kernel
-    for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-      double kernel_rad = grid->kernel_radii[k];
-      std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+    for (size_t kernel_idx = 0; kernel_idx < grid->kernel_radii.size(); kernel_idx++) {
+      double kernel_rad = grid->kernel_radii[kernel_idx];
+      std::string kernel_name = "Kernel_" + std::to_string(kernel_idx);
 
       if (!hdf5.createGroup("Grids/" + kernel_name)) {
         error("Rank %d: Failed to create kernel group: %s", metadata->rank,
@@ -410,22 +417,28 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         continue;
       }
 
+      // Write kernel radius as attribute on the kernel group
+      if (!hdf5.writeAttribute<double>("Grids/" + kernel_name, "KernelRadius", kernel_rad)) {
+        error("Rank %d: Failed to write KernelRadius attribute for kernel %zu",
+              metadata->rank, kernel_idx);
+      }
+
       std::array<hsize_t, 1> overdens_dims = {
           static_cast<hsize_t>(total_local_grid_points)};
       if (!hdf5.writeDataset<double, 1>("Grids/" + kernel_name +
                                             "/GridPointOverDensities",
-                                        local_overdens[k], overdens_dims)) {
-        error("Rank %d: Failed to write overdensity dataset for kernel %f",
-              metadata->rank, kernel_rad);
+                                        local_overdens[kernel_idx], overdens_dims)) {
+        error("Rank %d: Failed to write overdensity dataset for kernel %zu (radius=%f)",
+              metadata->rank, kernel_idx, kernel_rad);
       }
 
       // Write the masses if desired
       if (metadata->write_masses) {
         if (!hdf5.writeDataset<double, 1>("Grids/" + kernel_name +
                                               "/GridPointMasses",
-                                          local_masses[k], overdens_dims)) {
-          error("Rank %d: Failed to write mass dataset for kernel %f",
-                metadata->rank, kernel_rad);
+                                          local_masses[kernel_idx], overdens_dims)) {
+          error("Rank %d: Failed to write mass dataset for kernel %zu (radius=%f)",
+                metadata->rank, kernel_idx, kernel_rad);
         }
       }
     }
@@ -533,13 +546,18 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   }
 
   // Create virtual datasets for each kernel
-  for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-    double kernel_rad = grid->kernel_radii[k];
-    std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+  for (size_t kernel_idx = 0; kernel_idx < grid->kernel_radii.size(); kernel_idx++) {
+    double kernel_rad = grid->kernel_radii[kernel_idx];
+    std::string kernel_name = "Kernel_" + std::to_string(kernel_idx);
 
     if (!hdf5.createGroup("Grids/" + kernel_name)) {
       error("Failed to create virtual kernel group: %s", kernel_name.c_str());
       continue;
+    }
+
+    // Write kernel radius as attribute on the kernel group
+    if (!hdf5.writeAttribute<double>("Grids/" + kernel_name, "KernelRadius", kernel_rad)) {
+      error("Failed to write KernelRadius attribute for kernel %zu", kernel_idx);
     }
 
     std::array<hsize_t, 1> global_overdens_dims = {
@@ -547,8 +565,8 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
     if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
                                            "/GridPointOverDensities",
                                        global_overdens_dims)) {
-      error("Failed to create virtual overdensity dataset for kernel %f",
-            kernel_rad);
+      error("Failed to create virtual overdensity dataset for kernel %zu (radius=%f)",
+            kernel_idx, kernel_rad);
     }
 
     // Create masses dataset if requested
@@ -556,8 +574,8 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
       if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
                                              "/GridPointMasses",
                                          global_overdens_dims)) {
-        error("Failed to create virtual mass dataset for kernel %f",
-              kernel_rad);
+        error("Failed to create virtual mass dataset for kernel %zu (radius=%f)",
+              kernel_idx, kernel_rad);
       }
     }
   }
@@ -594,9 +612,9 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
     }
 
     // Read and write overdensity data for each kernel
-    for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-      double kernel_rad = grid->kernel_radii[k];
-      std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+    for (size_t kernel_idx = 0; kernel_idx < grid->kernel_radii.size(); kernel_idx++) {
+      double kernel_rad = grid->kernel_radii[kernel_idx];
+      std::string kernel_name = "Kernel_" + std::to_string(kernel_idx);
 
       std::vector<double> rank_overdens;
       if (rank_file.readDataset("Grids/" + kernel_name +
@@ -606,17 +624,17 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
                 "Grids/" + kernel_name + "/GridPointOverDensities",
                 rank_overdens, {static_cast<hsize_t>(rank_offsets[rank])},
                 {static_cast<hsize_t>(rank_grid_points[rank])})) {
-          error("Failed to write overdensity slice for rank %d, kernel %f",
-                rank, kernel_rad);
+          error("Failed to write overdensity slice for rank %d, kernel %zu (radius=%f)",
+                rank, kernel_idx, kernel_rad);
         }
       }
     }
 
     // Read and write the masses if requested
     if (metadata->write_masses) {
-      for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-        double kernel_rad = grid->kernel_radii[k];
-        std::string kernel_name = "Kernel_" + std::to_string(kernel_rad);
+      for (size_t kernel_idx = 0; kernel_idx < grid->kernel_radii.size(); kernel_idx++) {
+        double kernel_rad = grid->kernel_radii[kernel_idx];
+        std::string kernel_name = "Kernel_" + std::to_string(kernel_idx);
 
         std::vector<double> rank_masses;
         if (rank_file.readDataset("Grids/" + kernel_name + "/GridPointMasses",
@@ -625,8 +643,8 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
                   "Grids/" + kernel_name + "/GridPointMasses", rank_masses,
                   {static_cast<hsize_t>(rank_offsets[rank])},
                   {static_cast<hsize_t>(rank_grid_points[rank])})) {
-            error("Failed to write mass slice for rank %d, kernel %f", rank,
-                  kernel_rad);
+            error("Failed to write mass slice for rank %d, kernel %zu (radius=%f)",
+                  rank, kernel_idx, kernel_rad);
           }
         }
       }
@@ -640,6 +658,7 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   std::vector<int> global_grid_point_start(sim->nr_cells, 0);
 
   // Build global cell information from all ranks
+  // (grid points remain in top-level cells throughout splitting)
   int current_offset = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     global_grid_point_start[cid] = current_offset;

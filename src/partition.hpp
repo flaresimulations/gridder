@@ -6,13 +6,19 @@
 
 // Local includes
 #include "grid_point.hpp"
+#include "metadata.hpp"
 #include "simulation.hpp"
 
-// Partition prototypes
-void partitionCells(Simulation *sim);
+// Efficient particle loading (used in both serial and MPI)
+// Returns empty vector if >75% cells useful (use full read)
+// Returns chunks if <25% cells useful (use chunked read with gap filling)
+std::vector<ParticleChunk> prepareToReadParts(Simulation *sim);
 
-// Proxy prototypes
+#ifdef WITH_MPI
+// MPI partition and proxy prototypes
+void partitionCells(Simulation *sim);
 void flagProxyCells(Simulation *sim);
 void exchangeProxyCells(Simulation *sim);
+#endif
 
 #endif // PARTITION_HPP

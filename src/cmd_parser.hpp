@@ -21,10 +21,11 @@ struct CommandLineArgs {
   std::string parameter_file;
   int nthreads;
   int nsnap;
+  int verbosity;
   bool help_requested;
 
   // Constructor with defaults
-  CommandLineArgs() : nthreads(1), nsnap(0), help_requested(false) {}
+  CommandLineArgs() : nthreads(1), nsnap(0), verbosity(1), help_requested(false) {}
 };
 
 /**
@@ -60,9 +61,12 @@ public:
     args.parameter_file = parseParameterFile(argv[1]);
     args.nthreads = parseThreadCount(argv[2]);
 
-    // Parse optional snapshot number
-    if (argc == 4) {
+    // Parse optional arguments (snapshot and/or verbosity)
+    if (argc >= 4) {
       args.nsnap = parseSnapNumber(argv[3]);
+    }
+    if (argc >= 5) {
+      args.verbosity = parseVerbosity(argv[4]);
     }
 
     // Perform additional validations
@@ -78,19 +82,21 @@ public:
    */
   static void printUsage(const char *program_name) {
     std::cerr << "\nUsage: " << program_name
-              << " <parameter_file> <nthreads> [snapshot_number]\n\n";
+              << " <parameter_file> <nthreads> [snapshot_number] [verbosity]\n\n";
     std::cerr << "Arguments:\n";
     std::cerr
         << "  parameter_file   Path to YAML parameter configuration file\n";
     std::cerr << "  nthreads        Number of OpenMP threads (1-"
               << getMaxThreads() << ")\n";
     std::cerr << "  snapshot_number Optional snapshot number (>=0, replaces "
-                 "placeholder)\n\n";
+                 "placeholder)\n";
+    std::cerr << "  verbosity       Optional verbosity level: 0=errors only, 1=rank 0 only (default), 2=all ranks\n\n";
     std::cerr << "Options:\n";
     std::cerr << "  -h, --help      Show this help message\n\n";
     std::cerr << "Examples:\n";
     std::cerr << "  " << program_name << " params.yml 8\n";
     std::cerr << "  " << program_name << " params.yml 16 42\n";
+    std::cerr << "  " << program_name << " params.yml 8 0 2  # All ranks print\n";
     std::cerr << "  mpirun -n 4 " << program_name << " params.yml 8\n\n";
   }
 
@@ -108,10 +114,10 @@ private:
    * @brief Validate the number of command line arguments
    */
   static void validateArgumentCount(int argc, const char * /* program_name */) {
-    if (argc < 3 || argc > 4) {
+    if (argc < 3 || argc > 5) {
       std::ostringstream oss;
       oss << "Invalid number of arguments (" << (argc - 1)
-          << "). Expected 2-3 arguments.";
+          << "). Expected 2-4 arguments.";
       throw std::runtime_error(oss.str());
     }
   }
@@ -244,6 +250,37 @@ private:
     }
 
     return nsnap;
+  }
+
+  /**
+   * @brief Parse and validate verbosity level
+   */
+  static int parseVerbosity(const char *arg) {
+    int verbosity;
+
+    // Parse integer
+    try {
+      size_t pos;
+      verbosity = std::stoi(arg, &pos);
+
+      // Check if entire string was consumed
+      if (pos != std::strlen(arg)) {
+        throw std::runtime_error(
+            "Verbosity contains non-numeric characters");
+      }
+    } catch (const std::invalid_argument &) {
+      throw std::runtime_error("Verbosity is not a valid integer");
+    } catch (const std::out_of_range &) {
+      throw std::runtime_error("Verbosity is out of range");
+    }
+
+    // Validate range (0=errors only, 1=rank 0 only, 2=all ranks)
+    if (verbosity < 0 || verbosity > 2) {
+      throw std::runtime_error("Verbosity must be 0, 1, or 2 (got " +
+                               std::to_string(verbosity) + ")");
+    }
+
+    return verbosity;
   }
 
   /**

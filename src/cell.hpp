@@ -64,6 +64,10 @@ public:
   // is a neighbour of a useful cell)
   bool is_useful = false;
 
+  //! Flag for whether this cell is needed for LOCAL grid points
+  //! (as opposed to being a proxy cell needed only for other ranks)
+  bool is_locally_useful = false;
+
   //! Particles within the cell
   std::vector<Particle *> particles;
 
@@ -136,6 +140,11 @@ public:
     // Initialise the depth
     this->depth = parent ? parent->depth + 1 : 0;
 
+    // Initialize children array to nullptr
+    for (int i = 0; i < OCTREE_CHILDREN; i++) {
+      this->children[i] = nullptr;
+    }
+
 #ifdef WITH_MPI
     // Initialise the rank and proxy flags
     this->rank = 0;
@@ -162,7 +171,7 @@ public:
   bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
   void split();
-  void addParticle(Particle *part);
+  void addParticle(Particle *part, bool mark_useful = true);
   void removeParticle(Particle *part) {
     auto it = std::find(this->particles.begin(), this->particles.end(), part);
     if (it != this->particles.end()) {
@@ -175,6 +184,38 @@ public:
   void addGridPoint(GridPoint *grid_point) {
     this->grid_points.push_back(grid_point);
   }
+
+  //! Check if this cell should be split (needed for local grid points)
+  inline bool shouldSplit() const {
+#ifdef WITH_MPI
+    // In MPI mode, only split cells that are locally useful
+    // (not just proxy cells needed by other ranks)
+    return this->is_locally_useful;
+#else
+    // In serial mode, split all useful cells
+    return this->is_useful;
+#endif
+  }
+
+  //! Check if this cell should have particles loaded
+  inline bool shouldLoadParticles() const {
+#ifdef WITH_MPI
+    // Load particles if locally useful OR if it's a proxy cell
+    return this->is_locally_useful ||
+           (this->is_proxy && this->is_useful);
+#else
+    return this->is_useful;
+#endif
+  }
+
+  //! Check if this cell is only a proxy (not needed locally)
+  inline bool isOnlyProxy() const {
+#ifdef WITH_MPI
+    return this->is_proxy && !this->is_locally_useful;
+#else
+    return false;
+#endif
+  }
 };
 
 // Prototypes for functions defined in construct_cells.cpp
@@ -185,11 +226,13 @@ void splitCells(Simulation *sim);
 Cell *getCellContainingPoint(const double pos[3]);
 int getCellIndexContainingPoint(const double pos[3]);
 void assignPartsToCells(Simulation *sim);
+void readParticlesInChunks(Simulation *sim, std::vector<ParticleChunk> &chunks);
 void checkAndMoveParticles(Simulation *sim);
 void assignGridPointsToCells(Simulation *sim, Grid *grid);
 
 // Prototypes for functions defined in cell_search.cpp
 void getKernelMasses(Simulation *sim, Grid *grid);
 void limitToUsefulCells(Simulation *sim);
+void cleanupNonUsefulCells(Simulation *sim);
 
 #endif // CELL_HPP

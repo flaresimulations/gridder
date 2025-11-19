@@ -13,6 +13,37 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ========== Options ==========
 option(ENABLE_MPI "Enable MPI support" OFF)
 
+# Add custom target to show configuration options
+add_custom_target(help-config
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMAND ${CMAKE_COMMAND} -E echo "======================================"
+    COMMAND ${CMAKE_COMMAND} -E echo "  CMake Configuration Options"
+    COMMAND ${CMAKE_COMMAND} -E echo "======================================"
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMAND ${CMAKE_COMMAND} -E echo "ENABLE_MPI - default: OFF"
+    COMMAND ${CMAKE_COMMAND} -E echo "  Enable MPI support for parallel processing"
+    COMMAND ${CMAKE_COMMAND} -E echo "  Usage: cmake -B build -DENABLE_MPI=ON"
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMAND ${CMAKE_COMMAND} -E echo "CMAKE_BUILD_TYPE - default: Release"
+    COMMAND ${CMAKE_COMMAND} -E echo "  Build type: Release, Debug, RelWithDebInfo, MinSizeRel"
+    COMMAND ${CMAKE_COMMAND} -E echo "  - Release:        -O3 -march=native optimized"
+    COMMAND ${CMAKE_COMMAND} -E echo "  - Debug:          -g -O0 with DEBUGGING_CHECKS"
+    COMMAND ${CMAKE_COMMAND} -E echo "  - RelWithDebInfo: -O2 -g optimized + debug symbols"
+    COMMAND ${CMAKE_COMMAND} -E echo "  - MinSizeRel:     -Os optimize for size"
+    COMMAND ${CMAKE_COMMAND} -E echo "  Usage: cmake -B build -DCMAKE_BUILD_TYPE=Debug"
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMAND ${CMAKE_COMMAND} -E echo "Examples:"
+    COMMAND ${CMAKE_COMMAND} -E echo "  cmake -B build -DENABLE_MPI=ON -DCMAKE_BUILD_TYPE=Release"
+    COMMAND ${CMAKE_COMMAND} -E echo "  cmake -B build -DCMAKE_BUILD_TYPE=Debug"
+    COMMAND ${CMAKE_COMMAND} -E echo "  cmake --build build"
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMAND ${CMAKE_COMMAND} -E echo "Current configuration:"
+    COMMAND ${CMAKE_COMMAND} -E echo "  ENABLE_MPI:       ${ENABLE_MPI}"
+    COMMAND ${CMAKE_COMMAND} -E echo "  CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}"
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMENT "Displaying configuration options"
+)
+
 # ========== Build Type ==========
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose build type" FORCE)
@@ -138,6 +169,7 @@ set(SOURCE_FILES
   src/construct_cells.cpp
   src/grid_point.cpp
   src/hdf_io.cpp
+  src/logger.cpp
   src/metadata.cpp
   src/output.cpp
   src/partition.cpp

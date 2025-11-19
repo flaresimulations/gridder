@@ -69,6 +69,9 @@ public:
   //! The number of grid points along a side (only used if we're creating grid)
   int grid_cdim;
 
+  //! Random seed for reproducible random grid point generation
+  int random_seed;
+
   //! The grid points
   std::vector<GridPoint> grid_points;
 

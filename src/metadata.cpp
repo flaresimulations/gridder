@@ -35,6 +35,11 @@ void readMetadata(Parameters *params) {
   metadata->write_masses =
       static_cast<bool>(params->getParameter<int>("Output/write_masses", 0));
 
+  // What is the fraction of particles we will read in unused cells to reduce
+  // I/O calls?
+  metadata->gap_fill_fraction = static_cast<double>(
+      params->getParameter<double>("Input/part_gap_fill_fraction", 0.01));
+
   message("Reading data from: %s", metadata->input_file.c_str());
 
   toc("Reading metadata");

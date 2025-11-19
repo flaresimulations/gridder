@@ -61,6 +61,12 @@ public:
   //! The indices to the particles in each cell in the simulation output
   std::vector<int> cell_part_starts;
 
+  //! Vector of pointers to locally useful cells (for efficient iteration)
+  std::vector<Cell*> locally_useful_cells;
+
+  //! Vector of pointers to all useful cells (for efficient iteration)
+  std::vector<Cell*> useful_cells;
+
   // Constructor prototype
   Simulation();
 

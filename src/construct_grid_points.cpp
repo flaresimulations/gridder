@@ -80,17 +80,20 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
   message("Have a grid spacing of %f %f %f", grid_spacing[0], grid_spacing[1],
           grid_spacing[2]);
 
-  // Reserve space for grid points to avoid reallocations
-  try {
-    grid->grid_points.reserve(n_grid_points);
-  } catch (const std::bad_alloc &e) {
-    error("Memory allocation failed while reserving space for %d grid points. "
-          "Try reducing n_grid_points parameter (current: %d). "
-          "Estimated memory needed: %.2f GB. Error: %s",
-          n_grid_points, n_grid_points,
-          (n_grid_points * sizeof(GridPoint)) / (1024.0 * 1024.0 * 1024.0),
-          e.what());
-  }
+#ifdef WITH_MPI
+  // Get metadata for rank checking
+  Metadata *metadata = &Metadata::getInstance();
+#endif
+
+  // In MPI mode, we only create grid points for cells owned by this rank
+  // to reduce memory usage. In serial mode, we create all grid points.
+  // We iterate through all possible grid point indices to maintain
+  // deterministic ordering, but skip creation if not owned by this rank.
+
+  // Note: We can't reserve the exact size in MPI mode since we don't know
+  // how many grid points we'll create until we check cell ownership.
+  // A rough estimate would be n_grid_points / size, but we'll let the
+  // vector grow dynamically to avoid over-allocation.
 
   // Create the grid points
   for (int gid = 0; gid < n_grid_points; gid++) {
@@ -107,9 +110,17 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
                      (k + 0.5) * grid_spacing[2]};
 
 #ifdef WITH_MPI
-    // Skip grid points that are in cells we don't own
+    // Find which cell contains this grid point
     Cell *cell = getCellContainingPoint(loc);
-    if (cell->rank != Metadata::getInstance().rank) {
+
+    // Safety check - should never be null for valid simulation setup
+    if (cell == nullptr) {
+      error("Failed to find cell containing grid point at (%f, %f, %f)",
+            loc[0], loc[1], loc[2]);
+    }
+
+    // Only create grid points for cells owned by this rank
+    if (cell->rank != metadata->rank) {
       continue;
     }
 #endif
@@ -125,7 +136,12 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
     }
   }
 
+#ifdef WITH_MPI
+  message("Rank %d: Created %zu grid points (out of %d total)",
+          metadata->rank, grid->grid_points.size(), n_grid_points);
+#else
   message("Created %zu grid points", grid->grid_points.size());
+#endif
 
   // Initialize mass and count maps for all grid points
   message("Initializing grid point maps for %d kernel radii", grid->nkernels);
@@ -157,7 +173,7 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
           metadata->rank);
 
   // Use reproducible but rank-dependent seed
-  std::mt19937 rng(42 + metadata->rank);
+  std::mt19937 rng(grid->random_seed + metadata->rank);
   std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
   std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
   std::uniform_real_distribution<double> dist_z(0.0, dim[2]);
@@ -195,8 +211,8 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
   // Serial mode - generate all points directly
   message("Generating %d random grid points", nr_grid_points);
 
-  // Use a fixed seed for reproducible results
-  std::mt19937 rng(42);
+  // Use seed from parameters for reproducible results
+  std::mt19937 rng(grid->random_seed);
   std::uniform_real_distribution<double> dist_x(0.0, dim[0]);
   std::uniform_real_distribution<double> dist_y(0.0, dim[1]);
   std::uniform_real_distribution<double> dist_z(0.0, dim[2]);

@@ -161,6 +161,9 @@ Grid::Grid(Parameters *params) {
         params->getParameterNoDefault<int>("Grid/n_grid_points");
     this->grid_cdim = 0;
     this->grid_file = "";
+    // Get random seed (default to 42 for backward compatibility)
+    this->random_seed = params->getParameter<int>("Grid/random_seed", 42);
+    message("Using random seed: %d", this->random_seed);
   } else {
     // If we are reading from a file, get the file path and apply placeholder replacement
     std::string raw_grid_file = params->getParameter<std::string>("Grid/grid_file", "");

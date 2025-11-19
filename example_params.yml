@@ -11,6 +11,9 @@ Grid:
   cdim: 100 # number point along each dimension (applicable to uniform)
   grid_file: grid_points.txt # file containing grid points (applicable to file)
   n_grid_points: 1000000 # number of grid points to sample (applicable to random)
+  random_seed: 42 # seed for random grid point generation (applicable to random)
+
+Performance:
 
 Tree:
   max_leaf_count: 200
@@ -18,6 +21,7 @@ Tree:
 Input:
   filepath: uniform_test_0000.hdf5
   placeholder: "0000"
+  part_gap_fill_fraction: 0.0001 # Fraction of Npart below which we will read cells out of range of kernels just to read fewer chunks of particles
 
 Output:
   filepath: data/

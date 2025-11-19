@@ -18,11 +18,9 @@
 #include "logger.hpp"
 #include "metadata.hpp"
 #include "params.hpp"
+#include "partition.hpp"  // Now needed in both serial and MPI for chunked reading
 #include "simulation.hpp"
 #include "talking.hpp"
-#ifdef WITH_MPI
-#include "partition.hpp"
-#endif
 
 /**
  * @brief Function to handle the command line arguments using robust parser
@@ -54,6 +52,7 @@ CommandLineArgs parseCmdArgs(int argc, char *argv[], int rank = 0,
   // Set parsed values on metadata
   metadata->nsnap = args.nsnap;
   metadata->param_file = args.parameter_file;
+  metadata->verbosity = args.verbosity;
 
   // Set the number of threads (this is a global setting)
   omp_set_num_threads(args.nthreads);
@@ -217,16 +216,18 @@ int main(int argc, char *argv[]) {
   message("Number of top level cells: %d", sim->nr_cells);
 
 #ifdef WITH_MPI
-  // Decomose the cells over the MPI ranks
+  // Partition the cells across MPI ranks (work-based partition)
   try {
     partitionCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  // Create the grid points (either from a file or tesselating the volume)
+  // Create the grid points (either from a file or tessellating the volume)
   try {
     createGridPoints(sim, grid);
   } catch (const std::exception &e) {
@@ -271,22 +272,46 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // Find and flag the proxy cells at the edges of the partition
+  // Flag proxy cells at partition boundaries
   try {
     flagProxyCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  // Now we know which cells are where we can make the grid points, and assign
-  // them and the particles to the cells
+  // Determine optimal particle reading strategy (full vs chunked)
+  std::vector<ParticleChunk> particle_chunks;
   try {
-    assignPartsToCells(sim);
+    particle_chunks = prepareToReadParts(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
+  }
+
+  // Read particles using the optimal strategy
+  if (particle_chunks.empty()) {
+    // >75% of cells are useful - use full read
+    try {
+      assignPartsToCells(sim);
+    } catch (const std::exception &e) {
+      std::cerr << e.what() << std::endl;
+      return 1;
+    }
+  } else {
+    // <25% of cells are useful - use chunked read
+    try {
+      readParticlesInChunks(sim, particle_chunks);
+    } catch (const std::exception &e) {
+      std::cerr << e.what() << std::endl;
+      return 1;
+    }
+
+    // Clear chunk data to free memory
+    particle_chunks.clear();
   }
 
   // Just to be safe check particles are all where they should be
@@ -300,13 +325,29 @@ int main(int argc, char *argv[]) {
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // Communicate the proxy cell particles
+  // Exchange proxy cell particles
   try {
     exchangeProxyCells(sim);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // Clean up non-useful cells to free memory
+  // After proxy exchange, we can safely deallocate particles from cells that
+  // are neither useful nor proxies
+  try {
+    cleanupNonUsefulCells(sim);
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
   // And before we can actually get going we need to split the cells into the
@@ -331,6 +372,10 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef WITH_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
