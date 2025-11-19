@@ -6,6 +6,7 @@
 // Local includes
 #include "cell.hpp"
 #include "grid_point.hpp"
+#include "metadata.hpp"
 #include "params.hpp"
 #include "particle.hpp"
 #include "simulation.hpp"
@@ -161,8 +162,10 @@ Grid::Grid(Parameters *params) {
     this->grid_cdim = 0;
     this->grid_file = "";
   } else {
-    // If we are reading from a file, get the file path
-    this->grid_file = params->getParameter<std::string>("Grid/grid_file", "");
+    // If we are reading from a file, get the file path and apply placeholder replacement
+    std::string raw_grid_file = params->getParameter<std::string>("Grid/grid_file", "");
+    Metadata *metadata = &Metadata::getInstance();
+    this->grid_file = getGridFilePath(params, metadata->nsnap, raw_grid_file);
     this->grid_cdim = 0;     // Not used when reading from file
     this->n_grid_points = 0; // We'll count these when reading the file
   }

@@ -238,6 +238,53 @@ std::string getOutputFilePath(Parameters *params, const int nsnap) {
 }
 
 /**
+ * @brief Get the grid file path with any placeholders replaced.
+ *
+ * @param params The parameters object.
+ * @param nsnap The snapshot number.
+ * @param grid_file The grid file path (may be empty).
+ *
+ * @return The grid file path with placeholders replaced (or empty if input was empty).
+ */
+std::string getGridFilePath(Parameters *params, const int nsnap,
+                            const std::string &grid_file) {
+
+  // If grid_file is empty, return it as-is (this is fine - not all grid types need a file)
+  if (grid_file.empty()) {
+    return grid_file;
+  }
+
+  // Get the placeholder for the snapshot number
+  std::string placeholder =
+      params->getParameter<std::string>("Input/placeholder", "0000");
+
+  // Ensure the placeholder is not empty to prevent infinite loops
+  if (placeholder.empty()) {
+    throw std::runtime_error("Placeholder cannot be an empty string.");
+  }
+
+  // Calculate the padding width based on the placeholder length
+  size_t padding_width = placeholder.length();
+
+  // Create a zero-padded string for the snapshot number
+  std::ostringstream ss;
+  ss << std::setw(padding_width) << std::setfill('0') << nsnap;
+  std::string snap_num_str = ss.str();
+
+  // Make a copy to work with
+  std::string result = grid_file;
+
+  // Replace all occurrences of the placeholder with the zero-padded snapshot number
+  size_t pos = 0;
+  while ((pos = result.find(placeholder, pos)) != std::string::npos) {
+    result.replace(pos, placeholder.length(), snap_num_str);
+    pos += snap_num_str.length(); // Move past the replaced segment
+  }
+
+  return result;
+}
+
+/**
  * @brief Parse a YAML file and populate the Parameters object.
  *
  * @param filename The name of the YAML file.
