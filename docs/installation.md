@@ -1,25 +1,16 @@
 # Installation
 
-Complete installation guide for the FLARES-2 Gridder with various build configurations.
+## Requirements
 
-## System Requirements
+**Required:**
+- CMake 3.12+
+- C++20 compiler (GCC 10+, Clang 11+, AppleClang 13+)
+- HDF5 1.10+
+- OpenMP 4.5+
 
-### Required Dependencies
-
-| Dependency | Minimum Version | Purpose |
-|-----------|----------------|---------|
-| **CMake** | 3.12+ | Build system |
-| **C++ Compiler** | C++20 support | Compilation (GCC 10+, Clang 11+, AppleClang 13+) |
-| **HDF5** | 1.10+ | Snapshot I/O |
-| **OpenMP** | 4.5+ | Multi-threading |
-
-### Optional Dependencies
-
-| Dependency | Purpose | When to Use |
-|-----------|---------|-------------|
-| **MPI** | Multi-node parallelization | Simulations >10GB or >16 cores needed |
-| **Python 3** | Test suite, utilities | Development and testing |
-| **h5py** | Test data generation | Creating test snapshots |
+**Optional:**
+- MPI (for multi-node)
+- Python 3 + h5py (for tests)
 
 ## Quick Install
 
@@ -78,155 +69,58 @@ Complete installation guide for the FLARES-2 Gridder with various build configur
 
 ## Build Modes
 
-The gridder supports different build configurations depending on your needs.
-
-### Single-Node Build (OpenMP Threading)
-
-Best for: Desktop use, small simulations (<10GB), up to ~16 cores
+### Single-Node (OpenMP)
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-```
-
-**Features:**
-- Multi-threaded with OpenMP
-- Shared memory parallelization
-- Simple execution (no MPI required)
-- Single output HDF5 file
-
-**Executable:** `build/parent_gridder`
-
-**Usage:**
-```bash
-# Auto-detect number of cores
-./build/parent_gridder params.yml 1
-
-# Specify 8 OpenMP threads explicitly
 ./build/parent_gridder params.yml 8
 ```
 
-### Multi-Node Build (MPI + OpenMP Hybrid)
+Use for: Small simulations (<10GB), up to ~16 cores
 
-Best for: HPC clusters, large simulations (>10GB), hundreds of cores
+### Multi-Node (MPI + OpenMP)
 
 ```bash
 cmake -B build_mpi -DENABLE_MPI=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build_mpi
-```
 
-**Features:**
-- Distributed memory parallelization (MPI)
-- Per-rank multi-threading (OpenMP)
-- Domain decomposition with ghost cells
-- Per-rank HDF5 output files + virtual file
-
-**Executable:** `build_mpi/parent_gridder`
-
-**Usage:**
-```bash
-# 4 MPI ranks × 2 OpenMP threads = 8 cores total
 export OMP_NUM_THREADS=2
 mpirun -n 4 ./build_mpi/parent_gridder params.yml 1
-
-# 16 ranks × 4 threads = 64 cores
-export OMP_NUM_THREADS=4
-mpirun -n 16 ./build_mpi/parent_gridder params.yml 1
 ```
 
-### Debug Build
+Use for: Large simulations (>10GB), HPC clusters
 
-For development and debugging:
+### Debug Build
 
 ```bash
 cmake -B build_debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build_debug
 ```
 
-**Features:**
-- Debug symbols (`-g`)
-- No optimization (`-O0`)
-- Additional runtime checks (`DEBUGGING_CHECKS` enabled)
-- Verbose error messages
-
-**Note:** 10-100× slower than Release build
-
-### Build Types Summary
-
-| Build Type | Optimization | Debug Symbols | Use Case |
-|-----------|-------------|---------------|----------|
-| `Release` | `-O3 -march=native` | No | Production (default) |
-| `Debug` | `-O0` | Yes | Development, debugging |
-| `RelWithDebInfo` | `-O2` | Yes | Performance profiling |
-| `MinSizeRel` | `-Os` | No | Minimal binary size |
+Enables runtime checks and debug symbols. 10-100× slower than Release.
 
 ## Advanced Configuration
 
-### Specifying Compiler
-
 ```bash
-# Use specific compiler
+# Custom compiler
 CC=gcc-11 CXX=g++-11 cmake -B build
-cmake --build build
-```
 
-### Custom HDF5 Location
+# Custom HDF5 location
+cmake -B build -DHDF5_ROOT=/path/to/hdf5
 
-If HDF5 is not found automatically:
-
-```bash
-cmake -B build \
-  -DHDF5_ROOT=/path/to/hdf5 \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-```
-
-### Custom Build Flags
-
-```bash
-cmake -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_CXX_FLAGS="-O3 -mavx2" \  # Custom optimization
-  -DCMAKE_INSTALL_PREFIX=/opt/gridder  # Install location
-cmake --build build
-```
-
-### Install to System
-
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-sudo cmake --install build  # Installs to CMAKE_INSTALL_PREFIX
+# Custom optimization flags
+cmake -B build -DCMAKE_CXX_FLAGS="-O3 -mavx2"
 ```
 
 ## Verification
 
-### Test the Build
-
-Quick test with the simple test suite:
-
 ```bash
-# Single-node build
+# Run tests
 bash tests/run_simple_test.sh
 
-# MPI build (requires MPI)
-cd tests && bash run_mpi_tests.sh
-```
-
-### Check Version
-
-```bash
+# Check version
 ./build/parent_gridder --help
-```
-
-Should display:
-```
-FLARES-2 Parent Gridder
-Version: 0.1.0
-Git: <commit> (<branch>)
-
-Usage: parent_gridder <parameter_file> <nthreads> [snapshot_number] [verbosity]
-...
 ```
 
 ## Troubleshooting
@@ -344,28 +238,6 @@ Usage: parent_gridder <parameter_file> <nthreads> [snapshot_number] [verbosity]
 
 ## Next Steps
 
-- **[Quickstart](quickstart.md)** - Get started with a simple example
-- **[Parameters](parameters.md)** - Learn about parameter file configuration
-- **[Runtime Arguments](runtime-arguments.md)** - Understand command line options
-- **[MPI](mpi.md)** - Detailed MPI usage and optimization
-
-## Build Configuration Summary
-
-After successful build, CMake displays a configuration summary:
-
-```
-=== Configuration Summary ===
-Project: ZoomParentGridder
-Version: 0.1.0
-Build type: Release
-C++ standard: 20
-Compiler: GNU@11.2.0
-MPI enabled: ON/OFF
-HDF5 version: 1.12.1
-OpenMP enabled: TRUE
-Git revision: abc1234
-Git branch: main
-===============================
-```
-
-Verify this matches your requirements before proceeding.
+- [Quickstart](quickstart.md) - Basic usage
+- [Parameters](parameters.md) - Parameter file format
+- [MPI](mpi.md) - Multi-node execution
