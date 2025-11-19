@@ -79,6 +79,9 @@ Quick formula: `N_ranks ≈ GridPoints / 500k` or `SimulationGB / 5`
 - Overhead: ~1.5× particle data (octree, grid, ghosts)
 - Example: 40 GB sim ÷ 8 ranks = ~7 GB/rank total
 
+**I/O optimization:**
+Particle reads are automatically chunked and merged to minimize HDF5 operations. Control via `Input/part_gap_fill_fraction` (default: 0.01). See [Parameters](parameters.md).
+
 ## Troubleshooting
 
 ??? failure "MPI_Init failed"

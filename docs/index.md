@@ -12,7 +12,7 @@ Computes overdensities from cosmological simulations at grid points using spheri
 - OpenMP threading + optional MPI
 - Uniform, random, and file-based grids
 - Octree spatial indexing
-- Chunked HDF5 I/O
+- Chunked HDF5 I/O (automatic read optimization)
 
 ### Usage
 

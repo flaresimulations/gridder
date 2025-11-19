@@ -141,6 +141,20 @@ Command: `./parent_gridder params.yml 8 42` → `/data/snapshot_0042.hdf5`
 
 Applies to: `Input/filepath`, `Output/basename`, `Grid/grid_file`
 
+### `part_gap_fill_fraction`
+
+**Type:** Float (0.0-1.0)
+**Optional (default: 0.01)**
+
+Chunk merging threshold for particle reads. If gap between read chunks is less than this fraction of total particles, chunks are merged into single read to reduce I/O operations.
+
+```yaml
+Input:
+  part_gap_fill_fraction: 0.05  # Merge if gap < 5% of particles
+```
+
+Higher values = fewer I/O calls but more unused particles read. Typical: 0.01-0.2.
+
 ---
 
 ## Output
