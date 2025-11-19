@@ -626,11 +626,11 @@ def load_multiscale_overdensities(
 
     * The same group must exist in the parent file.
     * Each group must contain a dataset ``GridPointOverDensities``.
-    * The kernel radius is read from the group's ``kernel_radius`` attribute.
+    * The kernel radius is read from the group's ``KernelRadius`` attribute.
     * The values are read from both files and transformed as
       ``log10(1 + delta)``.
 
-    The returned dictionaries map the smoothing scale (from the kernel_radius
+    The returned dictionaries map the smoothing scale (from the KernelRadius
     attribute) to a 1D NumPy array of overdensities.
 
     Args:
@@ -643,7 +643,7 @@ def load_multiscale_overdensities(
 
     Raises:
         KeyError: If required groups/datasets are missing.
-        ValueError: If no kernels are found; if kernel_radius attribute is
+        ValueError: If no kernels are found; if KernelRadius attribute is
             missing; or if the parent is missing kernels found in the sample
             file.
     """
@@ -684,10 +684,10 @@ def load_multiscale_overdensities(
         for key in kernel_keys:
             # Read kernel radius from group attribute
             try:
-                scale = float(sample_grids[key].attrs["kernel_radius"])
+                scale = float(sample_grids[key].attrs["KernelRadius"])
             except KeyError as exc:
                 raise ValueError(
-                    f"Kernel group '{key}' is missing 'kernel_radius' attribute. "
+                    f"Kernel group '{key}' is missing 'KernelRadius' attribute. "
                     "Cannot determine smoothing scale."
                 ) from exc
 
