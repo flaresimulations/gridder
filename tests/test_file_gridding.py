@@ -214,13 +214,23 @@ Output:
                 check=True
             )
             print("  Gridder completed successfully")
-            if verbosity >= 2:
+
+            # Always print debug output (contains validation results)
+            if result.stdout:
                 print("\n--- Gridder Output ---")
                 print(result.stdout)
-                if result.stderr:
-                    print("\n--- Stderr ---")
-                    print(result.stderr)
-                print("--- End Output ---\n")
+            if result.stderr:
+                print("\n--- Stderr ---")
+                print(result.stderr)
+            print("--- End Output ---\n")
+
+            # Check for debug validation failures in output
+            if '[DEBUG]' in result.stdout or '[DEBUG]' in result.stderr:
+                debug_output = result.stdout + result.stderr
+                if 'ERROR' in debug_output or 'FAILED' in debug_output:
+                    print("\n!!! DEBUG CHECKS DETECTED ERRORS !!!")
+                    print("See debug output above for details.\n")
+
             return True
         except subprocess.CalledProcessError as e:
             print(f"  ERROR: Gridder failed with exit code {e.returncode}")
@@ -250,9 +260,12 @@ Output:
             if 'Grids' not in f:
                 return False
 
-            # Check kernels
-            kernels = list(f['Grids'].keys())
+            # Check kernels (filter out non-kernel datasets like GridPointPositions)
+            all_keys = list(f['Grids'].keys())
+            kernels = [k for k in all_keys if k.startswith('Kernel_')]
             print(f"  Found {len(kernels)} kernels: {kernels}")
+            if len(all_keys) != len(kernels):
+                print(f"  (Ignoring non-kernel datasets: {[k for k in all_keys if not k.startswith('Kernel_')]})")
 
             if len(kernels) != len(self.kernel_radii):
                 errors.append(
@@ -308,11 +321,21 @@ Output:
                     # CRITICAL CHECK: For halo center gridding, we expect
                     # most grid points to find particles
                     if dataset == 'GridPointMasses':
+                        # Check for empty (-1) values
                         if n_empty > len(data) * 0.5:
                             errors.append(
                                 f"{kernel_name}: More than 50% of grid points "
                                 f"have no particles ({n_empty}/{len(data)}). "
                                 f"This suggests a major problem!"
+                            )
+                        # CRITICAL: Check for zero values when we expect particles
+                        # (cluster centers should have particles!)
+                        if 'cluster' in output_file.lower() and n_zero > len(data) * 0.5:
+                            errors.append(
+                                f"CRITICAL BUG: {kernel_name}: Grid points at cluster "
+                                f"centers found ZERO particles ({n_zero}/{len(data)}). "
+                                f"Particles exist at these locations but gridder "
+                                f"is not finding them!"
                             )
 
         if errors:
