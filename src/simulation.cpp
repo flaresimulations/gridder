@@ -149,18 +149,18 @@ void Simulation::calculateMeanDensityFromCosmology(Parameters *params) {
   // ρ_crit(z=0) = 3H₀²/(8πG) in units of 10^10 Msun / Mpc^3
   double rho_crit_0 = (3.0 * H0_kmsMpc * H0_kmsMpc) / (8.0 * M_PI * G);
 
-  // Mean density at redshift z: ρ_mean(z) = ρ_crit(0) × Ω_m × (1+z)³
-  double scale_factor = 1.0 / (1.0 + this->redshift);
-  double density_evolution = 1.0 / (scale_factor * scale_factor * scale_factor); // (1+z)³
-
-  this->mean_density = rho_crit_0 * Omega_m * density_evolution;
+  // Mean COMOVING density: ρ_comoving = ρ_crit(0) × Ω_m
+  // Note: In comoving coordinates, density does NOT evolve with redshift
+  // The (1+z)³ factor would convert to physical density, but SWIFT uses comoving coordinates
+  this->mean_density = rho_crit_0 * Omega_m;
 
   Metadata *metadata = &Metadata::getInstance();
   if (metadata->rank == 0) {
     message("Cosmology: h=%.4f, Omega_m=%.6f (Omega_cdm=%.6f + Omega_b=%.6f)",
             h, Omega_m, Omega_cdm, Omega_b);
     message("Critical density today: %.6e 10^10 Msun/Mpc^3", rho_crit_0);
-    message("Mean comoving density at z=%.4f: %.6e 10^10 Msun/Mpc^3",
-            this->redshift, this->mean_density);
+    message("Mean comoving density (constant with z): %.6e 10^10 Msun/cMpc^3",
+            this->mean_density);
+    message("(Snapshot at z=%.4f, but density in comoving coordinates)", this->redshift);
   }
 }

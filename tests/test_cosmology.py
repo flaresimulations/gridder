@@ -110,13 +110,16 @@ def run_gridder_and_get_density(snapshot_path, params_path, output_path):
 
 def calculate_expected_density(h, Omega_cdm, Omega_b, redshift):
     """
-    Calculate expected mean density using standard cosmological formula.
+    Calculate expected mean COMOVING density using standard cosmological formula.
 
-    ρ_mean(z) = ρ_crit(z=0) × Ω_m × (1+z)³
+    ρ_comoving = ρ_crit(z=0) × Ω_m
+
+    Note: In comoving coordinates, density does NOT evolve with redshift.
+    The (1+z)³ factor converts to physical density, but SWIFT uses comoving coords.
 
     where ρ_crit(z=0) = 3H₀²/(8πG)
 
-    Units: 10^10 Msun/Mpc^3
+    Units: 10^10 Msun/cMpc^3
     """
     # Physical constants in internal units
     H0_kmsMpc = 100.0 * h  # km/s/Mpc
@@ -128,9 +131,8 @@ def calculate_expected_density(h, Omega_cdm, Omega_b, redshift):
     # Total matter density parameter
     Omega_m = Omega_cdm + Omega_b
 
-    # Mean density at redshift z
-    density_evolution = (1.0 + redshift)**3
-    mean_density = rho_crit_0 * Omega_m * density_evolution
+    # Mean COMOVING density (constant with redshift!)
+    mean_density = rho_crit_0 * Omega_m
 
     return mean_density
 
@@ -304,15 +306,15 @@ class TestCosmologyCalculations:
         assert relative_error < 1e-4, \
             f"Mean density mismatch with high h: gridder={gridder_density:.6e}, expected={expected_density:.6e}"
 
-    def test_density_evolution(self, test_workspace):
-        """Test that density evolves correctly with redshift"""
+    def test_density_constant_with_redshift(self, test_workspace):
+        """Test that COMOVING density is constant with redshift"""
         cosmology = {
             'h': 0.6736,
             'Omega_cdm': 0.2607,
             'Omega_b': 0.0493
         }
 
-        redshifts = [0.0, 1.0, 2.0, 5.0]
+        redshifts = [0.0, 1.0, 2.0, 5.0, 7.0]
         densities = []
 
         for z in redshifts:
@@ -326,19 +328,12 @@ class TestCosmologyCalculations:
             density = run_gridder_and_get_density(snapshot_path, params_path, output_path)
             densities.append(density)
 
-        # Check that density increases monotonically with redshift
-        for i in range(len(redshifts) - 1):
-            assert densities[i+1] > densities[i], \
-                f"Density should increase with redshift: rho(z={redshifts[i]})={densities[i]:.6e}, rho(z={redshifts[i+1]})={densities[i+1]:.6e}"
-
-        # Check that density ratios match (1+z)³ scaling
-        for i in range(len(redshifts) - 1):
-            z1, z2 = redshifts[i], redshifts[i+1]
-            expected_ratio = ((1 + z2) / (1 + z1))**3
-            actual_ratio = densities[i+1] / densities[i]
-            relative_error = abs(actual_ratio - expected_ratio) / expected_ratio
-            assert relative_error < 1e-4, \
-                f"Density ratio mismatch between z={z1} and z={z2}: actual={actual_ratio:.6f}, expected={expected_ratio:.6f}"
+        # Check that comoving density is constant with redshift (within 0.01%)
+        reference_density = densities[0]
+        for i, z in enumerate(redshifts):
+            relative_diff = abs(densities[i] - reference_density) / reference_density
+            assert relative_diff < 1e-4, \
+                f"Comoving density should be constant: rho(z={z})={densities[i]:.6e}, rho(z=0)={reference_density:.6e}, diff={relative_diff:.6e}"
 
 
 if __name__ == '__main__':
