@@ -35,7 +35,8 @@ class FileGriddingTest:
         with h5py.File(filename, 'w') as f:
             # Header
             header = f.create_group('Header')
-            header.attrs['BoxSize'] = self.box_size
+            # BoxSize must be an array [x, y, z] not a scalar!
+            header.attrs['BoxSize'] = np.array([self.box_size, self.box_size, self.box_size])
             header.attrs['NumPart_Total'] = [0, self.n_particles, 0, 0, 0, 0]
             header.attrs['NumPart_ThisFile'] = [0, self.n_particles, 0, 0, 0, 0]
             header.attrs['Redshift'] = 7.0
