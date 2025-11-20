@@ -30,12 +30,22 @@ public:
   double getMass(const double kernel_radius) const;
   int getCount(const double kernel_radius) const;
 
+#ifdef DEBUGGING_CHECKS
+  void setBruteForceCount(const double kernel_radius, int count);
+  int getBruteForceCount(const double kernel_radius) const;
+#endif
+
 private:
   //! The count of particles in each kernel radius
   std::unordered_map<double, double> count_map;
 
   //! The mass of particles in each kernel radius
   std::unordered_map<double, double> mass_map;
+
+#ifdef DEBUGGING_CHECKS
+  //! Brute force particle counts (for validation in debug mode)
+  std::unordered_map<double, int> brute_force_count_map;
+#endif
 };
 
 class Grid {

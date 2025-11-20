@@ -97,6 +97,23 @@ int GridPoint::getCount(const double kernel_radius) const {
   }
 }
 
+#ifdef DEBUGGING_CHECKS
+// Method to set the brute force count for a kernel radius
+void GridPoint::setBruteForceCount(const double kernel_radius, int count) {
+  this->brute_force_count_map[kernel_radius] = count;
+}
+
+// Method to get the brute force count for a kernel radius
+int GridPoint::getBruteForceCount(const double kernel_radius) const {
+  auto it = this->brute_force_count_map.find(kernel_radius);
+  if (it != this->brute_force_count_map.end()) {
+    return it->second;
+  } else {
+    return -1; // Return -1 if not computed (shouldn't happen)
+  }
+}
+#endif
+
 /**
  * @brief Construct a new Grid object
  *

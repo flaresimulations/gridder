@@ -47,23 +47,28 @@ void getTopCells(Simulation *sim, Grid *grid) {
   // neighbouring cells (this simplifies boilerplate elsewhere)
 
   // How many cells do we need to walk out for the biggest kernel? This is
-  // the maximum distance at which we will need to consider another cell
-  const int nwalk = std::ceil(grid->max_kernel_radius / width[0]) + 1;
-  int nwalk_upper = nwalk;
-  int nwalk_lower = nwalk;
+  // the maximum distance at which we will need to consider another cell.
+  // We compute this separately for each dimension since cell widths and
+  // grid dimensions may differ.
+  int nwalk[3];
+  for (int dim = 0; dim < 3; dim++) {
+    nwalk[dim] = std::ceil(grid->max_kernel_radius / width[dim]) + 1;
 
-  // If nwalk is greater than the number of cells in the simulation, we need
-  // to walk out to the edge of the simulation
-  if (nwalk > cdim[0] / 2) {
-    nwalk_upper = cdim[0] / 2;
-    nwalk_lower = cdim[0] / 2;
+    // Clamp to half the grid dimension to prevent duplicate neighbors
+    // through periodic wrapping. If we walk more than cdim/2, we'll
+    // encounter the same cell from multiple periodic images.
+    if (nwalk[dim] > cdim[dim] / 2) {
+      nwalk[dim] = cdim[dim] / 2;
+    }
   }
 
-  message("Looking for neighbours within %d cells", nwalk);
+  message("Looking for neighbours within [%d, %d, %d] cells",
+          nwalk[0], nwalk[1], nwalk[2]);
 
-  // Calculate maximum neighbors
+  // Calculate maximum neighbors (use the maximum nwalk for reservation)
+  const int max_nwalk = std::max({nwalk[0], nwalk[1], nwalk[2]});
   const int max_neighbors =
-      (2 * nwalk + 1) * (2 * nwalk + 1) * (2 * nwalk + 1) -
+      (2 * max_nwalk + 1) * (2 * max_nwalk + 1) * (2 * max_nwalk + 1) -
       1; // -1 excludes self
 
   // Loop over the cells attaching the pointers the neighbouring cells (taking
@@ -82,10 +87,11 @@ void getTopCells(Simulation *sim, Grid *grid) {
     // Reserve space for neighbors
     cell->neighbours.reserve(max_neighbors);
 
-    // Loop over the neighbours
-    for (int ii = -nwalk_lower; ii < nwalk_upper + 1; ii++) {
-      for (int jj = -nwalk_lower; jj < nwalk_upper + 1; jj++) {
-        for (int kk = -nwalk_lower; kk < nwalk_upper + 1; kk++) {
+    // Loop over the neighbours using dimension-specific nwalk values
+    // The nwalk values are already clamped to cdim/2, preventing duplicates
+    for (int ii = -nwalk[0]; ii <= nwalk[0]; ii++) {
+      for (int jj = -nwalk[1]; jj <= nwalk[1]; jj++) {
+        for (int kk = -nwalk[2]; kk <= nwalk[2]; kk++) {
 
           // Skip the cell itself
           if (ii == 0 && jj == 0 && kk == 0)
@@ -96,6 +102,11 @@ void getTopCells(Simulation *sim, Grid *grid) {
           int jjj = (j + jj + cdim[1]) % cdim[1];
           int kkk = (k + kk + cdim[2]) % cdim[2];
           int cjd = iii * cdim[1] * cdim[2] + jjj * cdim[2] + kkk;
+
+          // Skip if this wraps back to the cell itself
+          // (can happen with periodic boundaries in small boxes)
+          if (cjd == static_cast<int>(cid))
+            continue;
 
           // Attach the neighbour to the cell
           cell->neighbours.push_back(&cells[cjd]);

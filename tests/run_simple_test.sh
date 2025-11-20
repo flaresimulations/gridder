@@ -67,7 +67,7 @@ run_test() {
 
     # Create simple test snapshot
     cd "$ROOT_DIR"
-    python3 make_test_snap.py \
+    python3 tests/make_test_snap.py \
         --output "$TEST_SNAPSHOT" \
         --cdim 3 \
         --boxsize 10.0 \

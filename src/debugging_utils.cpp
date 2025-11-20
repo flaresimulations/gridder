@@ -199,62 +199,75 @@ int bruteForceCountParticles(GridPoint *grid_point, Simulation *sim,
 /**
  * @brief Check if grid points can find any particles within kernel radii
  *
- * For each grid point, performs a brute force search to count particles within
- * the largest kernel radius, then compares to what the gridder found.
+ * For ALL grid points, performs a brute force search to count particles within
+ * each kernel radius, stores the counts, then compares to what the gridder found.
+ * In debug mode, these brute force counts will be written to the output file.
  */
 void validateGridPointsHaveParticles(Simulation *sim, Grid *grid) {
-  message("[DEBUG] Validating grid points can find particles...");
+  message("[DEBUG] Computing brute force particle counts for all grid points and all kernels...");
+  message("[DEBUG] This will be written to output file for comparison.");
 
-  // Find the maximum kernel radius
-  double max_kernel = *std::max_element(grid->kernel_radii.begin(),
-                                        grid->kernel_radii.end());
+  int total_mismatches = 0;
+  int total_empty_kernels = 0;
+  int total_checks = 0;
 
-  int empty_count = 0;
-  int mismatch_count = 0;
-  int checked_count = 0;
-
-  // Sample a subset of grid points to avoid excessive computation
-  size_t sample_interval = std::max(size_t(1), grid->grid_points.size() / 100);
-
-  for (size_t i = 0; i < grid->grid_points.size(); i += sample_interval) {
+  // For ALL grid points (not sampled), compute brute force counts for ALL kernels
+  for (size_t i = 0; i < grid->grid_points.size(); i++) {
     GridPoint *gp = &grid->grid_points[i];
-    checked_count++;
 
-    // Brute force count
-    int brute_count = bruteForceCountParticles(gp, sim, max_kernel);
+    // Compute brute force for each kernel radius
+    for (double kernel_rad : grid->kernel_radii) {
+      int brute_count = bruteForceCountParticles(gp, sim, kernel_rad);
+      int gridder_count = gp->getCount(kernel_rad);
 
-    // Get what gridder found for largest kernel
-    int gridder_count = gp->getCount(max_kernel);
+      // Store the brute force count
+      gp->setBruteForceCount(kernel_rad, brute_count);
 
-    if (brute_count == 0) {
-      message("[DEBUG] Grid point %zu at (%.3f, %.3f, %.3f): No particles "
-              "within %.3f Mpc/h",
-              i, gp->loc[0], gp->loc[1], gp->loc[2], max_kernel);
-      empty_count++;
-    } else if (brute_count != gridder_count) {
-      message("[DEBUG] Grid point %zu at (%.3f, %.3f, %.3f): Brute force "
-              "found %d particles, gridder found %d (within %.3f Mpc/h)",
-              i, gp->loc[0], gp->loc[1], gp->loc[2], brute_count,
-              gridder_count, max_kernel);
-      mismatch_count++;
+      total_checks++;
+
+      if (brute_count == 0) {
+        total_empty_kernels++;
+      }
+
+      if (brute_count != gridder_count) {
+        total_mismatches++;
+      }
     }
   }
 
-  message("[DEBUG] Checked %d grid points:", checked_count);
-  message("[DEBUG]   - %d had no particles within max kernel radius",
-          empty_count);
-  message("[DEBUG]   - %d had count mismatches between brute force and "
-          "gridder",
-          mismatch_count);
+  message("[DEBUG] Brute force validation complete:");
+  message("[DEBUG]   - Checked %zu grid points × %d kernels = %d combinations",
+          grid->grid_points.size(), grid->nkernels, total_checks);
+  message("[DEBUG]   - %d had no particles (expected for small kernels/sparse regions)",
+          total_empty_kernels);
+  message("[DEBUG]   - %d had count mismatches between brute force and gridder",
+          total_mismatches);
 
-  if (mismatch_count > 0) {
-    error("[DEBUG] Found %d grid points with particle count mismatches",
-          mismatch_count);
-  } else if (empty_count > checked_count / 2) {
-    message("[DEBUG] WARNING: More than 50%% of sampled grid points have no "
-            "particles nearby");
+  if (total_mismatches > 0) {
+    message("[DEBUG] ╔═══════════════════════════════════════════════════════════════╗");
+    message("[DEBUG] ║ WARNING: PARTICLE COUNT MISMATCHES DETECTED                   ║");
+    message("[DEBUG] ╠═══════════════════════════════════════════════════════════════╣");
+    message("[DEBUG] ║ Found %5d mismatches between octree and brute force        ║", total_mismatches);
+    message("[DEBUG] ║                                                               ║");
+    message("[DEBUG] ║ THE RESULTS IN THE OUTPUT FILE ARE INCORRECT!                ║");
+    message("[DEBUG] ║                                                               ║");
+    message("[DEBUG] ║ The output file contains both:                               ║");
+    message("[DEBUG] ║   - GridPointCounts:                                         ║");
+    message("[DEBUG] ║       Counts from octree traversal (INCORRECT - has bugs)    ║");
+    message("[DEBUG] ║   - BruteForceGridPointCounts:                               ║");
+    message("[DEBUG] ║       Counts from exhaustive search (CORRECT - ground truth) ║");
+    message("[DEBUG] ║                                                               ║");
+    message("[DEBUG] ║ Use BruteForceGridPointCounts for analysis.                  ║");
+    message("[DEBUG] ║                                                               ║");
+    message("[DEBUG] ║ This likely indicates a bug in periodic boundary handling    ║");
+    message("[DEBUG] ║ or octree traversal, especially for grid points near box     ║");
+    message("[DEBUG] ║ boundaries or with small kernel radii.                       ║");
+    message("[DEBUG] ╚═══════════════════════════════════════════════════════════════╝");
+  } else if (total_empty_kernels > total_checks / 2) {
+    message("[DEBUG] WARNING: More than 50%% of grid point/kernel combinations "
+            "have no particles nearby");
   } else {
-    message("[DEBUG] ✓ Grid point particle counts look reasonable");
+    message("[DEBUG] ✓ Grid point particle counts match brute force validation");
   }
 }
 

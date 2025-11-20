@@ -54,7 +54,7 @@ def test_snapshot():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Create a minimal test snapshot using make_test_snap.py
-    make_snap_script = PROJECT_ROOT / "make_test_snap.py"
+    make_snap_script = TESTS_DIR / "make_test_snap.py"
 
     # Find a donor snapshot (use any existing HDF5 file or create minimal one)
     donor_path = DATA_DIR / "donor_minimal.hdf5"

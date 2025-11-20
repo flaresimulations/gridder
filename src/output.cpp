@@ -148,6 +148,27 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       }
     }
 
+    // Create particle count dataset from tree traversal algorithm
+    if (!hdf5.createDataset<int, 1>("Grids/" + kernel_name +
+                                        "/GridPointCounts",
+                                    grid_point_overdens_dims)) {
+      error("Failed to create GridPointCounts dataset for kernel %zu (radius=%f)",
+            kernel_idx, kernel_rad);
+      continue;
+    }
+
+#ifdef DEBUGGING_CHECKS
+    // In debug mode, also write brute force counts for validation
+    // These are computed by exhaustively checking every particle's distance
+    if (!hdf5.createDataset<int, 1>("Grids/" + kernel_name +
+                                        "/BruteForceGridPointCounts",
+                                    grid_point_overdens_dims)) {
+      error("Failed to create BruteForceGridPointCounts dataset for kernel %zu (radius=%f)",
+            kernel_idx, kernel_rad);
+      continue;
+    }
+#endif
+
     // Process each cell
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
       Cell *cell = &cells[cid];
@@ -163,12 +184,18 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       // Prepare data arrays
       std::vector<double> cell_grid_overdens;
       std::vector<double> cell_grid_masses;
+      std::vector<int> cell_grid_counts;
       std::vector<double> cell_grid_pos;
       cell_grid_overdens.reserve(count);
+      cell_grid_counts.reserve(count);
       cell_grid_pos.reserve(count * 3);
       if (metadata->write_masses) {
         cell_grid_masses.reserve(count);
       }
+#ifdef DEBUGGING_CHECKS
+      std::vector<int> cell_grid_brute_counts;
+      cell_grid_brute_counts.reserve(count);
+#endif
 
       // Extract data from grid points
       for (const GridPoint *gp : cell->grid_points) {
@@ -179,6 +206,14 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
         if (metadata->write_masses) {
           cell_grid_masses.push_back(gp->getMass(kernel_rad));
         }
+
+        // Get particle counts from gridder algorithm
+        cell_grid_counts.push_back(gp->getCount(kernel_rad));
+
+#ifdef DEBUGGING_CHECKS
+        // Get brute force counts in debug mode
+        cell_grid_brute_counts.push_back(gp->getBruteForceCount(kernel_rad));
+#endif
 
         // Store positions if not done yet
         if (!written_positions) {
@@ -208,6 +243,30 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
                 cid, kernel_idx, kernel_rad);
         }
       }
+
+      // Write gridder particle counts
+      if (!cell_grid_counts.empty()) {
+        if (!hdf5.writeDatasetSlice<int, 1>(
+                "Grids/" + kernel_name + "/GridPointCounts", cell_grid_counts,
+                {static_cast<hsize_t>(start_idx)},
+                {static_cast<hsize_t>(count)})) {
+          error("Failed to write counts slice for cell %zu, kernel %zu (radius=%f)",
+                cid, kernel_idx, kernel_rad);
+        }
+      }
+
+#ifdef DEBUGGING_CHECKS
+      // Write brute force counts in debug mode
+      if (!cell_grid_brute_counts.empty()) {
+        if (!hdf5.writeDatasetSlice<int, 1>(
+                "Grids/" + kernel_name + "/BruteForceGridPointCounts", cell_grid_brute_counts,
+                {static_cast<hsize_t>(start_idx)},
+                {static_cast<hsize_t>(count)})) {
+          error("Failed to write brute force counts slice for cell %zu, kernel %zu (radius=%f)",
+                cid, kernel_idx, kernel_rad);
+        }
+      }
+#endif
 
       // Write position slice if needed
       if (!written_positions && !cell_grid_pos.empty()) {

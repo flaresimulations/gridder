@@ -55,7 +55,10 @@ class FileGriddingTest:
             cells_meta = cells.create_group('Meta-data')
             cells_meta.attrs['dimension'] = np.array([2, 2, 2], dtype=np.int32)
             cells_meta.attrs['nr_cells'] = 8
-            cells_meta.attrs['size'] = self.box_size
+            # Cell size must be an array [x, y, z] for each cell dimension, not a scalar!
+            # With dimension [2, 2, 2] and box size 10.0, each cell is 5.0 x 5.0 x 5.0
+            cell_width = self.box_size / 2.0
+            cells_meta.attrs['size'] = np.array([cell_width, cell_width, cell_width])
 
             # Cells Centres
             cell_width = self.box_size / 2.0
