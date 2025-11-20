@@ -143,8 +143,9 @@ void Simulation::calculateMeanDensityFromCosmology(Parameters *params) {
   // In our units: [H0] = km/s/Mpc
 
   // Critical density today: ρ_crit = 3H₀²/(8πG)
-  // G = 4.3009e-6 (10^10 Msun)^-1 Mpc (km/s)^2 in internal units
-  const double G = 4.300917270069976e-6; // Gravitational constant in (10^10 Msun)^-1 Mpc (km/s)^2
+  // G in (10^10 Msun)^-1 Mpc (km/s)^2 internal units
+  // Derived from G_SI = 6.674e-11 m^3 kg^-1 s^-2 with proper unit conversion
+  const double G = 4.301744232015554e+01; // Gravitational constant in (10^10 Msun)^-1 Mpc (km/s)^2
 
   // ρ_crit(z=0) = 3H₀²/(8πG) in units of 10^10 Msun / Mpc^3
   double rho_crit_0 = (3.0 * H0_kmsMpc * H0_kmsMpc) / (8.0 * M_PI * G);
@@ -159,8 +160,7 @@ void Simulation::calculateMeanDensityFromCosmology(Parameters *params) {
     message("Cosmology: h=%.4f, Omega_m=%.6f (Omega_cdm=%.6f + Omega_b=%.6f)",
             h, Omega_m, Omega_cdm, Omega_b);
     message("Critical density today: %.6e 10^10 Msun/Mpc^3", rho_crit_0);
-    message("Mean comoving density (constant with z): %.6e 10^10 Msun/cMpc^3",
-            this->mean_density);
-    message("(Snapshot at z=%.4f, but density in comoving coordinates)", this->redshift);
+    message("Mean comoving density at z=%.4f: %.6e 10^10 Msun/cMpc^3",
+            this->redshift, this->mean_density);
   }
 }

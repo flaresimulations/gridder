@@ -16,6 +16,14 @@ import yaml
 import tempfile
 import os
 
+# Try to import astropy for direct comparison tests
+try:
+    from astropy.cosmology import FlatLambdaCDM
+    from astropy import units as u
+    ASTROPY_AVAILABLE = True
+except ImportError:
+    ASTROPY_AVAILABLE = False
+
 # Get paths
 PROJECT_ROOT = Path(__file__).parent.parent
 BUILD_DIR = PROJECT_ROOT / "build"
@@ -99,7 +107,7 @@ def run_gridder_and_get_density(snapshot_path, params_path, output_path):
     # Extract mean density from stdout
     for line in result.stdout.split('\n'):
         if 'Mean comoving density at z=' in line:
-            # Parse: "Mean comoving density at z=X.XXXX: Y.YYYYYYe+XX 10^10 Msun/Mpc^3"
+            # Parse: "Mean comoving density at z=X.XXXX: Y.YYYYYYe+XX 10^10 Msun/cMpc^3"
             parts = line.split(':')
             if len(parts) >= 2:
                 density_str = parts[1].strip().split()[0]
@@ -123,7 +131,7 @@ def calculate_expected_density(h, Omega_cdm, Omega_b, redshift):
     """
     # Physical constants in internal units
     H0_kmsMpc = 100.0 * h  # km/s/Mpc
-    G = 4.300917270069976e-6  # (10^10 Msun)^-1 Mpc (km/s)^2
+    G = 4.301744232015554e+01  # (10^10 Msun)^-1 Mpc (km/s)^2
 
     # Critical density today
     rho_crit_0 = (3.0 * H0_kmsMpc**2) / (8.0 * np.pi * G)
@@ -334,6 +342,53 @@ class TestCosmologyCalculations:
             relative_diff = abs(densities[i] - reference_density) / reference_density
             assert relative_diff < 1e-4, \
                 f"Comoving density should be constant: rho(z={z})={densities[i]:.6e}, rho(z=0)={reference_density:.6e}, diff={relative_diff:.6e}"
+
+    @pytest.mark.skipif(not ASTROPY_AVAILABLE, reason="astropy not available")
+    def test_astropy_comparison(self, test_workspace):
+        """Test that our calculation matches astropy exactly"""
+        # Planck 2018 parameters
+        cosmology = {
+            'h': 0.6736,
+            'Omega_cdm': 0.2607,
+            'Omega_b': 0.0493
+        }
+        redshift = 2.0
+
+        # Create test files
+        snapshot_path = test_workspace / "snapshot_astropy.hdf5"
+        params_path = test_workspace / "params_astropy.yml"
+        output_path = test_workspace / "output_astropy.hdf5"
+
+        create_test_snapshot(snapshot_path, redshift)
+        create_test_params(params_path, snapshot_path, cosmology)
+
+        # Get density from our C++ code
+        gridder_density = run_gridder_and_get_density(snapshot_path, params_path, output_path)
+
+        # Calculate with astropy
+        h = cosmology['h']
+        Omega_m = cosmology['Omega_cdm'] + cosmology['Omega_b']
+        H0 = h * 100.0  # km/s/Mpc
+
+        # Create astropy cosmology (flat ΛCDM with Omega_Lambda = 1 - Omega_m)
+        cosmo = FlatLambdaCDM(H0=H0, Om0=Omega_m)
+
+        # Get critical density at z=0 in comoving coordinates
+        rho_crit_0 = cosmo.critical_density(0)
+
+        # Convert to our units: 10^10 Msun/Mpc^3
+        # astropy gives g/cm^3, we need 10^10 Msun/Mpc^3
+        Msun_in_g = 1.989e33
+        Mpc_in_cm = 3.086e24
+        rho_crit_0_our_units = rho_crit_0.to(u.g / u.cm**3).value * (Mpc_in_cm**3) / (1e10 * Msun_in_g)
+
+        # Mean comoving density
+        astropy_density = rho_crit_0_our_units * Omega_m
+
+        # Check agreement (within 0.1% - account for different constants)
+        relative_error = abs(gridder_density - astropy_density) / astropy_density
+        assert relative_error < 1e-3, \
+            f"Density mismatch vs astropy: gridder={gridder_density:.6e}, astropy={astropy_density:.6e}, error={relative_error:.6e}"
 
 
 if __name__ == '__main__':
