@@ -49,6 +49,32 @@ class FileGriddingTest:
             cosmo = f.create_group('Cosmology')
             cosmo.attrs['Critical density [internal units]'] = 1.0
 
+            # Cells metadata (required by gridder)
+            cells = f.create_group('Cells')
+            cells_meta = cells.create_group('Meta-data')
+            cells_meta.attrs['dimension'] = np.array([2, 2, 2], dtype=np.int32)
+            cells_meta.attrs['nr_cells'] = 8
+            cells_meta.attrs['size'] = self.box_size
+
+            # Cells Centres
+            cell_width = self.box_size / 2.0
+            centres = []
+            for i in range(2):
+                for j in range(2):
+                    for k in range(2):
+                        centres.append([
+                            (i + 0.5) * cell_width,
+                            (j + 0.5) * cell_width,
+                            (k + 0.5) * cell_width
+                        ])
+            cells.create_dataset('Centres', data=np.array(centres))
+
+            # Cells Counts (will be filled correctly after we know particle positions)
+            cells.create_dataset('Counts', data=np.zeros((8, 6), dtype=np.int32))
+
+            # Cells OffsetsInFile
+            cells.create_dataset('OffsetsInFile', data=np.zeros((8, 6), dtype=np.int64))
+
             # Create particle distributions: 5 clusters
             n_clusters = 5
             particles_per_cluster = self.n_particles // n_clusters
@@ -86,6 +112,32 @@ class FileGriddingTest:
 
             positions = np.vstack(positions)
             masses = np.array(masses)
+
+            # Compute cell counts
+            cell_counts = np.zeros((8, 6), dtype=np.int32)
+            cell_offsets = np.zeros((8, 6), dtype=np.int64)
+
+            # Assign particles to cells
+            for i, pos in enumerate(positions):
+                ix = int(pos[0] / cell_width)
+                iy = int(pos[1] / cell_width)
+                iz = int(pos[2] / cell_width)
+                # Ensure within bounds
+                ix = max(0, min(1, ix))
+                iy = max(0, min(1, iy))
+                iz = max(0, min(1, iz))
+                cell_id = ix * 4 + iy * 2 + iz
+                cell_counts[cell_id, 1] += 1  # PartType1
+
+            # Set offsets (cumulative)
+            offset = 0
+            for cell_id in range(8):
+                cell_offsets[cell_id, 1] = offset
+                offset += cell_counts[cell_id, 1]
+
+            # Update cell datasets
+            f['Cells/Counts'][:] = cell_counts
+            f['Cells/OffsetsInFile'][:] = cell_offsets
 
             # Write particle data
             part1 = f.create_group('PartType1')
