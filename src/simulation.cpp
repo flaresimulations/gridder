@@ -105,3 +105,54 @@ void Simulation::readSimulationData() {
   // Compute the comoving volume of the simulation
   this->volume = this->dim[0] * this->dim[1] * this->dim[2];
 }
+
+/**
+ * @brief Calculate mean comoving density from cosmological parameters
+ *
+ * Computes the mean matter density at the simulation redshift using:
+ * ρ_mean = ρ_crit(z=0) × Ω_m × (1+z)³
+ *
+ * where ρ_crit(z=0) = 3H₀²/(8πG) is the critical density today
+ *
+ * @param params The parameters object containing cosmology
+ */
+void Simulation::calculateMeanDensityFromCosmology(Parameters *params) {
+
+  // Read cosmology parameters
+  double h = params->getParameterNoDefault<double>("Cosmology/h");
+  double Omega_cdm = params->getParameterNoDefault<double>("Cosmology/Omega_cdm");
+  double Omega_b = params->getParameterNoDefault<double>("Cosmology/Omega_b");
+
+  // Total matter density parameter
+  double Omega_m = Omega_cdm + Omega_b;
+
+  // Physical constants in internal units (10^10 Msun, Mpc, km/s)
+  // H0 = 100 h km/s/Mpc
+  double H0_kmsMpc = 100.0 * h;  // km/s/Mpc
+
+  // Convert to internal time units (H0 in units of 1/time where time is Mpc/(km/s))
+  // H0 = 100 h km/s/Mpc = 100 h / Mpc * (km/s)
+  // In our units: [H0] = km/s/Mpc
+
+  // Critical density today: ρ_crit = 3H₀²/(8πG)
+  // G = 4.3009e-6 (10^10 Msun)^-1 Mpc (km/s)^2 in internal units
+  const double G = 4.300917270069976e-6; // Gravitational constant in (10^10 Msun)^-1 Mpc (km/s)^2
+
+  // ρ_crit(z=0) = 3H₀²/(8πG) in units of 10^10 Msun / Mpc^3
+  double rho_crit_0 = (3.0 * H0_kmsMpc * H0_kmsMpc) / (8.0 * M_PI * G);
+
+  // Mean density at redshift z: ρ_mean(z) = ρ_crit(0) × Ω_m × (1+z)³
+  double scale_factor = 1.0 / (1.0 + this->redshift);
+  double density_evolution = 1.0 / (scale_factor * scale_factor * scale_factor); // (1+z)³
+
+  this->mean_density = rho_crit_0 * Omega_m * density_evolution;
+
+  Metadata *metadata = &Metadata::getInstance();
+  if (metadata->rank == 0) {
+    message("Cosmology: h=%.4f, Omega_m=%.6f (Omega_cdm=%.6f + Omega_b=%.6f)",
+            h, Omega_m, Omega_cdm, Omega_b);
+    message("Critical density today: %.6e 10^10 Msun/Mpc^3", rho_crit_0);
+    message("Mean comoving density at z=%.4f: %.6e 10^10 Msun/Mpc^3",
+            this->redshift, this->mean_density);
+  }
+}

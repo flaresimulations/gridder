@@ -843,11 +843,6 @@ void assignPartsToCells(Simulation *sim) {
   total_mass = global_total_mass;
 #endif
 
-  // Compute the mean comoving density
-  sim->mean_density = total_mass / sim->volume;
-
-  message("Mean comoving density: %e 10**10 Msun / cMpc^3", sim->mean_density);
-
 #ifdef DEBUGGING_CHECKS
   // Make sure we have attached all the particles (only count local cells in
   // MPI)

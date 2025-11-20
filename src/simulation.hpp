@@ -76,6 +76,9 @@ public:
   // Prototype for reader function (defined in simulation.cpp)
   void readSimulationData();
 
+  // Calculate mean density from cosmological parameters
+  void calculateMeanDensityFromCosmology(Parameters *params);
+
 private:
   // Helper function for cleanup
   void deleteChildCells(Cell *cell);

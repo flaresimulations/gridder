@@ -9,6 +9,12 @@ Grid:
   grid_file: tests/data/grid_points_files/valid_points.txt
   # n_grid_points is optional for file type - will be counted from file
 
+Cosmology:
+  h: 0.681              # Reduced Hubble constant
+  Omega_cdm: 0.256011   # Cold dark matter density parameter
+  Omega_b: 0.048600     # Baryon density parameter
+
+
 Tree:
   max_leaf_count: 200
 

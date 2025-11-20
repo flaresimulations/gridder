@@ -219,6 +219,15 @@ int main(int argc, char *argv[]) {
 
   message("Number of top level cells: %d", sim->nr_cells);
 
+  // Calculate mean density from cosmological parameters
+  // This must be done before any overdensity calculations
+  try {
+    sim->calculateMeanDensityFromCosmology(params);
+  } catch (const std::exception &e) {
+    std::cerr << "Failed to calculate mean density from cosmology: " << e.what() << std::endl;
+    return 1;
+  }
+
 #ifdef WITH_MPI
   // Partition the cells across MPI ranks (work-based partition)
   try {
