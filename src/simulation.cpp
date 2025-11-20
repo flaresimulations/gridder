@@ -1,8 +1,16 @@
+// Standard includes
+#include <cmath>
+
 // Local includes
 #include "simulation.hpp"
 #include "cell.hpp"
 #include "hdf_io.hpp"
 #include "metadata.hpp"
+
+// Define M_PI if not available (POSIX extension, not standard C++)
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 /**
  * @brief Construct a new Simulation object
