@@ -28,6 +28,7 @@ public:
                 double kernel_radius);
   double getOverDensity(const double kernel_radius, Simulation *sim) const;
   double getMass(const double kernel_radius) const;
+  int getCount(const double kernel_radius) const;
 
 private:
   //! The count of particles in each kernel radius

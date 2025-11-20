@@ -86,6 +86,17 @@ double GridPoint::getMass(const double kernel_radius) const {
   }
 }
 
+// Method to get the particle count inside the kernel radius
+int GridPoint::getCount(const double kernel_radius) const {
+  // Check if the kernel radius exists in the count map
+  auto it = this->count_map.find(kernel_radius);
+  if (it != this->count_map.end()) {
+    return static_cast<int>(it->second);
+  } else {
+    return 0; // Return 0 if the kernel radius is not found
+  }
+}
+
 /**
  * @brief Construct a new Grid object
  *

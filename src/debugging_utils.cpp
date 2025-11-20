@@ -14,23 +14,14 @@
 #ifdef DEBUGGING_CHECKS
 
 /**
- * @brief Find the smallest distance dx along one axis within a box of size
- * box_size (handles periodic boundaries)
- */
-static double nearest(const double dx, const double box_size) {
-  return ((dx > 0.5 * box_size)
-              ? (dx - box_size)
-              : ((dx < -0.5 * box_size) ? (dx + box_size) : dx));
-}
-
-/**
  * @brief Validate that grid points are correctly assigned to their containing
  * cells
  *
  * This checks that each grid point is spatially within the bounds of the cell
  * it's been assigned to.
  */
-void validateGridPointCellAssignment(Simulation *sim, Grid *grid) {
+void validateGridPointCellAssignment(Simulation *sim,
+                                      [[maybe_unused]] Grid *grid) {
   message("[DEBUG] Validating grid point to cell assignments...");
 
   int errors = 0;
@@ -75,7 +66,7 @@ void validateGridPointCellAssignment(Simulation *sim, Grid *grid) {
  * 1. All cells with grid points are marked as useful
  * 2. All neighbors of cells with grid points are marked as useful
  */
-void validateUsefulCells(Simulation *sim, Grid *grid) {
+void validateUsefulCells(Simulation *sim, [[maybe_unused]] Grid *grid) {
   message("[DEBUG] Validating useful cell flagging...");
 
   int errors = 0;
@@ -233,10 +224,7 @@ void validateGridPointsHaveParticles(Simulation *sim, Grid *grid) {
     int brute_count = bruteForceCountParticles(gp, sim, max_kernel);
 
     // Get what gridder found for largest kernel
-    int gridder_count = 0;
-    if (gp->counts.find(max_kernel) != gp->counts.end()) {
-      gridder_count = gp->counts[max_kernel];
-    }
+    int gridder_count = gp->getCount(max_kernel);
 
     if (brute_count == 0) {
       message("[DEBUG] Grid point %zu at (%.3f, %.3f, %.3f): No particles "
@@ -396,10 +384,8 @@ void diagnoseGridPoint(GridPoint *grid_point, Simulation *sim, Grid *grid) {
   // Check particle counts for each kernel
   message("[DEBUG] Particle counts by kernel radius:");
   for (double radius : grid->kernel_radii) {
-    int count = 0;
-    if (grid_point->counts.find(radius) != grid_point->counts.end()) {
-      count = grid_point->counts[radius];
-    }
+    // Get count from gridder
+    int count = grid_point->getCount(radius);
     int brute_count = bruteForceCountParticles(grid_point, sim, radius);
     message("[DEBUG]   %.3f Mpc/h: gridder=%d, brute_force=%d", radius, count,
             brute_count);
