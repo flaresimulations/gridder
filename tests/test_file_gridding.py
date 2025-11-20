@@ -69,11 +69,13 @@ class FileGriddingTest:
                         ])
             cells.create_dataset('Centres', data=np.array(centres))
 
-            # Cells Counts (will be filled correctly after we know particle positions)
-            cells.create_dataset('Counts', data=np.zeros((8, 6), dtype=np.int32))
+            # Create Counts and OffsetsInFile groups (not datasets!)
+            counts_grp = cells.create_group('Counts')
+            offsets_grp = cells.create_group('OffsetsInFile')
 
-            # Cells OffsetsInFile
-            cells.create_dataset('OffsetsInFile', data=np.zeros((8, 6), dtype=np.int64))
+            # Will be filled after we know particle positions
+            counts_grp.create_dataset('PartType1', data=np.zeros(8, dtype=np.int32))
+            offsets_grp.create_dataset('PartType1', data=np.zeros(8, dtype=np.int32))
 
             # Create particle distributions: 5 clusters
             n_clusters = 5
@@ -113,9 +115,9 @@ class FileGriddingTest:
             positions = np.vstack(positions)
             masses = np.array(masses)
 
-            # Compute cell counts
-            cell_counts = np.zeros((8, 6), dtype=np.int32)
-            cell_offsets = np.zeros((8, 6), dtype=np.int64)
+            # Compute cell counts for PartType1
+            cell_counts = np.zeros(8, dtype=np.int32)
+            cell_offsets = np.zeros(8, dtype=np.int32)
 
             # Assign particles to cells
             for i, pos in enumerate(positions):
@@ -127,17 +129,17 @@ class FileGriddingTest:
                 iy = max(0, min(1, iy))
                 iz = max(0, min(1, iz))
                 cell_id = ix * 4 + iy * 2 + iz
-                cell_counts[cell_id, 1] += 1  # PartType1
+                cell_counts[cell_id] += 1
 
             # Set offsets (cumulative)
             offset = 0
             for cell_id in range(8):
-                cell_offsets[cell_id, 1] = offset
-                offset += cell_counts[cell_id, 1]
+                cell_offsets[cell_id] = offset
+                offset += cell_counts[cell_id]
 
             # Update cell datasets
-            f['Cells/Counts'][:] = cell_counts
-            f['Cells/OffsetsInFile'][:] = cell_offsets
+            f['Cells/Counts/PartType1'][:] = cell_counts
+            f['Cells/OffsetsInFile/PartType1'][:] = cell_offsets
 
             # Write particle data
             part1 = f.create_group('PartType1')
