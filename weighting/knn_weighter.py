@@ -77,7 +77,7 @@ def weighted_ks(
     n_parent: int = 100_000,
     n_sample: int = 100_000,
 ) -> float:
-    """Compute a weighted 1D KolmogorovSmirnov distance.
+    """Compute a weighted 1D Kolmogorov-Smirnov distance.
 
     The parent distribution is unweighted; the sample distribution is
     weighted. For speed, both are optionally downsampled before computing
@@ -195,7 +195,7 @@ def filter_and_transform_overdensities(
             raise ValueError(
                 "All arrays must have the same length; found mismatched lengths."
             )
-        mask &= (arr > -1.0)
+        mask &= arr > -1.0
 
     n_dropped = length - np.sum(mask)
     if n_dropped > 0:
@@ -206,9 +206,7 @@ def filter_and_transform_overdensities(
         )
 
     # Apply log transform to filtered data
-    transformed = {
-        scale: np.log10(arr[mask] + 1.0) for scale, arr in overdens.items()
-    }
+    transformed = {scale: np.log10(arr[mask] + 1.0) for scale, arr in overdens.items()}
 
     return transformed, mask
 
@@ -542,13 +540,9 @@ class KNNReweighter:
         if k < 1:
             raise ValueError(f"k must be >= 1, got k={k}")
         if k >= N:
-            raise ValueError(
-                f"k must be < N (parent size), got k={k}, N={N}"
-            )
+            raise ValueError(f"k must be < N (parent size), got k={k}, N={N}")
         if k + 1 > M:
-            raise ValueError(
-                f"k+1 must be <= M (sample size), got k={k}, M={M}"
-            )
+            raise ValueError(f"k+1 must be <= M (sample size), got k={k}, M={M}")
 
         dist_p = self._knn_dists(Xs_prep, Xp_prep, k=k)  # [M, k]
         r_parent = dist_p[:, -1]
