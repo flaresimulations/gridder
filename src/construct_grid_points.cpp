@@ -307,8 +307,8 @@ readGridPointCoordinates(const std::string &filename,
     message("WARNING: No valid grid point coordinates found in file: %s",
             filename.c_str());
     message("The file is either empty or contains only comments/invalid lines.");
-    message("Exiting gracefully - no grid points to process.");
-    throw std::runtime_error("Empty grid file - no grid points to process");
+    // Return 0 - the caller will handle the empty grid case
+    return 0;
   }
 
   message("Read %d valid grid point coordinates from %s", valid_points,

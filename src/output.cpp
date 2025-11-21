@@ -98,6 +98,15 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
     return;
   }
 
+  // If there are no grid points, skip dataset creation and exit early
+  if (grid->n_grid_points == 0) {
+    message("No grid points to write - creating empty output file with header only");
+    hdf5.close();
+    message("Successfully wrote empty grid data (serial mode)");
+    toc("Writing output (in serial)");
+    return;
+  }
+
   // Create dataset for grid positions
   std::array<hsize_t, 2> grid_point_positions_dims = {
       static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
@@ -389,6 +398,16 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
   hdf5.writeAttribute<int>("Header", "LocalCells", nr_local_cells);
   hdf5.writeAttribute<double>("Header", "MaxKernelRadius",
                               grid->max_kernel_radius);
+
+  // If there are no local grid points, skip dataset creation and exit early
+  if (total_local_grid_points == 0) {
+    message("Rank %d: No local grid points to write - creating empty output file with header only",
+            metadata->rank);
+    hdf5.close();
+    message("Rank %d: Successfully wrote empty grid data (parallel mode)", metadata->rank);
+    toc("Writing output (in parallel)");
+    return;
+  }
 
   // Write local cell information
   if (!local_cell_ids.empty()) {

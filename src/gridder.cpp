@@ -252,8 +252,27 @@ int main(int argc, char *argv[]) {
   // Check if we actually have grid points to process
   if (grid->n_grid_points == 0) {
     message("No grid points available for processing.");
-    message("Program will now exit.");
-    return 0; // Clean exit, not an error
+    message("Writing empty output file before exiting...");
+
+    // Write empty output file
+#ifdef WITH_MPI
+    try {
+      writeGridFileParallel(sim, grid);
+    } catch (const std::exception &e) {
+      error("Failed to write empty output file: %s", e.what());
+      return 1;
+    }
+#else
+    try {
+      writeGridFileSerial(sim, grid);
+    } catch (const std::exception &e) {
+      error("Failed to write empty output file: %s", e.what());
+      return 1;
+    }
+#endif
+
+    message("No grid points were created - empty output file written.");
+    return 1; // Exit with error code since no work was done
   }
 
 #ifdef DEBUGGING_CHECKS
