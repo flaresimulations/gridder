@@ -134,6 +134,17 @@ Examples:
     return parser.parse_args()
 
 
+def write_minimal_header(h5file, boxsize, npart, redshift=0.0, header_name="Header"):
+    """Write a minimal Header group expected by the gridder."""
+    hdr = h5file.require_group(header_name)
+    hdr.attrs["BoxSize"] = np.array(boxsize, dtype=np.float64)
+
+    numpart = np.zeros(6, dtype=np.uint64)
+    numpart[1] = npart  # PartType1 slot
+    hdr.attrs["NumPart_Total"] = numpart
+    hdr.attrs["Redshift"] = np.float64(redshift)
+
+
 def get_mpi_info():
     """Get MPI rank and size, or return defaults if not using MPI."""
     if HAS_MPI and MPI.COMM_WORLD.size > 1:
@@ -363,10 +374,13 @@ def convert_file_serial(args):
             # Write cell structure
             write_cell_structure(f_out, cell_counts, cell_offsets, args.cdim, cell_size)
 
-            # Copy header if requested
+            # Copy header if requested, otherwise synthesize when boxsize is provided
             if args.copy_header and args.header_key in f_in:
                 print(f"  Copying header from {args.header_key}")
                 f_in.copy(args.header_key, f_out, 'Header')
+            elif args.boxsize is not None:
+                print("  Writing minimal Header from provided BoxSize")
+                write_minimal_header(f_out, boxsize, npart)
 
             print(f"✓ Conversion complete: {args.output_file}")
 
@@ -448,9 +462,12 @@ def convert_file_mpi(args, comm, rank, size):
             # Write cell structure for this rank
             write_cell_structure(f_out, cell_counts, cell_offsets, args.cdim, cell_size)
 
-            # Copy header to first rank's file
-            if rank == 0 and args.copy_header and args.header_key in f_in:
-                f_in.copy(args.header_key, f_out, 'Header')
+            # Copy header to first rank's file, or synthesize if BoxSize provided
+            if rank == 0:
+                if args.copy_header and args.header_key in f_in:
+                    f_in.copy(args.header_key, f_out, 'Header')
+                elif args.boxsize is not None:
+                    write_minimal_header(f_out, boxsize, total_particles)
 
         print(f"Rank {rank}: Wrote {count} particles to {rank_file}")
 
@@ -461,7 +478,7 @@ def convert_file_mpi(args, comm, rank, size):
         print(f"Rank 0: Creating virtual file {virtual_file}")
         create_virtual_file(
             base_name, size, total_particles, args.particle_type,
-            args.copy_header, args.cdim, boxsize
+            args.copy_header or args.boxsize is not None, args.cdim, boxsize
         )
         print(f"✓ Conversion complete: {virtual_file}")
 

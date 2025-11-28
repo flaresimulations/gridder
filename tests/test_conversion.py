@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import textwrap
 
 import h5py
 import numpy as np
@@ -45,6 +46,55 @@ def temp_dir():
     """Create a temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
+
+
+def run_gridder_on_converted(
+    build_gridder, temp_dir, input_file, basename="gridded_output.hdf5", grid_cdim=3
+):
+    """
+    Run the C++ gridder against a converted snapshot to ensure it is readable.
+    """
+    param_file = temp_dir / f"{basename}.yml"
+    param_content = textwrap.dedent(
+        f"""
+        Kernels:
+          nkernels: 1
+          kernel_radius_1: 1.0
+
+        Grid:
+          type: uniform
+          cdim: {grid_cdim}
+
+        Cosmology:
+          h: 0.681
+          Omega_cdm: 0.256011
+          Omega_b: 0.048600
+
+        Tree:
+          max_leaf_count: 200
+
+        Input:
+          filepath: {input_file}
+
+        Output:
+          filepath: {temp_dir}/
+          basename: {basename}
+          write_masses: 1
+        """
+    ).strip()
+    param_file.write_text(param_content)
+
+    result = subprocess.run(
+        [str(build_gridder), str(param_file), "1"], capture_output=True, text=True
+    )
+    assert result.returncode == 0, (
+        f"Gridder failed on converted file {input_file}:\n"
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+
+    output_path = temp_dir / basename
+    assert output_path.exists(), f"Gridder output missing at {output_path}"
+    return output_path
 
 
 def create_arbitrary_snapshot(
@@ -263,40 +313,12 @@ class TestConversion:
         verify_cell_structure(output_file, npart, cdim=4)
 
         # Test with gridder
-        param_file = temp_dir / "test_params.yml"
-        param_content = f"""
-Kernels:
-  nkernels: 1
-  kernel_radius_1: 1.0
-
-Grid:
-  type: uniform
-  cdim: 3
-
-Cosmology:
-  h: 0.681
-  Omega_cdm: 0.256011
-  Omega_b: 0.048600
-
-Tree:
-  max_leaf_count: 200
-
-Input:
-  filepath: {output_file}
-
-Output:
-  filepath: {temp_dir}/
-  basename: gridded_output.hdf5
-  write_masses: 1
-"""
-        param_file.write_text(param_content)
-
-        result = subprocess.run(
-            [str(build_gridder), str(param_file), "1"], capture_output=True, text=True
-        )
-
-        assert result.returncode == 0, (
-            f"Gridder failed on converted file:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        run_gridder_on_converted(
+            build_gridder,
+            temp_dir,
+            output_file,
+            basename="uniform_gridded_output.hdf5",
+            grid_cdim=3,
         )
 
     def test_random_distribution(self, build_gridder, temp_dir):
@@ -334,6 +356,15 @@ Output:
 
         # Verify output structure
         verify_cell_structure(output_file, npart, cdim=10)
+
+        # Ensure gridder can read converted file
+        run_gridder_on_converted(
+            build_gridder,
+            temp_dir,
+            output_file,
+            basename="random_gridded_output.hdf5",
+            grid_cdim=4,
+        )
 
     def test_noncubic_box(self, build_gridder, temp_dir):
         """Test conversion with non-cubic box."""
@@ -373,6 +404,14 @@ Output:
             assert np.allclose(cell_size, expected_size), (
                 f"Cell sizes incorrect: {cell_size} vs expected {expected_size}"
             )
+
+        run_gridder_on_converted(
+            build_gridder,
+            temp_dir,
+            output_file,
+            basename="noncubic_gridded_output.hdf5",
+            grid_cdim=4,
+        )
 
     def test_boundary_particles(self, build_gridder, temp_dir):
         """Test handling of particles at box boundaries."""
@@ -432,6 +471,14 @@ Output:
         # Verify output structure
         verify_cell_structure(output_file, npart, cdim=5)
 
+        run_gridder_on_converted(
+            build_gridder,
+            temp_dir,
+            output_file,
+            basename="boundary_gridded_output.hdf5",
+            grid_cdim=3,
+        )
+
     def test_manual_boxsize(self, build_gridder, temp_dir):
         """Test specifying BoxSize manually."""
         input_file = temp_dir / "no_header_input.hdf5"
@@ -473,6 +520,14 @@ Output:
         # Verify output structure
         verify_cell_structure(output_file, npart, cdim=8)
 
+        run_gridder_on_converted(
+            build_gridder,
+            temp_dir,
+            output_file,
+            basename="manual_boxsize_gridded_output.hdf5",
+            grid_cdim=4,
+        )
+
     def test_different_cdim_values(self, build_gridder, temp_dir):
         """Test various cell dimension values."""
         for cdim in [4, 10, 16, 32]:
@@ -502,6 +557,14 @@ Output:
             )
 
             verify_cell_structure(output_file, npart, cdim=cdim)
+
+            run_gridder_on_converted(
+                build_gridder,
+                temp_dir,
+                output_file,
+                basename=f"cdim{cdim}_gridded_output.hdf5",
+                grid_cdim=3,
+            )
 
 
 if __name__ == "__main__":
