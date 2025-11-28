@@ -86,6 +86,34 @@ double GridPoint::getMass(const double kernel_radius) const {
   }
 }
 
+// Method to get the particle count inside the kernel radius
+int GridPoint::getCount(const double kernel_radius) const {
+  // Check if the kernel radius exists in the count map
+  auto it = this->count_map.find(kernel_radius);
+  if (it != this->count_map.end()) {
+    return static_cast<int>(it->second);
+  } else {
+    return 0; // Return 0 if the kernel radius is not found
+  }
+}
+
+#ifdef DEBUGGING_CHECKS
+// Method to set the brute force count for a kernel radius
+void GridPoint::setBruteForceCount(const double kernel_radius, int count) {
+  this->brute_force_count_map[kernel_radius] = count;
+}
+
+// Method to get the brute force count for a kernel radius
+int GridPoint::getBruteForceCount(const double kernel_radius) const {
+  auto it = this->brute_force_count_map.find(kernel_radius);
+  if (it != this->brute_force_count_map.end()) {
+    return it->second;
+  } else {
+    return -1; // Return -1 if not computed (shouldn't happen)
+  }
+}
+#endif
+
 /**
  * @brief Construct a new Grid object
  *

@@ -843,11 +843,6 @@ void assignPartsToCells(Simulation *sim) {
   total_mass = global_total_mass;
 #endif
 
-  // Compute the mean comoving density
-  sim->mean_density = total_mass / sim->volume;
-
-  message("Mean comoving density: %e 10**10 Msun / cMpc^3", sim->mean_density);
-
 #ifdef DEBUGGING_CHECKS
   // Make sure we have attached all the particles (only count local cells in
   // MPI)
@@ -1221,6 +1216,27 @@ void assignGridPointsToCells([[maybe_unused]] Simulation *sim, Grid *grid) {
 
   // Get the cells for debugging checks
   std::vector<Cell> &cells = sim->cells;
+
+  // Print cell assignment summary
+  message("[DEBUG] Grid point to cell assignment summary:");
+  int cells_with_gps = 0;
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *cell = &cells[cid];
+    if (cell->grid_points.size() > 0) {
+      cells_with_gps++;
+      message("[DEBUG]   Cell %zu at (%.3f, %.3f, %.3f) width (%.3f, %.3f, %.3f) has %zu grid points",
+              cid, cell->loc[0], cell->loc[1], cell->loc[2],
+              cell->width[0], cell->width[1], cell->width[2],
+              cell->grid_points.size());
+      // Print first grid point in this cell
+      if (cell->grid_points.size() > 0) {
+        GridPoint *gp = cell->grid_points[0];
+        message("[DEBUG]     First GP: (%.6f, %.6f, %.6f)",
+                gp->loc[0], gp->loc[1], gp->loc[2]);
+      }
+    }
+  }
+  message("[DEBUG] Total cells with grid points: %d", cells_with_gps);
 
   // Check grid points are in the right cells
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {

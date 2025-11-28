@@ -8,6 +8,12 @@ Grid:
   cdim: 3  # Small grid (3x3x3), grid point at center
   type: uniform
 
+Cosmology:
+  h: 0.681              # Reduced Hubble constant
+  Omega_cdm: 0.256011   # Cold dark matter density parameter
+  Omega_b: 0.048600     # Baryon density parameter
+
+
 Tree:
   max_leaf_count: 200
 

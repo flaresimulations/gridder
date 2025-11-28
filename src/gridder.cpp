@@ -22,6 +22,10 @@
 #include "simulation.hpp"
 #include "talking.hpp"
 
+#ifdef DEBUGGING_CHECKS
+#include "debugging_utils.hpp"
+#endif
+
 /**
  * @brief Function to handle the command line arguments using robust parser
  *
@@ -215,6 +219,15 @@ int main(int argc, char *argv[]) {
 
   message("Number of top level cells: %d", sim->nr_cells);
 
+  // Calculate mean density from cosmological parameters
+  // This must be done before any overdensity calculations
+  try {
+    sim->calculateMeanDensityFromCosmology(params);
+  } catch (const std::exception &e) {
+    std::cerr << "Failed to calculate mean density from cosmology: " << e.what() << std::endl;
+    return 1;
+  }
+
 #ifdef WITH_MPI
   // Partition the cells across MPI ranks (work-based partition)
   try {
@@ -239,9 +252,33 @@ int main(int argc, char *argv[]) {
   // Check if we actually have grid points to process
   if (grid->n_grid_points == 0) {
     message("No grid points available for processing.");
-    message("Program will now exit.");
-    return 0; // Clean exit, not an error
+    message("Writing empty output file before exiting...");
+
+    // Write empty output file
+#ifdef WITH_MPI
+    try {
+      writeGridFileParallel(sim, grid);
+    } catch (const std::exception &e) {
+      error("Failed to write empty output file: %s", e.what());
+      return 1;
+    }
+#else
+    try {
+      writeGridFileSerial(sim, grid);
+    } catch (const std::exception &e) {
+      error("Failed to write empty output file: %s", e.what());
+      return 1;
+    }
+#endif
+
+    message("No grid points were created - empty output file written.");
+    return 1; // Exit with error code since no work was done
   }
+
+#ifdef DEBUGGING_CHECKS
+  // Validate file-based grid points are within simulation boundaries
+  validateFileGridPoints(grid, sim);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -254,6 +291,11 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef DEBUGGING_CHECKS
+  // Validate grid points are correctly assigned to cells
+  validateGridPointCellAssignment(sim, grid);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -268,6 +310,11 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef DEBUGGING_CHECKS
+  // Validate useful cells are correctly flagged
+  validateUsefulCells(sim, grid);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
@@ -322,6 +369,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+#ifdef DEBUGGING_CHECKS
+  // Validate particles are in the correct cells
+  validateParticleCellAssignment(sim);
+#endif
+
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -360,6 +412,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+#ifdef DEBUGGING_CHECKS
+  // Validate octree structure integrity
+  validateOctreeStructure(sim);
+#endif
+
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -372,6 +429,11 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+#ifdef DEBUGGING_CHECKS
+  // Validate grid points have particles (sample check with brute force)
+  validateGridPointsHaveParticles(sim, grid);
+#endif
 
 #ifdef WITH_MPI
   MPI_Barrier(MPI_COMM_WORLD);

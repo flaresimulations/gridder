@@ -54,7 +54,7 @@ def test_snapshot():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Create a minimal test snapshot using make_test_snap.py
-    make_snap_script = PROJECT_ROOT / "make_test_snap.py"
+    make_snap_script = TESTS_DIR / "make_test_snap.py"
 
     # Find a donor snapshot (use any existing HDF5 file or create minimal one)
     donor_path = DATA_DIR / "donor_minimal.hdf5"
@@ -162,6 +162,11 @@ Grid:
   type: file
   grid_file: tests/data/grid_points_files/with_comments.txt
 
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+
 Tree:
   max_leaf_count: 200
 
@@ -214,6 +219,11 @@ Kernels:
 Grid:
   type: file
   grid_file: tests/data/grid_points_files/malformed.txt
+
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
 
 Tree:
   max_leaf_count: 200
@@ -269,6 +279,11 @@ Kernels:
 Grid:
   type: file
   grid_file: tests/data/grid_points_files/nonexistent.txt
+
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
 
 Tree:
   max_leaf_count: 200
@@ -405,6 +420,11 @@ Grid:
   n_grid_points: 50
   random_seed: {seed}
 
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+
 Tree:
   max_leaf_count: 200
 
@@ -467,6 +487,11 @@ Grid:
   type: random
   n_grid_points: 50
   random_seed: {seed}
+
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
 
 Tree:
   max_leaf_count: 200
@@ -533,6 +558,11 @@ Grid:
   type: uniform
   cdim: 5  # 5^3 = 125 grid points
 
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+
 Tree:
   max_leaf_count: 200
 
@@ -597,6 +627,11 @@ Kernels:
 Grid:
   type: uniform
   cdim: 3
+
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
 
 Tree:
   max_leaf_count: 200
@@ -668,6 +703,11 @@ Grid:
   type: uniform
   cdim: 3  # 3^3 = 27 grid points
 
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+
 Tree:
   max_leaf_count: 200
 
@@ -736,6 +776,11 @@ Kernels:
 Grid:
   type: file
   grid_file: {grid_file}
+
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
 
 Tree:
   max_leaf_count: 200

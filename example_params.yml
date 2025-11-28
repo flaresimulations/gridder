@@ -13,6 +13,11 @@ Grid:
   n_grid_points: 1000000 # number of grid points to sample (applicable to random)
   random_seed: 42 # seed for random grid point generation (applicable to random)
 
+Cosmology:
+  h: 0.681              # Reduced Hubble constant
+  Omega_cdm: 0.256011   # Cold dark matter density parameter
+  Omega_b: 0.048600     # Baryon density parameter
+
 Performance:
 
 Tree:

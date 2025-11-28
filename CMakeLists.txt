@@ -175,6 +175,7 @@ set(SOURCE_FILES
   src/partition.cpp
   src/params.cpp
   src/simulation.cpp
+  src/debugging_utils.cpp
 )
 
 # ========== Target ==========

@@ -120,9 +120,28 @@ class TestDataGenerator:
         return npart
 
     @staticmethod
-    def _write_snapshot(filename, coords, masses, boxsize):
-        """Write HDF5 snapshot in SWIFT format"""
+    def _write_snapshot(filename, coords, masses, boxsize, h=0.681, Omega_cdm=0.256011, Omega_b=0.048600):
+        """Write HDF5 snapshot in SWIFT format
+
+        If masses are uniform (all equal), they will be rescaled to match the
+        cosmological mean density. If masses vary, they are used as-is (assumed
+        to already represent the correct density field).
+        """
         os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+        # Calculate cosmological mean density
+        Omega_m = Omega_cdm + Omega_b
+        H0_kmsMpc = 100.0 * h
+        G = 4.301744232015554e+01  # (10^10 Msun)^-1 Mpc (km/s)^2
+        rho_crit_0 = (3.0 * H0_kmsMpc**2) / (8.0 * np.pi * G)
+        mean_density = rho_crit_0 * Omega_m
+
+        # For uniform mass distributions, rescale to match cosmological mean density
+        # This ensures uniform distributions give zero mean overdensity
+        if np.allclose(masses, masses[0]):  # All masses equal
+            volume = boxsize**3
+            total_mass = mean_density * volume
+            masses = np.full(len(masses), total_mass / len(masses))
 
         with h5py.File(filename, 'w') as f:
             # Header
@@ -207,6 +226,11 @@ class GridderTest:
             f.write(f"  type: uniform\n")
             f.write(f"  cdim: {cdim}\n")
             f.write(f"\n")
+            f.write(f"Cosmology:\n")
+            f.write(f"  h: 0.681              # Reduced Hubble constant\n")
+            f.write(f"  Omega_cdm: 0.256011   # Cold dark matter density parameter\n")
+            f.write(f"  Omega_b: 0.048600     # Baryon density parameter\n")
+            f.write(f"\n")
             f.write(f"Tree:\n")
             f.write(f"  max_leaf_count: 200\n")
             f.write(f"\n")
@@ -243,6 +267,10 @@ class GridderTest:
         boxsize = 10.0
         TestDataGenerator.create_single_particle(snapshot, position, mass, boxsize)
 
+        # Read actual particle mass from snapshot (will be rescaled to match cosmology)
+        with h5py.File(snapshot, 'r') as f:
+            actual_mass = f['PartType1/Masses'][0]
+
         # Create parameters
         kernel_radii = [0.5, 1.0, 2.0]
         param_file = self._create_param_file(snapshot, "single_particle_out.hdf5",
@@ -275,8 +303,8 @@ class GridderTest:
                 # Particle at center should be within kernel of center grid point
                 # for radii >= ~0.8 (half cell diagonal is ~0.866)
                 if radius >= 0.8:
-                    if masses[center_idx] != mass:
-                        return False, f"Kernel {i} (r={radius}): Expected mass {mass} at center, got {masses[center_idx]}"
+                    if not np.isclose(masses[center_idx], actual_mass):
+                        return False, f"Kernel {i} (r={radius}): Expected mass {actual_mass} at center, got {masses[center_idx]}"
 
         return True, "Single particle test passed"
 
@@ -563,6 +591,10 @@ class GridderTest:
         # Write snapshot
         TestDataGenerator._write_snapshot(snapshot, positions, masses, boxsize)
 
+        # Read actual total mass from snapshot (will be rescaled to match cosmology)
+        with h5py.File(snapshot, 'r') as f:
+            expected_mass = np.sum(f['PartType1/Masses'][:])
+
         # Grid with points that should capture particles across boundaries
         param_file = self._create_param_file(snapshot, "boundary_parts_out.hdf5",
                                             cdim=3, kernel_radii=[2.0])
@@ -581,7 +613,6 @@ class GridderTest:
             # All particles should be captured by at least one grid point
             # Check that the total mass is conserved (allowing small tolerance)
             total_mass_captured = np.sum(masses_out)
-            expected_mass = len(positions)  # All particles have mass=1
             if abs(total_mass_captured - expected_mass) > expected_mass * 0.1:
                 return False, f"Mass not conserved: {total_mass_captured} vs {expected_mass}"
 
@@ -757,6 +788,11 @@ class MPIGridderTest(GridderTest):
                 'type': 'random',
                 'n_grid_points': 500
             },
+            'Cosmology': {
+                'h': 0.681,
+                'Omega_cdm': 0.256011,
+                'Omega_b': 0.048600
+            },
             'Tree': {
                 'max_leaf_count': 50
             },
@@ -850,6 +886,11 @@ class SerialMPIComparisonTest:
             'Grid': {
                 'type': 'uniform',
                 'cdim': cdim
+            },
+            'Cosmology': {
+                'h': 0.681,
+                'Omega_cdm': 0.256011,
+                'Omega_b': 0.048600
             },
             'Tree': {
                 'max_leaf_count': 50

@@ -1,0 +1,29 @@
+# Test parameter file for file-based gridding
+# Tests gridding with coordinates loaded from a file
+
+Kernels:
+  nkernels: 3
+  kernel_radius_1: 0.5   # Small scale
+  kernel_radius_2: 2.0   # Medium scale
+  kernel_radius_3: 5.0   # Large scale
+
+Grid:
+  type: file
+  grid_file: tests/data/test_grid_coordinates.txt
+
+Cosmology:
+  h: 0.681              # Reduced Hubble constant
+  Omega_cdm: 0.256011   # Cold dark matter density parameter
+  Omega_b: 0.048600     # Baryon density parameter
+
+
+Tree:
+  max_leaf_count: 200
+
+Input:
+  filepath: tests/data/test_snapshot.hdf5
+
+Output:
+  filepath: tests/data/
+  basename: file_grid_output.hdf5
+  write_masses: 1

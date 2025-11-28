@@ -307,8 +307,8 @@ readGridPointCoordinates(const std::string &filename,
     message("WARNING: No valid grid point coordinates found in file: %s",
             filename.c_str());
     message("The file is either empty or contains only comments/invalid lines.");
-    message("Exiting gracefully - no grid points to process.");
-    throw std::runtime_error("Empty grid file - no grid points to process");
+    // Return 0 - the caller will handle the empty grid case
+    return 0;
   }
 
   message("Read %d valid grid point coordinates from %s", valid_points,
@@ -412,6 +412,18 @@ static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
 
   message("Created %d grid points from file %s", valid_points,
           grid->grid_file.c_str());
+
+#ifdef DEBUGGING_CHECKS
+  // Print first few grid points to verify they loaded correctly
+  message("[DEBUG] First 5 grid points loaded from file:");
+  int n_to_print = std::min(5, valid_points);
+  for (int i = 0; i < n_to_print; i++) {
+    message("[DEBUG]   Point %d: (%.6f, %.6f, %.6f)", i,
+            grid->grid_points[i].loc[0],
+            grid->grid_points[i].loc[1],
+            grid->grid_points[i].loc[2]);
+  }
+#endif
 
   // Initialize mass and count maps for all grid points
   message("Initializing grid point maps for %d kernel radii", grid->nkernels);
