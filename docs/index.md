@@ -41,12 +41,14 @@ mpirun -n 4 ./build_mpi/parent_gridder params.yml 1
 - **[Getting Started](getting-started/installation.md)**: Installation, quick start, and configuration
 - **[Parameter Reference](getting-started/parameters.md)**: Detailed parameter file documentation
 - **[Performance](performance/openmp.md)**: OpenMP and MPI optimization guides
+- **[Conversion Tool](conversion.md)**: Converting arbitrary simulation snapshots to gridder format
 
 ## Quick Links
 
 - [Installation Guide](getting-started/installation.md)
 - [Quick Start Tutorial](getting-started/quickstart.md)
 - [Parameter File Reference](getting-started/parameters.md)
+- [Snapshot Conversion Guide](conversion.md)
 - [OpenMP Threading](performance/openmp.md)
 - [MPI Parallelization](performance/mpi.md)
 
