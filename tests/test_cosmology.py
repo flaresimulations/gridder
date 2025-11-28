@@ -14,7 +14,6 @@ import numpy as np
 from pathlib import Path
 import yaml
 import tempfile
-import os
 
 # Try to import astropy for direct comparison tests
 try:
