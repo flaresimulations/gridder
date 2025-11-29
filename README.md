@@ -203,6 +203,26 @@ The gridder produces HDF5 files containing:
 - Kernel radius information
 - Processing metadata and timestamps
 
+## Converting Arbitrary Snapshots
+
+Use the conversion tool to process snapshots from any simulation code:
+
+```bash
+python tools/convert_to_gridder_format.py input.hdf5 output.hdf5 \
+  --coordinates-key PartType1/Coordinates \
+  --masses-key PartType1/Masses \
+  --copy-header
+```
+
+**Key features:**
+- Handles arbitrary HDF5 dataset names
+- Creates required cell structure automatically
+- Supports both cubic and non-cubic simulation boxes
+- MPI parallelization for large files
+- Configurable cell grid resolution (default: 16×16×16)
+
+**See [Conversion Guide](docs/conversion.md) for detailed documentation.**
+
 ## Generating Test Data
 
 Use the included Python script to create test snapshots:

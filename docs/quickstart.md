@@ -22,6 +22,7 @@ Before starting, ensure you have:
 
 - Built the gridder (see [Installation](installation.md))
 - Access to a SWIFT simulation snapshot (HDF5 format)
+  - **Note:** For non-SWIFT snapshots, use the [Conversion Tool](conversion.md) to create compatible HDF5 files
 - Basic understanding of YAML syntax
 
 ## Minimal Example
