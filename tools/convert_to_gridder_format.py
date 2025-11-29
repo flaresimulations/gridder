@@ -190,9 +190,10 @@ def get_particle_count(input_file, masses_key, rank, size):
     return total_particles, start_idx, count
 
 
-def get_boxsize(input_file, args, rank=0):
+def get_boxsize(input_file, args, rank=0, coords=None):
     """
-    Get box size from command line args or Header in input file.
+    Get box size from command line args or Header in input file. If missing,
+    optionally infer from coordinates (max extent).
 
     Returns:
         boxsize: numpy array [X, Y, Z] box dimensions
@@ -212,6 +213,20 @@ def get_boxsize(input_file, args, rank=0):
             if rank == 0:
                 print(f"  Read BoxSize from {args.header_key}/BoxSize: {boxsize}")
             return boxsize
+
+    # If boxsize still unknown, optionally infer from coords
+    if coords is not None:
+        if coords.ndim != 2 or coords.shape[1] != 3:
+            raise ValueError("Coordinates must be shape (N, 3) to infer BoxSize")
+        inferred = np.max(coords, axis=0)
+        if np.any(inferred <= 0):
+            raise ValueError(
+                "Failed to infer BoxSize from coordinates (non-positive extents). "
+                "Provide --boxsize or add Header/BoxSize."
+            )
+        if rank == 0:
+            print(f"  Inferring BoxSize from coordinates: {inferred}")
+        return inferred
 
     raise ValueError(
         "BoxSize not found in input file and not provided via --boxsize. "
@@ -311,9 +326,6 @@ def convert_file_serial(args):
     """Convert file in serial mode (single output file)."""
     print(f"Converting {args.input_file} -> {args.output_file}")
 
-    # Get box size
-    boxsize = get_boxsize(args.input_file, args)
-
     with h5py.File(args.input_file, 'r') as f_in:
         # Check input keys exist
         if args.coordinates_key not in f_in:
@@ -337,6 +349,9 @@ def convert_file_serial(args):
             raise ValueError(
                 f"Coordinates must be shape (N, 3), got {coords.shape}"
             )
+
+        # Get box size now that shapes are known
+        boxsize = get_boxsize(args.input_file, args, coords=coords)
 
         print(f"  Found {npart} particles")
         print(f"  Coordinates shape: {coords.shape}")
