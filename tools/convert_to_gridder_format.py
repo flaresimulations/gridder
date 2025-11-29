@@ -260,6 +260,11 @@ def create_cell_structure(coords, masses, boxsize, cdim):
     npart = coords.shape[0]
     ncells = cdim ** 3
 
+    # Clamp coordinates to stay strictly within [0, boxsize) to avoid boundary issues
+    eps = np.finfo(coords.dtype).eps
+    upper = np.maximum(boxsize - eps, 0.0)
+    coords = np.clip(coords, 0.0, upper)
+
     # Calculate cell size
     cell_size = boxsize / cdim
 
