@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
@@ -352,6 +352,25 @@
   
 
       
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="conversion/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Conversion
+
+      </a>
+    </li>
+  
+
+      
     </ul>
   </div>
 </nav>
@@ -470,40 +489,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#key-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Features
+        Features
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#performance-characteristics" class="md-nav__link">
-    <span class="md-ellipsis">
       
-        Performance Characteristics
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
+        <li class="md-nav__item">
   <a href="#quick-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -513,39 +509,12 @@
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
-  
-</li>
       
         <li class="md-nav__item">
-  <a href="#documentation-structure" class="md-nav__link">
+  <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Documentation Structure
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-links" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Links
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#support" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Support
+        Documentation
       
     </span>
   </a>
@@ -722,6 +691,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="conversion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -749,40 +745,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#key-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Key Features
+        Features
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#performance-characteristics" class="md-nav__link">
-    <span class="md-ellipsis">
       
-        Performance Characteristics
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
+        <li class="md-nav__item">
   <a href="#quick-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -792,39 +765,12 @@
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
-  
-</li>
       
         <li class="md-nav__item">
-  <a href="#documentation-structure" class="md-nav__link">
+  <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Documentation Structure
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-links" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Links
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#support" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Support
+        Documentation
       
     </span>
   </a>
@@ -860,77 +806,38 @@
 
 
 <h1 id="flares-2-gridder">FLARES-2 Gridder<a class="headerlink" href="#flares-2-gridder" title="Permanent link">&para;</a></h1>
-<p>High-performance cosmological simulation gridding with spherical top hat kernels.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The FLARES-2 Gridder is a C++ application designed for gridding cosmological simulations. It applies spherical top hat kernels to matter distributions, reading HDF5 snapshot files from simulations (primarily SWIFT outputs) and computing overdensities at grid points using multiple kernel radii simultaneously.</p>
-<h3 id="key-features">Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h3>
+<p>The FLARES-2 Gridder computes matter overdensities at user-defined grid points
+with one or more spherical top-hat kernels. It reads cell-indexed HDF5
+snapshots and writes gridded HDF5 output.</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Multiple Kernel Radii</strong>: Compute overdensities for multiple smoothing scales in a single pass</li>
-<li><strong>Hybrid Parallelization</strong>: OpenMP threading + optional MPI for distributed memory</li>
-<li><strong>Efficient I/O</strong>: Chunked HDF5 reading with automatic optimization for sparse/dense grids</li>
-<li><strong>Flexible Grids</strong>: Support for uniform, random, and file-based grid point distributions</li>
-<li><strong>Octree Spatial Indexing</strong>: Hierarchical cell structure for efficient neighbor searches</li>
-<li><strong>Production Ready</strong>: Comprehensive test suite with 29 tests covering serial and MPI modes</li>
+<li>Uniform, random, and file-based grid points</li>
+<li>Multiple kernel radii in one run</li>
+<li>Octree particle searches</li>
+<li>OpenMP threading and optional MPI domain decomposition</li>
+<li>Chunked reads that avoid loading particles far from requested grid points</li>
+<li>Serial snapshot conversion for compatible HDF5 inputs</li>
 </ul>
-<h3 id="performance-characteristics">Performance Characteristics<a class="headerlink" href="#performance-characteristics" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Feature</th>
-<th>Single-Node (OpenMP)</th>
-<th>Multi-Node (MPI + OpenMP)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Parallelization</td>
-<td>Multi-threaded</td>
-<td>Distributed + Multi-threaded</td>
-</tr>
-<tr>
-<td>Memory</td>
-<td>Shared</td>
-<td>Distributed with ghost cells</td>
-</tr>
-<tr>
-<td>I/O</td>
-<td>Chunked HDF5</td>
-<td>Per-rank HDF5 files</td>
-</tr>
-<tr>
-<td>Scalability</td>
-<td>Up to ~16 cores</td>
-<td>Hundreds of cores</td>
-</tr>
-</tbody>
-</table>
-<h3 id="quick-example">Quick Example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Single-node with 8 OpenMP threads</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">8</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./build/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">1</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Multi-node: 4 MPI ranks × 2 OpenMP threads = 8 cores</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">2</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>mpirun<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span><span class="w"> </span>./build_mpi/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">1</span>
+<h2 id="quick-example">Quick Example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Eight OpenMP threads</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./build/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">8</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Four MPI ranks, two OpenMP threads per rank</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>mpirun<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span><span class="w"> </span>./build_mpi/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">2</span>
 </span></code></pre></div>
-<h2 id="documentation-structure">Documentation Structure<a class="headerlink" href="#documentation-structure" title="Permanent link">&para;</a></h2>
+<p>The second positional argument always sets the OpenMP thread count, including
+in MPI builds.</p>
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><a href="getting-started/installation/">Getting Started</a></strong>: Installation, quick start, and configuration</li>
-<li><strong><a href="getting-started/parameters/">Parameter Reference</a></strong>: Detailed parameter file documentation</li>
-<li><strong><a href="performance/openmp/">Performance</a></strong>: OpenMP and MPI optimization guides</li>
-<li><strong><a href="conversion/">Conversion Tool</a></strong>: Converting arbitrary simulation snapshots to gridder format</li>
+<li><a href="quickstart/">Quickstart</a></li>
+<li><a href="installation/">Installation</a></li>
+<li><a href="parameters/">Parameter reference</a></li>
+<li><a href="runtime-arguments/">Runtime arguments</a></li>
+<li><a href="gridding/">Grid types</a></li>
+<li><a href="mpi/">MPI execution</a></li>
+<li><a href="conversion/">Snapshot conversion</a></li>
 </ul>
-<h2 id="quick-links">Quick Links<a class="headerlink" href="#quick-links" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="getting-started/installation/">Installation Guide</a></li>
-<li><a href="getting-started/quickstart/">Quick Start Tutorial</a></li>
-<li><a href="getting-started/parameters/">Parameter File Reference</a></li>
-<li><a href="conversion/">Snapshot Conversion Guide</a></li>
-<li><a href="performance/openmp/">OpenMP Threading</a></li>
-<li><a href="performance/mpi/">MPI Parallelization</a></li>
-</ul>
-<h2 id="support">Support<a class="headerlink" href="#support" title="Permanent link">&para;</a></h2>
-<p>For issues, questions, or contributions, please visit the <a href="https://github.com/flaresimulations/gridder">GitHub repository</a>.</p>
+<p>Report problems through the <a href="https://github.com/flaresimulations/gridder">GitHub repository</a>.</p>
 
 
 
@@ -1002,10 +909,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="javascripts/mathjax.js"></script>
       

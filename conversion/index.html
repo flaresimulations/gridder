@@ -13,21 +13,23 @@
       
       
       
+        <link rel="prev" href="../mpi/">
+      
       
       
         
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Converting Arbitrary Snapshots - FLARES-2 Gridder</title>
+        <title>Conversion - FLARES-2 Gridder</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -74,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#converting-arbitrary-snapshots" class="md-skip">
+        <a href="#snapshot-conversion" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Converting Arbitrary Snapshots
+              Conversion
             
           </span>
         </div>
@@ -342,6 +344,27 @@
     
   
   MPI
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Conversion
 
       </a>
     </li>
@@ -588,6 +611,157 @@
   
 
     
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-serial-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Serial Conversion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#particle-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Particle Type
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-cdim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing cdim
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mpi-conversion-limitation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MPI Conversion Limitation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -615,17 +789,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#requirements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -637,121 +800,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
+  <a href="#recommended-serial-conversion" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Basic Usage
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Basic Usage">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#required-arguments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Required Arguments
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#optional-arguments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional Arguments
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Examples
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Examples">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#swift-like-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SWIFT-like Format
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#custom-format-with-non-standard-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Custom Format with Non-Standard Keys
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#without-header-manual-boxsize" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Without Header (Manual BoxSize)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#non-cubic-simulation-box" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Non-Cubic Simulation Box
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fine-cell-grid-for-large-simulations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Fine Cell Grid for Large Simulations
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mpi-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MPI Mode
+        Recommended Serial Conversion
       
     </span>
   </a>
@@ -759,10 +811,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#output-hdf5-structure" class="md-nav__link">
+  <a href="#particle-type" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Output HDF5 Structure
+        Particle Type
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Layout
       
     </span>
   </a>
@@ -781,10 +844,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#input-file-requirements" class="md-nav__link">
+  <a href="#mpi-conversion-limitation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Input File Requirements
+        MPI Conversion Limitation
       
     </span>
   </a>
@@ -792,82 +855,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#common-issues" class="md-nav__link">
+  <a href="#verify-output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Common Issues
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Issues">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#missing-boxsize" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Missing BoxSize
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#particles-outside-box" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Particles Outside Box
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memory-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Memory Usage
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verification
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#full-workflow-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Full Workflow Example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See Also
+        Verify Output
       
     </span>
   </a>
@@ -902,280 +893,84 @@
   
 
 
-<h1 id="converting-arbitrary-snapshots">Converting Arbitrary Snapshots<a class="headerlink" href="#converting-arbitrary-snapshots" title="Permanent link">&para;</a></h1>
-<p>The <code>convert_to_gridder_format.py</code> tool converts HDF5 simulation snapshots from arbitrary formats into the format required by the gridder. This allows you to process simulations from any code (not just SWIFT) with the FLARES-2 Gridder.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The conversion process:</p>
-<ol>
-<li>Reads particle coordinates and masses from arbitrary HDF5 dataset keys</li>
-<li>Creates a spatial cell structure for efficient particle lookup</li>
-<li>Sorts particles by cell index</li>
-<li>Writes output in the standardized gridder format</li>
-</ol>
-<p>The gridder requires a hierarchical cell structure for spatial indexing. The conversion script creates a regular grid of cells (default: 16×16×16 = 4,096 cells) and assigns each particle to a cell based on its position.</p>
+<h1 id="snapshot-conversion">Snapshot Conversion<a class="headerlink" href="#snapshot-conversion" title="Permanent link">&para;</a></h1>
+<p><code>tools/convert_to_gridder_format.py</code> creates the cell-indexed HDF5 layout used
+by the gridder from coordinate and mass datasets in another HDF5 file.</p>
+<p>The converter changes dataset layout only. It does not convert units or infer
+whether a source simulation uses the coordinate, mass, and cosmological
+conventions expected by the gridder.</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Python 3.7+</li>
+<li>Python 3</li>
 <li>h5py</li>
 <li>numpy</li>
-<li>mpi4py (optional, for MPI mode)</li>
+<li>mpi4py only for the experimental MPI conversion path</li>
 </ul>
-<h2 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span>input.hdf5<span class="w"> </span>output.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>PartType1/Coordinates<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--masses-key<span class="w"> </span>PartType1/Masses<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span>--copy-header
+<h2 id="recommended-serial-conversion">Recommended Serial Conversion<a class="headerlink" href="#recommended-serial-conversion" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python3<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span>input.hdf5<span class="w"> </span>gridder_input.hdf5<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--coordinates-key<span class="w"> </span>DarkMatter/Coordinates<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--masses-key<span class="w"> </span>DarkMatter/Masses<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--boxsize<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--cdim<span class="w"> </span><span class="m">32</span>
 </span></code></pre></div>
-<h3 id="required-arguments">Required Arguments<a class="headerlink" href="#required-arguments" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>input_file</code>: Path to input HDF5 snapshot</li>
-<li><code>output_file</code>: Path to output HDF5 file</li>
-<li><code>--coordinates-key</code>: HDF5 dataset path for particle coordinates</li>
-<li><code>--masses-key</code>: HDF5 dataset path for particle masses</li>
-</ul>
-<h3 id="optional-arguments">Optional Arguments<a class="headerlink" href="#optional-arguments" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>--copy-header</code>: Copy Header group from input to output (recommended)</li>
-<li><code>--header-key</code>: HDF5 key for header group (default: <code>Header</code>)</li>
-<li><code>--particle-type</code>: Output particle type group name (default: <code>PartType1</code>)</li>
-<li><code>--cdim</code>: Number of cells per dimension for spatial indexing (default: <strong>16</strong>)</li>
-<li><code>--boxsize X Y Z</code>: Manually specify box size (if not in Header)</li>
-</ul>
-<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
-<h3 id="swift-like-format">SWIFT-like Format<a class="headerlink" href="#swift-like-format" title="Permanent link">&para;</a></h3>
-<p>If your snapshot already uses SWIFT-style keys:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span>swift_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>gridder_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>PartType1/Coordinates<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--masses-key<span class="w"> </span>PartType1/Masses<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>--copy-header
+<p>Use <code>--copy-header</code> when the source <code>Header</code> already contains compatible
+<code>BoxSize</code>, <code>NumPart_Total</code>, and <code>Redshift</code> attributes:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python3<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span>input.hdf5<span class="w"> </span>gridder_input.hdf5<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--coordinates-key<span class="w"> </span>PartType1/Coordinates<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--masses-key<span class="w"> </span>PartType1/Masses<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--copy-header
 </span></code></pre></div>
-<h3 id="custom-format-with-non-standard-keys">Custom Format with Non-Standard Keys<a class="headerlink" href="#custom-format-with-non-standard-keys" title="Permanent link">&para;</a></h3>
-<p>For simulations with different naming conventions:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>gadget_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>gridder_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>DarkMatter/Positions<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span>--masses-key<span class="w"> </span>DarkMatter/Mass<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span>--copy-header<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span>--cdim<span class="w"> </span><span class="m">32</span>
+<p>Run <code>python3 tools/convert_to_gridder_format.py --help</code> for all current
+arguments.</p>
+<h2 id="particle-type">Particle Type<a class="headerlink" href="#particle-type" title="Permanent link">&para;</a></h2>
+<p>Gridder-compatible output must use <code>PartType1</code>, which is the converter default.
+Although the converter accepts <code>--particle-type</code>, the C++ reader currently
+hardcodes <code>PartType1</code> for particles, counts, and offsets.</p>
+<h2 id="output-layout">Output Layout<a class="headerlink" href="#output-layout" title="Permanent link">&para;</a></h2>
+<p>Serial conversion sorts particles by cell and writes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Header
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  attributes: BoxSize, NumPart_Total, Redshift
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>PartType1/Coordinates
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>PartType1/Masses
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Cells/Meta-data
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  attributes: dimension, size
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>Cells/Counts/PartType1
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>Cells/OffsetsInFile/PartType1
 </span></code></pre></div>
-<h3 id="without-header-manual-boxsize">Without Header (Manual BoxSize)<a class="headerlink" href="#without-header-manual-boxsize" title="Permanent link">&para;</a></h3>
-<p>If your input file doesn't have a Header group:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>custom_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>gridder_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>Coordinates<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--masses-key<span class="w"> </span>Masses<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span>--boxsize<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span>--cdim<span class="w"> </span><span class="m">16</span>
-</span></code></pre></div>
-<h3 id="non-cubic-simulation-box">Non-Cubic Simulation Box<a class="headerlink" href="#non-cubic-simulation-box" title="Permanent link">&para;</a></h3>
-<p>For simulations with different box sizes in each dimension:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>noncubic_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span>gridder_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>Coords<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span>--masses-key<span class="w"> </span>Mass<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span>--boxsize<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="m">200</span>.0<span class="w"> </span><span class="m">150</span>.0<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span>--copy-header
-</span></code></pre></div>
-<h3 id="fine-cell-grid-for-large-simulations">Fine Cell Grid for Large Simulations<a class="headerlink" href="#fine-cell-grid-for-large-simulations" title="Permanent link">&para;</a></h3>
-<p>For very large simulations, increase <code>cdim</code> for better spatial indexing:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>large_simulation.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span>gridder_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>PartType1/Coordinates<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span>--masses-key<span class="w"> </span>PartType1/Masses<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span>--cdim<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span>--copy-header
-</span></code></pre></div>
-<h2 id="mpi-mode">MPI Mode<a class="headerlink" href="#mpi-mode" title="Permanent link">&para;</a></h2>
-<p>For very large snapshots, use MPI to parallelize the conversion:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>mpirun<span class="w"> </span>-np<span class="w"> </span><span class="m">4</span><span class="w"> </span>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span>huge_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span>gridder_snapshot.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>PartType1/Coordinates<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span>--masses-key<span class="w"> </span>PartType1/Masses<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span>--copy-header<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span>--cdim<span class="w"> </span><span class="m">32</span>
-</span></code></pre></div>
-<p><strong>MPI mode creates:</strong>
-- Per-rank files: <code>gridder_snapshot_rank_0.hdf5</code>, <code>gridder_snapshot_rank_1.hdf5</code>, ...
-- Virtual file: <code>gridder_snapshot.hdf5</code> (combines all ranks)</p>
-<p>Use the virtual file (<code>gridder_snapshot.hdf5</code>) as input to the gridder.</p>
-<h2 id="output-hdf5-structure">Output HDF5 Structure<a class="headerlink" href="#output-hdf5-structure" title="Permanent link">&para;</a></h2>
-<p>The conversion script produces files with this structure:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>/Header                              # Simulation metadata (if --copy-header used)
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  BoxSize: [X, Y, Z]                 # Box dimensions
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  NumPart_Total: [0, N, 0, 0, 0, 0] # Total particle counts
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  Redshift: float                    # Redshift value
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>/PartType1                           # Dark matter particles
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>  /Coordinates                       # Particle positions (sorted by cell)
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    shape: (N, 3)
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    dtype: float64
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>  /Masses                            # Particle masses (sorted by cell)
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    shape: (N,)
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    dtype: float64
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>/Cells                               # Spatial indexing structure
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>  /Meta-data
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    dimension: [cdim, cdim, cdim]    # Number of cells per dimension
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    size: [dx, dy, dz]               # Physical size of each cell
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>  /Counts
-</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>    /PartType1                       # Number of particles in each cell
-</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>      shape: (cdim³,)
-</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>      dtype: int32
-</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>  /OffsetsInFile
-</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>    /PartType1                       # Starting index for particles in each cell
-</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>      shape: (cdim³,)
-</span><span id="__span-7-25"><a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>      dtype: int64
-</span></code></pre></div>
+<p>Particle IDs and velocities are not generated because the gridder does not
+read them.</p>
 <h2 id="choosing-cdim">Choosing <code>cdim</code><a class="headerlink" href="#choosing-cdim" title="Permanent link">&para;</a></h2>
-<p>The <code>cdim</code> parameter controls the cell grid resolution. Choose based on your simulation size:</p>
-<table>
-<thead>
-<tr>
-<th>Simulation Size</th>
-<th>Recommended cdim</th>
-<th>Total Cells</th>
-<th>Use Case</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>&lt; 1M particles</td>
-<td>8-16</td>
-<td>512-4,096</td>
-<td>Small test simulations</td>
-</tr>
-<tr>
-<td>1-10M particles</td>
-<td>16-32</td>
-<td>4,096-32,768</td>
-<td>Medium simulations</td>
-</tr>
-<tr>
-<td>10-100M particles</td>
-<td>32-64</td>
-<td>32,768-262,144</td>
-<td>Large simulations</td>
-</tr>
-<tr>
-<td>&gt; 100M particles</td>
-<td>64-128</td>
-<td>262,144-2M</td>
-<td>Very large simulations</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Guidelines:</strong>
-- Higher <code>cdim</code> → More cells → Better spatial locality → Faster gridder
-- But: Very high <code>cdim</code> with sparse distributions may waste memory
-- For uniform distributions: <code>cdim ≈ (nparticles^(1/3)) / 10</code> is a good starting point</p>
-<h2 id="input-file-requirements">Input File Requirements<a class="headerlink" href="#input-file-requirements" title="Permanent link">&para;</a></h2>
-<p>Your input HDF5 file must contain:</p>
-<p><strong>Required:</strong>
-- Particle coordinates as a (N, 3) array
-- Particle masses as a (N,) array</p>
-<p><strong>Optional (but recommended):</strong>
-- <code>Header/BoxSize</code>: Box dimensions [X, Y, Z]
-  - If missing, use <code>--boxsize</code> argument
-- <code>Header/NumPart_Total</code>: Total particle counts
-- <code>Header/Redshift</code>: Redshift value</p>
-<p><strong>Not required:</strong>
-- Cell structure (created by conversion script)
-- Velocities
-- Particle IDs (will be created if missing)</p>
-<h2 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h2>
-<h3 id="missing-boxsize">Missing BoxSize<a class="headerlink" href="#missing-boxsize" title="Permanent link">&para;</a></h3>
-<p><strong>Error:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ValueError: BoxSize not found in input file and not provided via --boxsize
-</span></code></pre></div></p>
-<p><strong>Solution:</strong>
-Provide BoxSize manually:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>--boxsize<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="m">100</span>.0
-</span></code></pre></div></p>
-<h3 id="particles-outside-box">Particles Outside Box<a class="headerlink" href="#particles-outside-box" title="Permanent link">&para;</a></h3>
-<p>Particles with coordinates outside <code>[0, BoxSize]</code> will be clamped to the nearest cell boundary.</p>
-<h3 id="memory-usage">Memory Usage<a class="headerlink" href="#memory-usage" title="Permanent link">&para;</a></h3>
-<p>For very large simulations:
-- Serial mode: Entire particle array loaded into memory
-- MPI mode: Particles split across ranks, reducing per-rank memory</p>
-<h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
-<p>After conversion, verify the output structure:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s1">&#39;gridder_snapshot.hdf5&#39;</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="c1"># Check required groups</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="k">assert</span> <span class="s1">&#39;/PartType1/Coordinates&#39;</span> <span class="ow">in</span> <span class="n">f</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="k">assert</span> <span class="s1">&#39;/PartType1/Masses&#39;</span> <span class="ow">in</span> <span class="n">f</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="k">assert</span> <span class="s1">&#39;/Cells/Counts/PartType1&#39;</span> <span class="ow">in</span> <span class="n">f</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="k">assert</span> <span class="s1">&#39;/Cells/OffsetsInFile/PartType1&#39;</span> <span class="ow">in</span> <span class="n">f</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="c1"># Check cell structure</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">coords</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s1">&#39;/PartType1/Coordinates&#39;</span><span class="p">][:]</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="n">cell_counts</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s1">&#39;/Cells/Counts/PartType1&#39;</span><span class="p">][:]</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total particles: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Particles in cells: </span><span class="si">{</span><span class="n">cell_counts</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Non-empty cells: </span><span class="si">{</span><span class="p">(</span><span class="n">cell_counts</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p><code>--cdim</code> sets the number of cells along each dimension; the default is <code>16</code>.
+More cells can improve spatial locality but increase cell metadata and can
+produce many empty cells. Benchmark representative data rather than relying on
+a fixed particle-count rule.</p>
+<h2 id="mpi-conversion-limitation">MPI Conversion Limitation<a class="headerlink" href="#mpi-conversion-limitation" title="Permanent link">&para;</a></h2>
+<p>The converter has an MPI mode that writes rank files and an HDF5 virtual file.
+Do not use that virtual file as gridder input at present. Each rank sorts only
+its own particle chunk, while the virtual file concatenates rank chunks; this
+does not establish the global cell ordering assumed by
+<code>Cells/OffsetsInFile/PartType1</code>.</p>
+<p>Use serial conversion for gridder-compatible output until the MPI converter
+implements global cell ordering or the reader becomes rank-layout aware.</p>
+<h2 id="verify-output">Verify Output<a class="headerlink" href="#verify-output" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s2">&quot;gridder_input.hdf5&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">required</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="s2">&quot;PartType1/Coordinates&quot;</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="s2">&quot;PartType1/Masses&quot;</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">&quot;Cells/Counts/PartType1&quot;</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">&quot;Cells/OffsetsInFile/PartType1&quot;</span><span class="p">,</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="p">]</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">required</span><span class="p">:</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="k">assert</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">handle</span><span class="p">,</span> <span class="n">path</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">counts</span> <span class="o">=</span> <span class="n">handle</span><span class="p">[</span><span class="s2">&quot;Cells/Counts/PartType1&quot;</span><span class="p">][:]</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">coordinates</span> <span class="o">=</span> <span class="n">handle</span><span class="p">[</span><span class="s2">&quot;PartType1/Coordinates&quot;</span><span class="p">]</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="k">assert</span> <span class="n">counts</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">coordinates</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="full-workflow-example">Full Workflow Example<a class="headerlink" href="#full-workflow-example" title="Permanent link">&para;</a></h2>
-<p>Complete example converting a Gadget snapshot:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 1. Convert Gadget snapshot to gridder format</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>python<span class="w"> </span>tools/convert_to_gridder_format.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span>gadget_snapshot_099.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span>gridder_input.hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span>--coordinates-key<span class="w"> </span>PartType1/Coordinates<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span>--masses-key<span class="w"> </span>PartType1/Masses<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span>--boxsize<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="m">100</span>.0<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span>--cdim<span class="w"> </span><span class="m">32</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span>--copy-header
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># 2. Create parameter file (params.yml)</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>cat<span class="w"> </span>&gt;<span class="w"> </span>params.yml<span class="w"> </span><span class="s">&lt;&lt; EOF</span>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="s">Kernels:</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="s">  nkernels: 3</span>
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="s">  kernel_radius_1: 1.0</span>
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="s">  kernel_radius_2: 2.0</span>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="s">  kernel_radius_3: 5.0</span>
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>
-</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="s">Grid:</span>
-</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="s">  type: uniform</span>
-</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="s">  cdim: 50</span>
-</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>
-</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="s">Cosmology:</span>
-</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="s">  h: 0.7</span>
-</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="s">  Omega_cdm: 0.25</span>
-</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="s">  Omega_b: 0.05</span>
-</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>
-</span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="s">Tree:</span>
-</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="s">  max_leaf_count: 200</span>
-</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>
-</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a><span class="s">Input:</span>
-</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a><span class="s">  filepath: gridder_input.hdf5</span>
-</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a>
-</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a><span class="s">Output:</span>
-</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a><span class="s">  filepath: output/</span>
-</span><span id="__span-11-36"><a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a><span class="s">  basename: gridded_output.hdf5</span>
-</span><span id="__span-11-37"><a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a><span class="s">  write_masses: 1</span>
-</span><span id="__span-11-38"><a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a><span class="s">EOF</span>
-</span><span id="__span-11-39"><a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>
-</span><span id="__span-11-40"><a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a><span class="c1"># 3. Run gridder</span>
-</span><span id="__span-11-41"><a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>./build/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">8</span>
-</span><span id="__span-11-42"><a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>
-</span><span id="__span-11-43"><a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a><span class="c1"># 4. Verify output</span>
-</span><span id="__span-11-44"><a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>ls<span class="w"> </span>-lh<span class="w"> </span>output/gridded_output.hdf5
-</span></code></pre></div>
-<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../parameters/">Parameter Reference</a> - Gridder parameter file documentation</li>
-<li><a href="../quickstart/">Quick Start</a> - Getting started with the gridder</li>
-<li><a href="../installation/">Installation Guide</a> - Building the gridder</li>
-</ul>
+<p>Also verify that header units and the <code>Cosmology</code> values in the gridder
+parameter file describe the converted particle data.</p>
 
 
 
@@ -1247,10 +1042,10 @@ Provide BoxSize manually:
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../javascripts/mathjax.js"></script>
       

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -354,6 +354,25 @@
   
 
       
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../conversion/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Conversion
+
+      </a>
+    </li>
+  
+
+      
     </ul>
   </div>
 </nav>
@@ -526,49 +545,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#system-requirements" class="md-nav__link">
+  <a href="#requirements" class="md-nav__link">
     <span class="md-ellipsis">
       
-        System Requirements
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="System Requirements">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#required-dependencies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Required Dependencies
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#optional-dependencies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional Dependencies
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-install" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Install
+        Requirements
       
     </span>
   </a>
@@ -576,40 +556,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#build-modes" class="md-nav__link">
+  <a href="#serial-build" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Build Modes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Build Modes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#single-node-build-openmp-threading" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Single-Node Build (OpenMP Threading)
+        Serial Build
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#multi-node-build-mpi-openmp-hybrid" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#mpi-build" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Multi-Node Build (MPI + OpenMP Hybrid)
+        MPI Build
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#debug-build" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -619,40 +587,46 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#build-types-summary" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#cmake-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Build Types Summary
+        CMake Options
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#advanced-configuration" class="md-nav__link">
+  <a href="#verify" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Advanced Configuration
+        Verify
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Advanced Configuration">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-configuration-problems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Configuration Problems
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Configuration Problems">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#specifying-compiler" class="md-nav__link">
+  <a href="#hdf5-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Specifying Compiler
+        HDF5 Not Found
       
     </span>
   </a>
@@ -660,10 +634,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#custom-hdf5-location" class="md-nav__link">
+  <a href="#openmp-on-macos" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Custom HDF5 Location
+        OpenMP On macOS
       
     </span>
   </a>
@@ -671,21 +645,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#custom-build-flags" class="md-nav__link">
+  <a href="#mpi-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Custom Build Flags
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#install-to-system" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install to System
+        MPI Not Found
       
     </span>
   </a>
@@ -694,78 +657,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verification
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Verification">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#test-the-build" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test the Build
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#check-version" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Check Version
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next Steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#build-configuration-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Build Configuration Summary
-      
-    </span>
-  </a>
   
 </li>
       
@@ -885,6 +776,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../conversion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -912,49 +830,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#system-requirements" class="md-nav__link">
+  <a href="#requirements" class="md-nav__link">
     <span class="md-ellipsis">
       
-        System Requirements
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="System Requirements">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#required-dependencies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Required Dependencies
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#optional-dependencies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional Dependencies
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-install" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Install
+        Requirements
       
     </span>
   </a>
@@ -962,40 +841,28 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#build-modes" class="md-nav__link">
+  <a href="#serial-build" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Build Modes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Build Modes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#single-node-build-openmp-threading" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Single-Node Build (OpenMP Threading)
+        Serial Build
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#multi-node-build-mpi-openmp-hybrid" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#mpi-build" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Multi-Node Build (MPI + OpenMP Hybrid)
+        MPI Build
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#debug-build" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1005,40 +872,46 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#build-types-summary" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#cmake-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Build Types Summary
+        CMake Options
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#advanced-configuration" class="md-nav__link">
+  <a href="#verify" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Advanced Configuration
+        Verify
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Advanced Configuration">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-configuration-problems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Configuration Problems
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Configuration Problems">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#specifying-compiler" class="md-nav__link">
+  <a href="#hdf5-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Specifying Compiler
+        HDF5 Not Found
       
     </span>
   </a>
@@ -1046,10 +919,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#custom-hdf5-location" class="md-nav__link">
+  <a href="#openmp-on-macos" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Custom HDF5 Location
+        OpenMP On macOS
       
     </span>
   </a>
@@ -1057,21 +930,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#custom-build-flags" class="md-nav__link">
+  <a href="#mpi-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Custom Build Flags
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#install-to-system" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install to System
+        MPI Not Found
       
     </span>
   </a>
@@ -1080,78 +942,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verification
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Verification">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#test-the-build" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test the Build
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#check-version" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Check Version
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next Steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#build-configuration-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Build Configuration Summary
-      
-    </span>
-  </a>
   
 </li>
       
@@ -1184,381 +974,74 @@
 
 
 <h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
-<p>Complete installation guide for the FLARES-2 Gridder with various build configurations.</p>
-<h2 id="system-requirements">System Requirements<a class="headerlink" href="#system-requirements" title="Permanent link">&para;</a></h2>
-<h3 id="required-dependencies">Required Dependencies<a class="headerlink" href="#required-dependencies" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Dependency</th>
-<th>Minimum Version</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>CMake</strong></td>
-<td>3.12+</td>
-<td>Build system</td>
-</tr>
-<tr>
-<td><strong>C++ Compiler</strong></td>
-<td>C++20 support</td>
-<td>Compilation (GCC 10+, Clang 11+, AppleClang 13+)</td>
-</tr>
-<tr>
-<td><strong>HDF5</strong></td>
-<td>1.10+</td>
-<td>Snapshot I/O</td>
-</tr>
-<tr>
-<td><strong>OpenMP</strong></td>
-<td>4.5+</td>
-<td>Multi-threading</td>
-</tr>
-</tbody>
-</table>
-<h3 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Dependency</th>
-<th>Purpose</th>
-<th>When to Use</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>MPI</strong></td>
-<td>Multi-node parallelization</td>
-<td>Simulations &gt;10GB or &gt;16 cores needed</td>
-</tr>
-<tr>
-<td><strong>Python 3</strong></td>
-<td>Test suite, utilities</td>
-<td>Development and testing</td>
-</tr>
-<tr>
-<td><strong>h5py</strong></td>
-<td>Test data generation</td>
-<td>Creating test snapshots</td>
-</tr>
-</tbody>
-</table>
-<h2 id="quick-install">Quick Install<a class="headerlink" href="#quick-install" title="Permanent link">&para;</a></h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Ubuntu/Debian</label><label for="__tabbed_1_2">macOS (Homebrew)</label><label for="__tabbed_1_3">HPC Module System</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Install dependencies</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>update
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span>cmake<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span>g++<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span>libhdf5-dev<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span>libomp-dev
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Clone repository</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/flaresimulations/gridder.git
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nb">cd</span><span class="w"> </span>gridder
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Build (single-node, OpenMP only)</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span></code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Install dependencies</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>brew<span class="w"> </span>install<span class="w"> </span>cmake<span class="w"> </span>hdf5<span class="w"> </span>libomp
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Clone repository</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/flaresimulations/gridder.git
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nb">cd</span><span class="w"> </span>gridder
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="c1"># Build (single-node, OpenMP only)</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span></code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Load modules (adjust names for your system)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>module<span class="w"> </span>load<span class="w"> </span>cmake/3.20
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>module<span class="w"> </span>load<span class="w"> </span>gcc/11.2
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>module<span class="w"> </span>load<span class="w"> </span>hdf5/1.12
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>module<span class="w"> </span>load<span class="w"> </span>openmpi/4.1<span class="w">  </span><span class="c1"># Optional, for MPI build</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Clone repository</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/flaresimulations/gridder.git
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nb">cd</span><span class="w"> </span>gridder
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Build (see build modes below)</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span></code></pre></div>
-</div>
-</div>
-</div>
-<h2 id="build-modes">Build Modes<a class="headerlink" href="#build-modes" title="Permanent link">&para;</a></h2>
-<p>The gridder supports different build configurations depending on your needs.</p>
-<h3 id="single-node-build-openmp-threading">Single-Node Build (OpenMP Threading)<a class="headerlink" href="#single-node-build-openmp-threading" title="Permanent link">&para;</a></h3>
-<p>Best for: Desktop use, small simulations (&lt;10GB), up to ~16 cores</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span></code></pre></div>
-<p><strong>Features:</strong>
-- Multi-threaded with OpenMP
-- Shared memory parallelization
-- Simple execution (no MPI required)
-- Single output HDF5 file</p>
-<p><strong>Executable:</strong> <code>build/parent_gridder</code></p>
-<p><strong>Usage:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Auto-detect number of cores</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>./build/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">1</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Specify 8 OpenMP threads explicitly</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>./build/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">8</span>
-</span></code></pre></div></p>
-<h3 id="multi-node-build-mpi-openmp-hybrid">Multi-Node Build (MPI + OpenMP Hybrid)<a class="headerlink" href="#multi-node-build-mpi-openmp-hybrid" title="Permanent link">&para;</a></h3>
-<p>Best for: HPC clusters, large simulations (&gt;10GB), hundreds of cores</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build_mpi<span class="w"> </span>-DENABLE_MPI<span class="o">=</span>ON<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build_mpi
-</span></code></pre></div>
-<p><strong>Features:</strong>
-- Distributed memory parallelization (MPI)
-- Per-rank multi-threading (OpenMP)
-- Domain decomposition with ghost cells
-- Per-rank HDF5 output files + virtual file</p>
-<p><strong>Executable:</strong> <code>build_mpi/parent_gridder</code></p>
-<p><strong>Usage:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 4 MPI ranks × 2 OpenMP threads = 8 cores total</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">2</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>mpirun<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span><span class="w"> </span>./build_mpi/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">1</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># 16 ranks × 4 threads = 64 cores</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">4</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>mpirun<span class="w"> </span>-n<span class="w"> </span><span class="m">16</span><span class="w"> </span>./build_mpi/parent_gridder<span class="w"> </span>params.yml<span class="w"> </span><span class="m">1</span>
-</span></code></pre></div></p>
-<h3 id="debug-build">Debug Build<a class="headerlink" href="#debug-build" title="Permanent link">&para;</a></h3>
-<p>For development and debugging:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build_debug<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Debug
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build_debug
-</span></code></pre></div>
-<p><strong>Features:</strong>
-- Debug symbols (<code>-g</code>)
-- No optimization (<code>-O0</code>)
-- Additional runtime checks (<code>DEBUGGING_CHECKS</code> enabled)
-- Verbose error messages</p>
-<p><strong>Note:</strong> 10-100× slower than Release build</p>
-<h3 id="build-types-summary">Build Types Summary<a class="headerlink" href="#build-types-summary" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Build Type</th>
-<th>Optimization</th>
-<th>Debug Symbols</th>
-<th>Use Case</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Release</code></td>
-<td><code>-O3 -march=native</code></td>
-<td>No</td>
-<td>Production (default)</td>
-</tr>
-<tr>
-<td><code>Debug</code></td>
-<td><code>-O0</code></td>
-<td>Yes</td>
-<td>Development, debugging</td>
-</tr>
-<tr>
-<td><code>RelWithDebInfo</code></td>
-<td><code>-O2</code></td>
-<td>Yes</td>
-<td>Performance profiling</td>
-</tr>
-<tr>
-<td><code>MinSizeRel</code></td>
-<td><code>-Os</code></td>
-<td>No</td>
-<td>Minimal binary size</td>
-</tr>
-</tbody>
-</table>
-<h2 id="advanced-configuration">Advanced Configuration<a class="headerlink" href="#advanced-configuration" title="Permanent link">&para;</a></h2>
-<h3 id="specifying-compiler">Specifying Compiler<a class="headerlink" href="#specifying-compiler" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Use specific compiler</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nv">CC</span><span class="o">=</span>gcc-11<span class="w"> </span><span class="nv">CXX</span><span class="o">=</span>g++-11<span class="w"> </span>cmake<span class="w"> </span>-B<span class="w"> </span>build
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span></code></pre></div>
-<h3 id="custom-hdf5-location">Custom HDF5 Location<a class="headerlink" href="#custom-hdf5-location" title="Permanent link">&para;</a></h3>
-<p>If HDF5 is not found automatically:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span>-DHDF5_ROOT<span class="o">=</span>/path/to/hdf5<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span></code></pre></div>
-<h3 id="custom-build-flags">Custom Build Flags<a class="headerlink" href="#custom-build-flags" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>-DCMAKE_CXX_FLAGS<span class="o">=</span><span class="s2">&quot;-O3 -mavx2&quot;</span><span class="w"> </span><span class="se">\ </span><span class="w"> </span><span class="c1"># Custom optimization</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>-DCMAKE_INSTALL_PREFIX<span class="o">=</span>/opt/gridder<span class="w">  </span><span class="c1"># Install location</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span></code></pre></div>
-<h3 id="install-to-system">Install to System<a class="headerlink" href="#install-to-system" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>sudo<span class="w"> </span>cmake<span class="w"> </span>--install<span class="w"> </span>build<span class="w">  </span><span class="c1"># Installs to CMAKE_INSTALL_PREFIX</span>
-</span></code></pre></div>
-<h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
-<h3 id="test-the-build">Test the Build<a class="headerlink" href="#test-the-build" title="Permanent link">&para;</a></h3>
-<p>Quick test with the simple test suite:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Single-node build</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>bash<span class="w"> </span>tests/run_simple_test.sh
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># MPI build (requires MPI)</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="nb">cd</span><span class="w"> </span>tests<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>bash<span class="w"> </span>run_mpi_tests.sh
-</span></code></pre></div>
-<h3 id="check-version">Check Version<a class="headerlink" href="#check-version" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>./build/parent_gridder<span class="w"> </span>--help
-</span></code></pre></div>
-<p>Should display:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>FLARES-2 Parent Gridder
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>Version: 0.1.0
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>Git: &lt;commit&gt; (&lt;branch&gt;)
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>Usage: parent_gridder &lt;parameter_file&gt; &lt;nthreads&gt; [snapshot_number] [verbosity]
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>...
-</span></code></pre></div></p>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<details class="failure">
-<summary>CMake can't find HDF5</summary>
-<p><strong>Symptoms:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>Could NOT find HDF5 (missing: HDF5_LIBRARIES HDF5_INCLUDE_DIRS)
-</span></code></pre></div></p>
-<p><strong>Solutions:</strong></p>
-<ol>
-<li>
-<p>Install HDF5 development headers:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Ubuntu/Debian</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>libhdf5-dev
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># macOS</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>brew<span class="w"> </span>install<span class="w"> </span>hdf5
-</span></code></pre></div></p>
-</li>
-<li>
-<p>Specify HDF5 location explicitly:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DHDF5_ROOT<span class="o">=</span>/path/to/hdf5
-</span></code></pre></div></p>
-</li>
-<li>
-<p>On HPC, load HDF5 module:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>module<span class="w"> </span>load<span class="w"> </span>hdf5
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>module<span class="w"> </span>show<span class="w"> </span>hdf5<span class="w">  </span><span class="c1"># Shows HDF5_ROOT path</span>
-</span></code></pre></div></p>
-</li>
-</ol>
-</details>
-<details class="failure">
-<summary>OpenMP not found</summary>
-<p><strong>Symptoms:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>Could NOT find OpenMP_CXX
-</span></code></pre></div></p>
-<p><strong>Solutions:</strong></p>
-<ol>
-<li>
-<p>Install OpenMP:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Ubuntu/Debian</span>
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>libomp-dev
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># macOS</span>
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>brew<span class="w"> </span>install<span class="w"> </span>libomp
-</span></code></pre></div></p>
-</li>
-<li>
-<p>For macOS with AppleClang, ensure libomp is in path:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OpenMP_ROOT</span><span class="o">=</span><span class="k">$(</span>brew<span class="w"> </span>--prefix<span class="k">)</span>/opt/libomp
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DOpenMP_ROOT<span class="o">=</span><span class="nv">$OpenMP_ROOT</span>
-</span></code></pre></div></p>
-</li>
-</ol>
-</details>
-<details class="failure">
-<summary>C++20 not supported</summary>
-<p><strong>Symptoms:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>error: This file requires compiler and library support for the ISO C++ 2020 standard.
-</span></code></pre></div></p>
-<p><strong>Solution:</strong> Update your compiler:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Ubuntu/Debian</span>
-</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>g++-11<span class="w">  </span><span class="c1"># Or g++-12, g++-13</span>
-</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="nv">CC</span><span class="o">=</span>gcc-11<span class="w"> </span><span class="nv">CXX</span><span class="o">=</span>g++-11<span class="w"> </span>cmake<span class="w"> </span>-B<span class="w"> </span>build
-</span></code></pre></div></p>
-</details>
-<details class="failure">
-<summary>MPI build fails</summary>
-<p><strong>Symptoms:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>Could NOT find MPI_CXX
-</span></code></pre></div></p>
-<p><strong>Solutions:</strong></p>
-<ol>
-<li>
-<p>Install MPI:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Ubuntu/Debian</span>
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>libopenmpi-dev
-</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
-</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># macOS</span>
-</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>brew<span class="w"> </span>install<span class="w"> </span>open-mpi
-</span></code></pre></div></p>
-</li>
-<li>
-<p>Load MPI module on HPC:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>module<span class="w"> </span>load<span class="w"> </span>openmpi<span class="w">  </span><span class="c1"># or mpich, intel-mpi, etc.</span>
-</span></code></pre></div></p>
-</li>
-<li>
-<p>Specify MPI compiler explicitly:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build_mpi<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>-DENABLE_MPI<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">  </span>-DMPI_CXX_COMPILER<span class="o">=</span>mpicxx
-</span></code></pre></div></p>
-</li>
-</ol>
-</details>
-<details class="failure">
-<summary>Link errors with HDF5</summary>
-<p><strong>Symptoms:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>undefined reference to `H5Fopen&#39;
-</span></code></pre></div></p>
-<p><strong>Solution:</strong> Ensure HDF5 C and HL (high-level) libraries are linked. On some systems:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span>-DHDF5_USE_STATIC_LIBRARIES<span class="o">=</span>OFF<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">  </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
-</span></code></pre></div></p>
-</details>
-<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><a href="../quickstart/">Quickstart</a></strong> - Get started with a simple example</li>
-<li><strong><a href="../parameters/">Parameters</a></strong> - Learn about parameter file configuration</li>
-<li><strong><a href="../runtime-arguments/">Runtime Arguments</a></strong> - Understand command line options</li>
-<li><strong><a href="../mpi/">MPI</a></strong> - Detailed MPI usage and optimization</li>
+<li>CMake 3.12 or newer</li>
+<li>A C++20 compiler</li>
+<li>OpenMP</li>
+<li>HDF5 with C and high-level libraries</li>
+<li>MPI for an MPI build</li>
+<li>Python 3, pytest, h5py, and numpy for tests and conversion tools</li>
 </ul>
-<h2 id="build-configuration-summary">Build Configuration Summary<a class="headerlink" href="#build-configuration-summary" title="Permanent link">&para;</a></h2>
-<p>After successful build, CMake displays a configuration summary:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>=== Configuration Summary ===
-</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>Project: ZoomParentGridder
-</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>Version: 0.1.0
-</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>Build type: Release
-</span><span id="__span-30-5"><a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>C++ standard: 20
-</span><span id="__span-30-6"><a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>Compiler: GNU@11.2.0
-</span><span id="__span-30-7"><a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>MPI enabled: ON/OFF
-</span><span id="__span-30-8"><a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>HDF5 version: 1.12.1
-</span><span id="__span-30-9"><a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>OpenMP enabled: TRUE
-</span><span id="__span-30-10"><a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>Git revision: abc1234
-</span><span id="__span-30-11"><a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>Git branch: main
-</span><span id="__span-30-12"><a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>===============================
+<p>The MPI build uses ordinary serial HDF5 files; parallel HDF5 is not required.</p>
+<h2 id="serial-build">Serial Build<a class="headerlink" href="#serial-build" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build
 </span></code></pre></div>
-<p>Verify this matches your requirements before proceeding.</p>
+<p>The executable is <code>build/parent_gridder</code>.</p>
+<h2 id="mpi-build">MPI Build<a class="headerlink" href="#mpi-build" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build_mpi<span class="w"> </span>-DENABLE_MPI<span class="o">=</span>ON<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build_mpi
+</span></code></pre></div>
+<p>The executable is <code>build_mpi/parent_gridder</code>.</p>
+<h2 id="debug-build">Debug Build<a class="headerlink" href="#debug-build" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build_debug<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Debug
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>cmake<span class="w"> </span>--build<span class="w"> </span>build_debug
+</span></code></pre></div>
+<p>Debug builds enable symbols, warnings, and additional runtime checks.</p>
+<h2 id="cmake-options">CMake Options<a class="headerlink" href="#cmake-options" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ENABLE_MPI</code></td>
+<td>Enable MPI communication; default <code>OFF</code></td>
+</tr>
+<tr>
+<td><code>CMAKE_BUILD_TYPE</code></td>
+<td><code>Release</code>, <code>Debug</code>, <code>RelWithDebInfo</code>, or <code>MinSizeRel</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use a specific compiler or HDF5 installation through normal CMake variables:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">CC</span><span class="o">=</span>gcc-13<span class="w"> </span><span class="nv">CXX</span><span class="o">=</span>g++-13<span class="w"> </span>cmake<span class="w"> </span>-B<span class="w"> </span>build
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DHDF5_ROOT<span class="o">=</span>/path/to/hdf5
+</span></code></pre></div>
+<p>The project does not currently define a CMake install target.</p>
+<h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./build/parent_gridder<span class="w"> </span>--help
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pytest<span class="w"> </span>tests<span class="w"> </span>-v
+</span></code></pre></div>
+<p>For the custom MPI suite:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python3<span class="w"> </span>tests/test_suite.py<span class="w"> </span>--mode<span class="w"> </span>mpi<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--mpi-executable<span class="w"> </span>./build_mpi/parent_gridder<span class="w"> </span>--ranks<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+<p>See <code>tests/README.md</code> in the repository for the complete test entry points.</p>
+<h2 id="common-configuration-problems">Common Configuration Problems<a class="headerlink" href="#common-configuration-problems" title="Permanent link">&para;</a></h2>
+<h3 id="hdf5-not-found">HDF5 Not Found<a class="headerlink" href="#hdf5-not-found" title="Permanent link">&para;</a></h3>
+<p>Pass <code>-DHDF5_ROOT=/path/to/hdf5</code>, or ensure <code>h5cc</code> and the HDF5 C libraries are
+available in the environment.</p>
+<h3 id="openmp-on-macos">OpenMP On macOS<a class="headerlink" href="#openmp-on-macos" title="Permanent link">&para;</a></h3>
+<p>Apple Clang does not ship its own OpenMP runtime. Install an OpenMP-capable
+compiler or <code>libomp</code>, then point CMake at the resulting compiler/runtime.</p>
+<h3 id="mpi-not-found">MPI Not Found<a class="headerlink" href="#mpi-not-found" title="Permanent link">&para;</a></h3>
+<p>Load or install an MPI implementation and ensure <code>mpicxx</code> is on <code>PATH</code> before
+configuring with <code>-DENABLE_MPI=ON</code>.</p>
 
 
 
@@ -1630,10 +1113,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../javascripts/mathjax.js"></script>
       
