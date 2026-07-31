@@ -35,7 +35,7 @@ and the commands below for broader coverage.
 ```bash
 # Serial
 python3 tests/test_suite.py --mode serial \
-  --serial-executable ./build/parent_gridder
+  --executable ./build/parent_gridder
 
 # MPI
 python3 tests/test_suite.py --mode mpi \
@@ -43,7 +43,7 @@ python3 tests/test_suite.py --mode mpi \
 
 # Compare serial and MPI output
 python3 tests/test_suite.py --mode comparison \
-  --serial-executable ./build/parent_gridder \
+  --executable ./build/parent_gridder \
   --mpi-executable ./build_mpi/parent_gridder --ranks 2
 ```
 

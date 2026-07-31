@@ -175,8 +175,10 @@ public:
   void removeParticle(Particle *part) {
     auto it = std::find(this->particles.begin(), this->particles.end(), part);
     if (it != this->particles.end()) {
-      this->particles.erase(it);
+      *it = this->particles.back();
+      this->particles.pop_back();
       this->part_count--;
+      this->mass -= part->mass;
     } else {
       error("Particle not found in cell when trying to remove it");
     }

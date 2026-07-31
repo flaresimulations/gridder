@@ -40,13 +40,13 @@ pytest module or every custom-suite mode.
 
 ```bash
 python3 tests/test_suite.py --mode serial \
-  --serial-executable ./build/parent_gridder
+  --executable ./build/parent_gridder
 
 python3 tests/test_suite.py --mode mpi \
   --mpi-executable ./build_mpi/parent_gridder --ranks 2
 
 python3 tests/test_suite.py --mode comparison \
-  --serial-executable ./build/parent_gridder \
+  --executable ./build/parent_gridder \
   --mpi-executable ./build_mpi/parent_gridder --ranks 2
 ```
 

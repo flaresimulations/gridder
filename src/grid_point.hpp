@@ -5,8 +5,7 @@
 #define GRID_POINT_HPP
 
 // Standard includes
-#include <memory>
-#include <unordered_map>
+#include <cstddef>
 #include <vector>
 
 // Local includes
@@ -22,30 +21,31 @@ public:
 
   // Prototypes for member functions (defined in grid_point.cpp)
   GridPoint(double loc[3]);
-  void initializeMaps(const std::vector<double> &kernel_radii);
-  void add_particle(Particle *part, double kernel_radius);
-  void add_cell(const int cell_part_count, const double cell_mass,
-                double kernel_radius);
-  double getOverDensity(const double kernel_radius, Simulation *sim) const;
-  double getMass(const double kernel_radius) const;
-  int getCount(const double kernel_radius) const;
+  void initializeKernels(std::size_t kernel_count);
+  void add_particle(const Particle *part, std::size_t kernel_index);
+  void add_cell(std::size_t cell_part_count, double cell_mass,
+                std::size_t kernel_index);
+  double getOverDensity(std::size_t kernel_index, double kernel_radius,
+                        Simulation *sim) const;
+  double getMass(std::size_t kernel_index) const;
+  int getCount(std::size_t kernel_index) const;
 
 #ifdef DEBUGGING_CHECKS
-  void setBruteForceCount(const double kernel_radius, int count);
-  int getBruteForceCount(const double kernel_radius) const;
+  void setBruteForceCount(std::size_t kernel_index, int count);
+  int getBruteForceCount(std::size_t kernel_index) const;
 #endif
 
 private:
-  //! The count of particles in each kernel radius
-  std::unordered_map<double, double> count_map;
-
-  //! The mass of particles in each kernel radius
-  std::unordered_map<double, double> mass_map;
-
+  struct KernelAccumulator {
+    std::size_t count = 0;
+    double mass = 0.0;
 #ifdef DEBUGGING_CHECKS
-  //! Brute force particle counts (for validation in debug mode)
-  std::unordered_map<double, int> brute_force_count_map;
+    int brute_force_count = -1;
 #endif
+  };
+
+  //! Accumulators indexed identically to Grid::kernel_radii
+  std::vector<KernelAccumulator> kernel_data;
 };
 
 class Grid {

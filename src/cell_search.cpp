@@ -14,12 +14,12 @@
  *
  * @param cell The cell to assign particles to grid points within.
  * @param grid_point The grid point to assign particles to.
- * @param kernel_rad The kernel radius.
+ * @param kernel_index The index of the kernel accumulator to update.
  * @param kernel_rad2 The squared kernel radius.
  */
 static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
-                                const double kernel_rad,
-                                const double kernel_rad2) {
+                                 const size_t kernel_index,
+                                 const double kernel_rad2) {
 
   // Get the boxsize from the metadata
   Metadata *metadata = &Metadata::getInstance();
@@ -39,7 +39,7 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
     // If the particle is within the kernel radius of the grid point then
     // assign it
     if (r2 <= kernel_rad2) {
-      grid_point->add_particle(part, kernel_rad);
+      grid_point->add_particle(part, kernel_index);
     }
   }
 }
@@ -59,12 +59,12 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
  *
  * @param cell The cell to assign particles to grid points within
  * @param other The other cell to assign particles from
- * @param kernel_rad The kernel radius
+ * @param kernel_index The index of the kernel accumulator to update
  * @param kernel_rad2 The squared kernel radius
  */
 static void recursivePairPartsToPoints(Cell *cell, Cell *other,
-                                       const double kernel_rad,
-                                       const double kernel_rad2) {
+                                        const size_t kernel_index,
+                                        const double kernel_rad2) {
 
   // Ensure we have grid points, otherwise there's nothing to add to
   if (cell->grid_points.size() == 0)
@@ -78,8 +78,8 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
   // the cell tree was constructed such that the leaves have only 1 grid point)
   if (cell->grid_points.size() > 1) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
-      recursivePairPartsToPoints(cell->children[i], other, kernel_rad,
-                                 kernel_rad2);
+      recursivePairPartsToPoints(cell->children[i], other, kernel_index,
+                                  kernel_rad2);
     }
     return;
   }
@@ -100,7 +100,7 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
 
   // Can we just add the whole cell to the grid point?
   if (other->inKernel(grid_point, kernel_rad2)) {
-    grid_point->add_cell(other->part_count, other->mass, kernel_rad);
+    grid_point->add_cell(other->part_count, other->mass, kernel_index);
     return;
   }
 
@@ -111,15 +111,15 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
   // trying to add the particles
   if (other->is_split && other->part_count > metadata.max_leaf_count) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
-      recursivePairPartsToPoints(cell, other->children[i], kernel_rad,
-                                 kernel_rad2);
+      recursivePairPartsToPoints(cell, other->children[i], kernel_index,
+                                  kernel_rad2);
     }
     return;
   }
 
   // Ok, we can't just add the whole cell to the grid point, instead check
   // the particles in the other cell
-  addPartsToGridPoint(other, grid_point, kernel_rad, kernel_rad2);
+  addPartsToGridPoint(other, grid_point, kernel_index, kernel_rad2);
 }
 
 /**
@@ -131,11 +131,11 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
  * is where a cell only contains a single grid point.
  *
  * @param cell The cell to assign particles to grid points within.
- * @param kernel_rad The kernel radius.
+ * @param kernel_index The index of the kernel accumulator to update.
  * @param kernel_rad2 The squared kernel radius.
  */
-static void recursiveSelfPartsToPoints(Cell *cell, const double kernel_rad,
-                                       const double kernel_rad2) {
+static void recursiveSelfPartsToPoints(Cell *cell, const size_t kernel_index,
+                                        const double kernel_rad2) {
 
   // Ensure we have grid points and particles
   if (cell->grid_points.size() == 0 || cell->part_count == 0)
@@ -144,14 +144,14 @@ static void recursiveSelfPartsToPoints(Cell *cell, const double kernel_rad,
   // If the cell is split then we need to recurse over the children
   if (cell->is_split && cell->grid_points.size() > 1) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
-      recursiveSelfPartsToPoints(cell->children[i], kernel_rad, kernel_rad2);
+      recursiveSelfPartsToPoints(cell->children[i], kernel_index, kernel_rad2);
 
       // And do the pair assignment
       for (int j = 0; j < Cell::OCTREE_CHILDREN; j++) {
         if (i == j)
           continue;
         recursivePairPartsToPoints(cell->children[i], cell->children[j],
-                                   kernel_rad, kernel_rad2);
+                                    kernel_index, kernel_rad2);
       }
     }
   } else {
@@ -173,12 +173,12 @@ static void recursiveSelfPartsToPoints(Cell *cell, const double kernel_rad,
                              cell->width[1] * cell->width[1] +
                              cell->width[2] * cell->width[2];
     if (cell_diag <= kernel_rad2) {
-      grid_point.add_cell(cell->part_count, cell->mass, kernel_rad);
+      grid_point.add_cell(cell->part_count, cell->mass, kernel_index);
       return;
     }
 
     // Associate particles to the single grid point
-    addPartsToGridPoint(cell, cell->grid_points[0], kernel_rad, kernel_rad2);
+    addPartsToGridPoint(cell, cell->grid_points[0], kernel_index, kernel_rad2);
   }
 }
 
@@ -221,19 +221,21 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
 #endif
 
     // Loop over kernels
-    for (double kernel_rad : grid->kernel_radii) {
+    for (size_t kernel_index = 0; kernel_index < grid->kernel_radii.size();
+         kernel_index++) {
 
       // Compute squared kernel radius
+      const double kernel_rad = grid->kernel_radii[kernel_index];
       double kernel_rad2 = kernel_rad * kernel_rad;
 
       // Recursively assign particles within a cell to the grid points within
       // the cell
-      recursiveSelfPartsToPoints(cell, kernel_rad, kernel_rad2);
+      recursiveSelfPartsToPoints(cell, kernel_index, kernel_rad2);
 
       // Recursively assign particles within any neighbours to the grid points
       // within a cell
       for (Cell *neighbour : cell->neighbours) {
-        recursivePairPartsToPoints(cell, neighbour, kernel_rad, kernel_rad2);
+        recursivePairPartsToPoints(cell, neighbour, kernel_index, kernel_rad2);
       }
     }
   }

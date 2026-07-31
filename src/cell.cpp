@@ -1,6 +1,7 @@
 // Standard includes
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
@@ -707,6 +708,8 @@ void assignPartsToCells(Simulation *sim) {
   std::vector<double> masses;
   std::vector<double> poss;
 
+  const auto read_start = std::chrono::high_resolution_clock::now();
+
 #ifdef WITH_MPI
   // In MPI mode, only read if this rank has local particles
   // (but still participate in MPI_Allreduce later)
@@ -748,9 +751,21 @@ void assignPartsToCells(Simulation *sim) {
   }
 #endif
 
+  const double read_seconds =
+      std::chrono::duration<double>(
+          std::chrono::high_resolution_clock::now() - read_start)
+          .count();
+  const double input_gib =
+      static_cast<double>((masses.size() + poss.size()) * sizeof(double)) /
+      (1024.0 * 1024.0 * 1024.0);
+  message("Read %zu particle masses and coordinates in %.3f s (%.2f GiB)",
+          masses.size(), read_seconds, input_gib);
+
 #ifdef DEBUGGING_CHECKS
   size_t total_part_count = 0;
 #endif
+
+  const auto construction_start = std::chrono::high_resolution_clock::now();
 
   // Only process cells if we have particle data
   // (skip if rank has no local particles in MPI mode)
@@ -827,6 +842,24 @@ void assignPartsToCells(Simulation *sim) {
     }
   }
   }  // End if (!masses.empty())
+
+  const double construction_seconds =
+      std::chrono::duration<double>(
+          std::chrono::high_resolution_clock::now() - construction_start)
+          .count();
+  const double construction_rate =
+      construction_seconds > 0.0
+          ? static_cast<double>(masses.size()) / construction_seconds
+          : 0.0;
+  const double minimum_storage_gib =
+      static_cast<double>(masses.size()) *
+      (sizeof(Particle) + sizeof(Particle *)) /
+      (1024.0 * 1024.0 * 1024.0);
+  message("Constructed %zu particles in %.3f s (%.3e particles/s)",
+          masses.size(), construction_seconds, construction_rate);
+  message("Particle objects and top-level pointers require at least %.2f GiB "
+          "before allocator and vector overhead",
+          minimum_storage_gib);
 
   // Compute the total mass in the simulation from the masses vector
   double total_mass = 0.0;
@@ -1072,59 +1105,78 @@ void checkAndMoveParticles(Simulation *sim) {
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
 
-  // Initialise a counter for the number of particles moved
-  size_t moved_count = 0;
-
-  // Loop over the cells and check the particles
+  // Validate cell metadata before entering the OpenMP region, since exceptions
+  // cannot safely propagate out of a parallel loop.
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-
-    // Get the cell
     Cell *cell = &cells[cid];
-
-    // Skip non-useful cells - they were intentionally not loaded with particles
-    if (!cell->is_useful) {
+    if (!cell->is_useful)
       continue;
-    }
-
-    // Skip cells with no particles
-    if (cell->part_count == 0 || cell->particles.empty()) {
-      continue;
-    }
-
-    // Ensure part_count matches actual particle vector size for useful cells
     if (cell->part_count != cell->particles.size()) {
       error("Particle count mismatch in cell %zu: part_count=%zu, "
             "particles.size()=%zu",
             cid, cell->part_count, cell->particles.size());
     }
+  }
 
-    // Loop over the particles in this cell (backwards to handle removal safely)
-    // Use particles.size() instead of part_count to handle ranks with no local particles
-    for (size_t p = cell->particles.size(); p > 0; p--) {
-      size_t idx = p - 1;
+  struct ParticleMove {
+    Particle *particle;
+    Cell *destination;
+  };
 
-      // Get the particle
-      Particle *part = cell->particles[idx];
+  // Each source cell is checked by exactly one thread, so misplaced particles
+  // can be collected without locks. No cell is mutated during this phase.
+  std::vector<std::vector<ParticleMove>> pending_moves(sim->nr_cells);
+  size_t checked_count = 0;
+  const auto validation_start = std::chrono::high_resolution_clock::now();
 
-      // Get the cell containing this particle
+#pragma omp parallel for schedule(static) reduction(+ : checked_count)
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *cell = &cells[cid];
+    if (!cell->is_useful || cell->particles.empty())
+      continue;
+
+    checked_count += cell->particles.size();
+    std::vector<ParticleMove> &cell_moves = pending_moves[cid];
+    for (Particle *part : cell->particles) {
       Cell *containing_cell = getCellContainingPoint(part->pos);
-
-      // If the particle is in the right cell, continue
-      if (containing_cell == cell)
-        continue;
-
-      // Otherwise, move it into the correct cell
-      // Don't mark the cell as useful - we're just moving stray particles
-      // and the target cell may not have been intentionally loaded
-      containing_cell->addParticle(part, false);
-      moved_count++;
-
-      // Remove the particle from the current cell
-      cell->removeParticle(part);
+      if (containing_cell != cell)
+        cell_moves.push_back({part, containing_cell});
     }
   }
 
-  message("Moved %zu particles to correct cells", moved_count);
+  const double validation_seconds =
+      std::chrono::duration<double>(
+          std::chrono::high_resolution_clock::now() - validation_start)
+          .count();
+
+  size_t moved_count = 0;
+  for (const std::vector<ParticleMove> &cell_moves : pending_moves)
+    moved_count += cell_moves.size();
+
+  message("Checked %zu particles across %zu cells in %.3f s "
+          "(%.3e particles/s); found %zu misplaced particles",
+          checked_count, sim->nr_cells, validation_seconds,
+          validation_seconds > 0.0
+              ? static_cast<double>(checked_count) / validation_seconds
+              : 0.0,
+          moved_count);
+
+  // Apply moves only after every thread has completed the read-only check.
+  const auto move_start = std::chrono::high_resolution_clock::now();
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    Cell *source = &cells[cid];
+    for (const ParticleMove &move : pending_moves[cid]) {
+      move.destination->addParticle(move.particle, false);
+      source->removeParticle(move.particle);
+    }
+  }
+
+  const double move_seconds =
+      std::chrono::duration<double>(
+          std::chrono::high_resolution_clock::now() - move_start)
+          .count();
+  message("Moved %zu particles to correct cells in %.3f s", moved_count,
+          move_seconds);
 
   // Update part_count to reflect actual particle count after redistribution
   // This is critical for proxy exchange which uses part_count to size buffers

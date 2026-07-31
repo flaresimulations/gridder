@@ -683,6 +683,97 @@ Output:
 
 
 # ============================================================================
+# Particle Cell Validation Tests
+# ============================================================================
+
+class TestParticleCellValidation:
+    """Tests for detecting and correcting stale input cell indices."""
+
+    def test_misplaced_particle_is_moved(self, build_gridder, tmp_path):
+        """A particle stored in the wrong file cell is moved before gridding."""
+        snapshot = tmp_path / "misplaced_particle.hdf5"
+        grid_file = tmp_path / "grid_points.txt"
+        params = tmp_path / "params.yml"
+        output = tmp_path / "output.hdf5"
+
+        # Both particles are stored in cell 0 in the file. The second particle
+        # is physically located in cell 26 and must be moved by the validation
+        # pass. Distinct masses make both destinations easy to verify.
+        with h5py.File(snapshot, "w") as handle:
+            header = handle.create_group("Header")
+            header.attrs["BoxSize"] = np.array([9.0, 9.0, 9.0])
+            header.attrs["NumPart_Total"] = np.array(
+                [0, 2, 0, 0, 0, 0], dtype=np.uint64
+            )
+            header.attrs["Redshift"] = 0.0
+
+            particles = handle.create_group("PartType1")
+            particles.create_dataset(
+                "Coordinates",
+                data=np.array([[1.5, 1.5, 1.5], [7.5, 7.5, 7.5]]),
+            )
+            particles.create_dataset("Masses", data=np.array([2.0, 3.0]))
+
+            cells = handle.create_group("Cells")
+            metadata = cells.create_group("Meta-data")
+            metadata.attrs["dimension"] = np.array([3, 3, 3], dtype=np.int32)
+            metadata.attrs["size"] = np.array([3.0, 3.0, 3.0])
+
+            counts = np.zeros(27, dtype=np.int32)
+            counts[0] = 2
+            offsets = np.full(27, 2, dtype=np.int32)
+            offsets[0] = 0
+            cells.create_group("Counts").create_dataset("PartType1", data=counts)
+            cells.create_group("OffsetsInFile").create_dataset(
+                "PartType1", data=offsets
+            )
+
+        grid_file.write_text("1.5 1.5 1.5\n7.5 7.5 7.5\n")
+        params.write_text(
+            f"""Kernels:
+  nkernels: 1
+  kernel_radius_1: 0.5
+Grid:
+  type: file
+  grid_file: {grid_file}
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+Tree:
+  max_leaf_count: 200
+Input:
+  filepath: {snapshot}
+Output:
+  filepath: {tmp_path}
+  basename: output.hdf5
+  write_masses: 1
+"""
+        )
+
+        result = subprocess.run(
+            [str(build_gridder), str(params), "4"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"Gridder failed\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "found 1 misplaced particles" in result.stdout
+        assert "Moved 1 particles" in result.stdout
+
+        with h5py.File(output, "r") as handle:
+            positions = handle["Grids/GridPointPositions"][:]
+            masses = handle["Grids/Kernel_0/GridPointMasses"][:]
+
+        mass_by_position = {
+            tuple(position): mass for position, mass in zip(positions, masses)
+        }
+        assert np.isclose(mass_by_position[(1.5, 1.5, 1.5)], 2.0)
+        assert np.isclose(mass_by_position[(7.5, 7.5, 7.5)], 3.0)
+
+
+# ============================================================================
 # Sanity Check Tests - Grid Points on Particle Positions
 # ============================================================================
 

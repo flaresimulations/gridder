@@ -216,12 +216,14 @@ void validateGridPointsHaveParticles(Simulation *sim, Grid *grid) {
     GridPoint *gp = &grid->grid_points[i];
 
     // Compute brute force for each kernel radius
-    for (double kernel_rad : grid->kernel_radii) {
+    for (size_t kernel_index = 0; kernel_index < grid->kernel_radii.size();
+         kernel_index++) {
+      const double kernel_rad = grid->kernel_radii[kernel_index];
       int brute_count = bruteForceCountParticles(gp, sim, kernel_rad);
-      int gridder_count = gp->getCount(kernel_rad);
+      int gridder_count = gp->getCount(kernel_index);
 
       // Store the brute force count
-      gp->setBruteForceCount(kernel_rad, brute_count);
+      gp->setBruteForceCount(kernel_index, brute_count);
 
       total_checks++;
 
@@ -396,9 +398,11 @@ void diagnoseGridPoint(GridPoint *grid_point, Simulation *sim, Grid *grid) {
 
   // Check particle counts for each kernel
   message("[DEBUG] Particle counts by kernel radius:");
-  for (double radius : grid->kernel_radii) {
+  for (size_t kernel_index = 0; kernel_index < grid->kernel_radii.size();
+       kernel_index++) {
+    const double radius = grid->kernel_radii[kernel_index];
     // Get count from gridder
-    int count = grid_point->getCount(radius);
+    int count = grid_point->getCount(kernel_index);
     int brute_count = bruteForceCountParticles(grid_point, sim, radius);
     message("[DEBUG]   %.3f Mpc/h: gridder=%d, brute_force=%d", radius, count,
             brute_count);

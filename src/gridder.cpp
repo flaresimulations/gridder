@@ -340,6 +340,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Read particles using the optimal strategy
+  message("Reading particle data and constructing particle storage...");
   if (particle_chunks.empty()) {
     // >75% of cells are useful - use full read
     try {
@@ -361,7 +362,9 @@ int main(int argc, char *argv[]) {
     particle_chunks.clear();
   }
 
-  // Just to be safe check particles are all where they should be
+  // Verify the input cell index before building the tree. The read-only check
+  // is parallel; any required moves are applied afterwards.
+  message("Checking particle cell assignments...");
   try {
     checkAndMoveParticles(sim);
   } catch (const std::exception &e) {
@@ -391,6 +394,7 @@ int main(int argc, char *argv[]) {
   // Clean up non-useful cells to free memory
   // After proxy exchange, we can safely deallocate particles from cells that
   // are neither useful nor proxies
+  message("Cleaning up non-useful cells...");
   try {
     cleanupNonUsefulCells(sim);
   } catch (const std::exception &e) {
@@ -405,6 +409,7 @@ int main(int argc, char *argv[]) {
   // And before we can actually get going we need to split the cells into the
   // cell tree. Each top level cell will become the root of an octree that
   // we can walk as we search for particles to associate with grid points
+  message("Building particle and grid-point octrees...");
   try {
     splitCells(sim);
   } catch (const std::exception &e) {
@@ -423,6 +428,8 @@ int main(int argc, char *argv[]) {
 
   // Now we can start the actual work... Associate particles with the grid
   // points within the maximum kernel radius
+  message("Computing kernel masses for %zu grid points and %d kernels...",
+          grid->grid_points.size(), grid->nkernels);
   try {
     getKernelMasses(sim, grid);
   } catch (const std::exception &e) {
@@ -451,6 +458,7 @@ int main(int argc, char *argv[]) {
   }
 #else
   // We're done write the output in serial
+  message("Writing serial output to %s...", metadata->output_file.c_str());
   try {
     writeGridFileSerial(sim, grid);
   } catch (const std::exception &e) {

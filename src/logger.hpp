@@ -256,7 +256,7 @@ private:
     oss << buffer << std::endl;
 
     // Print the message
-    std::cout << oss.str();
+    std::cout << oss.str() << std::flush;
   }
 
   /**

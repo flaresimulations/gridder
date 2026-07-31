@@ -9,7 +9,7 @@ executables against generated HDF5 snapshots.
 
 ```bash
 python3 tests/test_suite.py --mode serial \
-  --serial-executable ./build/parent_gridder
+  --executable ./build/parent_gridder
 ```
 
 ### MPI
@@ -23,7 +23,7 @@ python3 tests/test_suite.py --mode mpi \
 
 ```bash
 python3 tests/test_suite.py --mode comparison \
-  --serial-executable ./build/parent_gridder \
+  --executable ./build/parent_gridder \
   --mpi-executable ./build_mpi/parent_gridder --ranks 2
 ```
 

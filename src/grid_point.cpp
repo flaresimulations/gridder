@@ -21,32 +21,28 @@ GridPoint::GridPoint(double loc[3]) {
   this->loc[1] = loc[1];
   this->loc[2] = loc[2];
 
-  // Initialize mass_map and count_map with 0.0 for all kernel radii
-  // Note: This will be called during grid point creation, so we need access to
-  // kernel radii We'll handle this initialization after grid points are created
 }
 
 /**
- * @brief Initialize mass_map and count_map with 0.0 for all kernel radii
+ * @brief Allocate count and mass storage for each configured kernel
  *
- * @param kernel_radii The vector of kernel radii to initialize
+ * @param kernel_count The number of configured kernels
  */
-void GridPoint::initializeMaps(const std::vector<double> &kernel_radii) {
-  for (double kernel_rad : kernel_radii) {
-    this->mass_map[kernel_rad] = 0.0;
-    this->count_map[kernel_rad] = 0.0;
-  }
+void GridPoint::initializeKernels(const std::size_t kernel_count) {
+  this->kernel_data.assign(kernel_count, KernelAccumulator{});
 }
 
 /**
  * @brief Add a particle to the grid point
  *
  * @param part The particle to add
- * @param kernel_radius The kernel radius
+ * @param kernel_index The index of the kernel to update
  */
-void GridPoint::add_particle(Particle *part, double kernel_radius) {
-  this->count_map[kernel_radius]++;
-  this->mass_map[kernel_radius] += part->mass;
+void GridPoint::add_particle(const Particle *part,
+                             const std::size_t kernel_index) {
+  KernelAccumulator &kernel = this->kernel_data[kernel_index];
+  kernel.count++;
+  kernel.mass += part->mass;
 }
 
 /**
@@ -54,63 +50,51 @@ void GridPoint::add_particle(Particle *part, double kernel_radius) {
  *
  * @param cell_part_count The number of particles in the cell
  * @param cell_mass The mass contained in the cell
- * @param kernel_radius The kernel radius
+ * @param kernel_index The index of the kernel to update
  */
-void GridPoint::add_cell(const int cell_part_count, const double cell_mass,
-                         double kernel_radius) {
-  this->count_map[kernel_radius] += cell_part_count;
-  this->mass_map[kernel_radius] += cell_mass;
+void GridPoint::add_cell(const std::size_t cell_part_count,
+                         const double cell_mass,
+                         const std::size_t kernel_index) {
+  KernelAccumulator &kernel = this->kernel_data[kernel_index];
+  kernel.count += cell_part_count;
+  kernel.mass += cell_mass;
 }
 
 // Method to get over density inside kernel radius
-double GridPoint::getOverDensity(const double kernel_radius,
-                                 Simulation *sim) const {
+double GridPoint::getOverDensity(const std::size_t kernel_index,
+                                  const double kernel_radius,
+                                  Simulation *sim) const {
   // Compute the volume of the kernel
-  const double kernel_volume = (4.0 / 3.0) * M_PI * pow(kernel_radius, 3);
+  const double kernel_volume =
+      (4.0 / 3.0) * M_PI * kernel_radius * kernel_radius * kernel_radius;
 
   // Compute the density
-  const double density = getMass(kernel_radius) / kernel_volume;
+  const double density = getMass(kernel_index) / kernel_volume;
 
   // Compute the over density
   return (density / sim->mean_density) - 1;
 }
 
 // Method to get the mass inside the kernel radius
-double GridPoint::getMass(const double kernel_radius) const {
-  // Check if the kernel radius exists in the mass map
-  auto it = this->mass_map.find(kernel_radius);
-  if (it != this->mass_map.end()) {
-    return it->second;
-  } else {
-    return 0.0; // Return 0 if the kernel radius is not found
-  }
+double GridPoint::getMass(const std::size_t kernel_index) const {
+  return this->kernel_data[kernel_index].mass;
 }
 
 // Method to get the particle count inside the kernel radius
-int GridPoint::getCount(const double kernel_radius) const {
-  // Check if the kernel radius exists in the count map
-  auto it = this->count_map.find(kernel_radius);
-  if (it != this->count_map.end()) {
-    return static_cast<int>(it->second);
-  } else {
-    return 0; // Return 0 if the kernel radius is not found
-  }
+int GridPoint::getCount(const std::size_t kernel_index) const {
+  return static_cast<int>(this->kernel_data[kernel_index].count);
 }
 
 #ifdef DEBUGGING_CHECKS
-// Method to set the brute force count for a kernel radius
-void GridPoint::setBruteForceCount(const double kernel_radius, int count) {
-  this->brute_force_count_map[kernel_radius] = count;
+// Method to set the brute force count for a kernel
+void GridPoint::setBruteForceCount(const std::size_t kernel_index,
+                                   const int count) {
+  this->kernel_data[kernel_index].brute_force_count = count;
 }
 
-// Method to get the brute force count for a kernel radius
-int GridPoint::getBruteForceCount(const double kernel_radius) const {
-  auto it = this->brute_force_count_map.find(kernel_radius);
-  if (it != this->brute_force_count_map.end()) {
-    return it->second;
-  } else {
-    return -1; // Return -1 if not computed (shouldn't happen)
-  }
+// Method to get the brute force count for a kernel
+int GridPoint::getBruteForceCount(const std::size_t kernel_index) const {
+  return this->kernel_data[kernel_index].brute_force_count;
 }
 #endif
 

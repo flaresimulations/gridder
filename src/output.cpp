@@ -209,19 +209,20 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       // Extract data from grid points
       for (const GridPoint *gp : cell->grid_points) {
         // Get overdensity for this kernel
-        cell_grid_overdens.push_back(gp->getOverDensity(kernel_rad, sim));
+        cell_grid_overdens.push_back(
+            gp->getOverDensity(kernel_idx, kernel_rad, sim));
 
         // Get masses if requested
         if (metadata->write_masses) {
-          cell_grid_masses.push_back(gp->getMass(kernel_rad));
+          cell_grid_masses.push_back(gp->getMass(kernel_idx));
         }
 
         // Get particle counts from gridder algorithm
-        cell_grid_counts.push_back(gp->getCount(kernel_rad));
+        cell_grid_counts.push_back(gp->getCount(kernel_idx));
 
 #ifdef DEBUGGING_CHECKS
         // Get brute force counts in debug mode
-        cell_grid_brute_counts.push_back(gp->getBruteForceCount(kernel_rad));
+        cell_grid_brute_counts.push_back(gp->getBruteForceCount(kernel_idx));
 #endif
 
         // Store positions if not done yet
@@ -462,13 +463,13 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         // Store overdensities for each kernel
         for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
           local_overdens[k].push_back(
-              gp->getOverDensity(grid->kernel_radii[k], sim));
+              gp->getOverDensity(k, grid->kernel_radii[k], sim));
         }
 
         // Store masses if desired
         if (metadata->write_masses) {
           for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
-            local_masses[k].push_back(gp->getMass(grid->kernel_radii[k]));
+            local_masses[k].push_back(gp->getMass(k));
           }
         }
       }

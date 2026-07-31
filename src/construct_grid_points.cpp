@@ -143,10 +143,10 @@ static void createGridPointsEverywhere(Simulation *sim, Grid *grid) {
   message("Created %zu grid points", grid->grid_points.size());
 #endif
 
-  // Initialize mass and count maps for all grid points
-  message("Initializing grid point maps for %d kernel radii", grid->nkernels);
+  // Initialize indexed mass and count storage for all grid points
+  message("Initializing grid point arrays for %d kernel radii", grid->nkernels);
   for (GridPoint &gp : grid->grid_points) {
-    gp.initializeMaps(grid->kernel_radii);
+    gp.initializeKernels(grid->kernel_radii.size());
   }
 }
 
@@ -241,10 +241,10 @@ static void createGridPointsRandom(Simulation *sim, Grid *grid) {
 
   message("Created %zu random grid points", grid->grid_points.size());
 
-  // Initialize mass and count maps for all grid points
-  message("Initializing grid point maps for %d kernel radii", grid->nkernels);
+  // Initialize indexed mass and count storage for all grid points
+  message("Initializing grid point arrays for %d kernel radii", grid->nkernels);
   for (GridPoint &gp : grid->grid_points) {
-    gp.initializeMaps(grid->kernel_radii);
+    gp.initializeKernels(grid->kernel_radii.size());
   }
 }
 
@@ -425,10 +425,10 @@ static void createGridPointsFromFile(Simulation *sim, Grid *grid) {
   }
 #endif
 
-  // Initialize mass and count maps for all grid points
-  message("Initializing grid point maps for %d kernel radii", grid->nkernels);
+  // Initialize indexed mass and count storage for all grid points
+  message("Initializing grid point arrays for %d kernel radii", grid->nkernels);
   for (GridPoint &gp : grid->grid_points) {
-    gp.initializeMaps(grid->kernel_radii);
+    gp.initializeKernels(grid->kernel_radii.size());
   }
 }
 
