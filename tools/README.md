@@ -1,105 +1,49 @@
 # Gridder Tools
 
-Utility scripts for working with the parent_gridder.
+## Snapshot Converter
 
-## convert_to_gridder_format.py
-
-Convert HDF5 simulation snapshots with arbitrary key names to the format expected by parent_gridder.
-
-### Requirements
+`convert_to_gridder_format.py` reads coordinate and mass datasets from an HDF5
+file, sorts particles by cell, and writes the cell index required by the C++
+gridder.
 
 ```bash
-pip install h5py numpy
-pip install mpi4py  # Optional, for MPI support
+python3 tools/convert_to_gridder_format.py input.hdf5 output.hdf5 \
+  --coordinates-key DarkMatter/Coordinates \
+  --masses-key DarkMatter/Masses \
+  --boxsize 100 100 100 \
+  --cdim 32
 ```
 
-### Usage
+Use `--copy-header` only when the source header already has compatible
+`BoxSize`, `NumPart_Total`, and `Redshift` attributes. The converter does not
+convert units or generate particle IDs.
 
-#### Serial Mode
+Gridder-compatible output must use the default `PartType1` particle type.
 
-Convert a single file:
+The converter's MPI mode creates rank files and an HDF5 virtual file, but that
+virtual file is not currently safe as gridder input: rank-local sorting does
+not provide the global cell ordering assumed by the cell offsets. Use serial
+conversion for production gridder input.
+
+See the [conversion guide](../docs/conversion.md) and run:
 
 ```bash
-python tools/convert_to_gridder_format.py input.hdf5 output.hdf5 \
-    --coordinates-key PartType1/Coordinates \
-    --masses-key PartType1/Masses \
-    --copy-header
+python3 tools/convert_to_gridder_format.py --help
 ```
 
-#### MPI Mode
+## Grid Summary
 
-For large files, use MPI to process in parallel. Each rank writes a separate file, and a virtual HDF5 file is created to provide a unified view:
+`grid_summary.py` prints a compact summary of gridder HDF5 output:
 
 ```bash
-mpirun -np 4 python tools/convert_to_gridder_format.py input.hdf5 output.hdf5 \
-    --coordinates-key PartType1/Coordinates \
-    --masses-key PartType1/Masses \
-    --copy-header
+python3 tools/grid_summary.py output/grid.hdf5
 ```
 
-This creates:
-- `output_rank_0.hdf5`, `output_rank_1.hdf5`, etc. (per-rank files)
-- `output.hdf5` (virtual file that combines all ranks)
+## SOAP Grid Points
 
-The gridder can read either the virtual file or individual rank files.
-
-### Options
-
-- `--coordinates-key KEY`: HDF5 path to particle coordinates (required)
-- `--masses-key KEY`: HDF5 path to particle masses (required)
-- `--particle-type TYPE`: Output particle type group name (default: `PartType1`)
-- `--copy-header`: Copy Header group from input to output
-- `--header-key KEY`: Input header group path (default: `Header`)
-
-### Examples
-
-#### Convert SWIFT snapshot
+`get_fof_grid_points_soap.py` extracts grid-point coordinates from compatible
+SOAP catalogues. Inspect its current arguments with:
 
 ```bash
-python tools/convert_to_gridder_format.py \
-    snapshot_0100.hdf5 converted_0100.hdf5 \
-    --coordinates-key PartType1/Coordinates \
-    --masses-key PartType1/Masses \
-    --copy-header
+python3 tools/get_fof_grid_points_soap.py --help
 ```
-
-#### Convert with custom keys
-
-```bash
-python tools/convert_to_gridder_format.py \
-    my_simulation.hdf5 gridder_input.hdf5 \
-    --coordinates-key DarkMatter/Positions \
-    --masses-key DarkMatter/ParticleMasses \
-    --particle-type PartType1
-```
-
-#### Large file with MPI
-
-```bash
-mpirun -np 8 python tools/convert_to_gridder_format.py \
-    large_snapshot.hdf5 converted.hdf5 \
-    --coordinates-key PartType1/Coordinates \
-    --masses-key PartType1/Masses \
-    --copy-header
-```
-
-### Output Format
-
-The script creates HDF5 files with the following structure:
-
-```
-output.hdf5
-├── Header/           (if --copy-header specified)
-└── PartType1/        (or custom name from --particle-type)
-    ├── Coordinates   (shape: [N, 3], dtype: float64)
-    └── Masses        (shape: [N], dtype: float64)
-```
-
-In MPI mode, the virtual file provides a transparent view of the combined data from all rank files.
-
-### Notes
-
-- **Compression**: Output files use gzip compression (level 4) to reduce size
-- **Virtual files**: Require HDF5 1.10+ and `libver='latest'`
-- **Memory**: Each rank processes approximately `N/nranks` particles in MPI mode
-- **Particle ordering**: Preserved from input file within each rank

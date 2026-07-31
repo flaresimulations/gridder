@@ -1,254 +1,57 @@
-# Gridder Comprehensive Test Suite
+# Custom Test Suite
 
-## Overview
+`tests/test_suite.py` provides end-to-end checks that run built gridder
+executables against generated HDF5 snapshots.
 
-A comprehensive test framework for the parent gridder that tests individual components and integration scenarios in both serial and MPI modes.
+## Modes
 
-## Test Suite Structure
+### Serial
 
-```
-tests/
-├── test_suite.py          # Main test framework and test cases
-├── run_all_tests.sh       # Convenience script to run all tests
-└── TEST_SUITE_README.md   # This file
-```
-
-## Implemented Tests
-
-### Core Functionality Tests (Serial & MPI)
-
-1. **Single Particle at Center**
-   - Tests kernel calculation with a single particle at box center
-   - Verifies correct mass assignment for different kernel radii
-   - Validates spherical top-hat kernel implementation
-
-2. **Uniform Distribution**
-   - Tests gridding of uniformly distributed particles
-   - Validates that overdensities are consistent for uniform input
-   - Checks for edge effects
-
-3. **Sparse Grid Chunking**
-   - Tests that sparse particle distributions trigger chunked reading
-   - Validates gap-filling logic
-   - Ensures correct handling of mostly-empty cells
-
-4. **Dense Grid Full Read**
-   - Tests that dense distributions trigger full read strategy
-   - Validates >75% threshold logic
-   - Ensures efficient I/O for dense grids
-
-5. **Mass Conservation**
-   - Verifies total mass is conserved through gridding process
-   - Checks that sum of kernel masses equals input mass
-   - Tests numerical precision
-
-6. **Empty Cells Handling**
-   - Tests graceful handling of cells with no particles
-   - Validates that code doesn't crash on sparse data
-   - Checks boundary conditions
-
-### MPI-Specific Tests
-
-7. **Proxy Exchange**
-   - Tests that proxy cells are correctly exchanged between ranks
-   - Validates MPI communication patterns
-   - Ensures correct particle data transfer
-
-8. **Load Balancing**
-   - Tests that particles are distributed across MPI ranks
-   - Validates work partition strategy
-   - Checks for reasonable load distribution
-
-## Usage
-
-### Quick Start
-
-Run all tests (serial and MPI):
 ```bash
-./tests/run_all_tests.sh
+python3 tests/test_suite.py --mode serial \
+  --serial-executable ./build/parent_gridder
 ```
 
-### Run Specific Test Modes
+### MPI
 
-Serial tests only:
 ```bash
-python3 tests/test_suite.py --mode serial --executable ./build/parent_gridder
+python3 tests/test_suite.py --mode mpi \
+  --mpi-executable ./build_mpi/parent_gridder --ranks 2
 ```
 
-MPI tests with 2 ranks:
+### Serial/MPI Comparison
+
 ```bash
-python3 tests/test_suite.py --mode mpi --mpi-executable ./build_mpi/parent_gridder --ranks 2
+python3 tests/test_suite.py --mode comparison \
+  --serial-executable ./build/parent_gridder \
+  --mpi-executable ./build_mpi/parent_gridder --ranks 2
 ```
 
-MPI tests with 4 ranks:
-```bash
-python3 tests/test_suite.py --mode mpi --mpi-executable ./build_mpi/parent_gridder --ranks 4
-```
+Use `python3 tests/test_suite.py --help` for the current command-line options.
 
-### Command Line Options
+## Coverage
 
-```
---mode {serial,mpi}           Run in serial or MPI mode
---executable PATH             Path to serial executable
---mpi-executable PATH         Path to MPI executable
---ranks N                     Number of MPI ranks (default: 2)
---data-dir PATH               Directory for test data
-```
+The suite includes generated uniform, sparse, dense, boundary, empty-kernel,
+multi-radius, random-grid, and MPI cases. The test generator writes the HDF5
+cell metadata, counts, and offsets required by the gridder.
 
-## Test Data Generation
+Additional coverage lives in pytest modules:
 
-The test suite includes a `TestDataGenerator` class that creates HDF5 snapshots with known properties:
+- `test_gridder.py` covers core behavior and uniform, random, and file grids.
+- `test_conversion.py` covers the HDF5 conversion tool.
+- `test_cosmology.py` covers mean-density calculations.
 
-- **create_uniform_grid()**: Uniform grid of particles
-- **create_single_particle()**: Single particle at specified location
-- **create_sparse_distribution()**: Clustered particles in small region
-- **create_dense_distribution()**: Dense uniform random distribution
+Run those independently with `pytest tests -v`.
 
-## Current Status
+## Scope And Limitations
 
-### ✅ Implemented
+This suite is primarily an integration and regression suite. Some MPI tests
+verify successful execution and expected diagnostic messages rather than every
+particle transferred through proxy cells. It does not currently provide
+performance benchmarks, leak detection, or checkpoint/restart tests.
 
-- Complete test framework with 8 test cases
-- Test data generator
-- Serial and MPI test modes
-- Automatic test result reporting
-- Color-coded output
-- Test runner script
+## Generated Data
 
-### ⚠️ Known Issues
-
-The HDF5 file format generated by `TestDataGenerator._write_snapshot()` is currently incomplete. It needs:
-
-1. **Cells/Meta-data** group with attributes:
-   - `dimension`: [cdim_x, cdim_y, cdim_z]
-   - `size`: [cell_size_x, cell_size_y, cell_size_z]
-
-2. **Cells/OffsetsInFile** subgroup with datasets for each particle type
-
-3. **Cells/Counts** dataset properly populated with particle counts per cell
-
-4. **Cells/OffsetsInFile** dataset with file offsets for each cell
-
-### 🔧 To Fix
-
-To make tests fully functional, update `TestDataGenerator._write_snapshot()` to match the exact SWIFT snapshot format. Reference:
-- `tests/data/simple_test.hdf5` - working example
-- `make_test_snap.py` - working generator
-
-Alternatively, use `make_test_snap.py` to generate test data instead of the built-in generator.
-
-## Adding New Tests
-
-To add a new test:
-
-1. Add a method to `GridderTest` class:
-```python
-def test_my_feature(self):
-    """Test: Description of what this tests"""
-    # Create test data
-    snapshot = self.data_dir / "my_test.hdf5"
-    TestDataGenerator.create_xxx(snapshot, ...)
-
-    # Create parameters
-    param_file = self._create_param_file(snapshot, "output.hdf5", ...)
-
-    # Run gridder
-    success, stdout, stderr = self._run_gridder(param_file)
-    if not success:
-        return False, f"Gridder failed: {stderr}"
-
-    # Verify results
-    output_file = self.data_dir / "output.hdf5"
-    with h5py.File(output_file, 'r') as f:
-        # Check results
-        ...
-
-    return True, "Test passed"
-```
-
-2. Add test to the list in `run_test_suite()`:
-```python
-tests = [
-    ...
-    ("My new test", tester.test_my_feature),
-]
-```
-
-## Test Coverage
-
-### Covered
-- ✅ Grid creation (uniform)
-- ✅ Kernel mass calculation
-- ✅ Sparse vs dense read strategies
-- ✅ Mass conservation
-- ✅ Empty cell handling
-- ✅ MPI partitioning
-- ✅ MPI proxy exchange
-
-### Not Yet Covered
-- ❌ Random grid generation
-- ❌ Grid from file
-- ❌ Different kernel radii edge cases
-- ❌ Octree splitting logic
-- ❌ Checkpointing/restart
-- ❌ Performance benchmarks
-- ❌ Memory leak detection
-
-## Continuous Integration
-
-To integrate with CI/CD:
-
-```yaml
-test:
-  script:
-    - cmake -B build && cmake --build build
-    - cmake -B build_mpi -DENABLE_MPI=ON && cmake --build build_mpi
-    - ./tests/run_all_tests.sh
-  artifacts:
-    when: on_failure
-    paths:
-      - tests/data/unit_tests/
-```
-
-## Troubleshooting
-
-**Tests fail with HDF5 errors**:
-- Check that test data generator creates valid SWIFT format
-- Compare with `tests/data/simple_test.hdf5`
-- Use `h5dump -A` to inspect file structure
-
-**MPI tests hang**:
-- Check MPI installation
-- Reduce number of ranks
-- Check for deadlocks in gridder code
-
-**Tests pass but output is wrong**:
-- Check test tolerances
-- Validate kernel implementation
-- Compare with known-good results
-
-## Future Improvements
-
-1. **Performance regression testing**: Track execution time across versions
-2. **Memory profiling**: Detect memory leaks
-3. **Parameterized tests**: Test with range of parameters
-4. **Integration with pytest**: Better reporting and fixtures
-5. **Test data caching**: Reuse generated snapshots
-6. **Parallel test execution**: Run tests concurrently
-7. **Coverage analysis**: Track code coverage
-
-## Contributing
-
-When adding new features to the gridder:
-
-1. Write tests first (TDD approach)
-2. Ensure all existing tests pass
-3. Add tests for edge cases
-4. Update this README with new test descriptions
-
-## Contact
-
-For issues with the test suite, check:
-- This README
-- Test output logs in `tests/data/unit_tests/`
-- Gridder error messages in stderr
+Test data is created under `tests/data/`, which is ignored by Git except for
+its placeholder. Remove generated data with the cleanup mode supported by the
+relevant runner when a clean fixture set is needed.

@@ -187,13 +187,15 @@ public:
       return;
     }
 
-    // Calculate the duration
-    auto duration =
-        std::chrono::duration_cast<std::chrono::milliseconds>(_toc - _tic);
+    const double duration_ms =
+        std::chrono::duration<double, std::milli>(_toc - _tic).count();
 
-    // Report it
-    log(file, func, "%s took %lld ms", message,
-        static_cast<long long>(duration.count()));
+    if (duration_ms < 1.0) {
+      log(file, func, "%s took %.3e ms", message, duration_ms);
+    } else {
+      log(file, func, "%s took %lld ms", message,
+          static_cast<long long>(duration_ms));
+    }
   }
 
   /**
@@ -209,13 +211,17 @@ public:
       return;
     }
 
-    // Calculate the duration
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::high_resolution_clock::now() - _start);
+    const double duration_ms =
+        std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - _start)
+            .count();
 
-    // Report it
-    log(file, func, "Total runtime: %lld ms",
-        static_cast<long long>(duration.count()));
+    if (duration_ms < 1.0) {
+      log(file, func, "Total runtime: %.3e ms", duration_ms);
+    } else {
+      log(file, func, "Total runtime: %lld ms",
+          static_cast<long long>(duration_ms));
+    }
   }
 
 private:

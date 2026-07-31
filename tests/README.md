@@ -1,133 +1,70 @@
-# Gridder Tests
+# Tests
 
-This directory contains test scripts and data for verifying the gridder functionality.
+The repository contains pytest suites, a custom serial/MPI suite, and focused
+shell runners.
 
-## Quick Start
+## Pytest
+
+Pytest discovers tests in:
+
+- `tests/test_gridder.py`: core behavior, uniform/random/file grids, and input validation
+- `tests/test_conversion.py`: snapshot conversion
+- `tests/test_cosmology.py`: cosmological density calculations
+
+Run all discovered pytest tests from the repository root:
 
 ```bash
-# Run all tests (recommended)
-./tests/run_tests.sh --all
-
-# Run only unit tests
-./tests/run_tests.sh --unit
-
-# Run only integration tests
-./tests/run_tests.sh --integration
-
-# Run Python unit tests directly
-pytest tests/test_gridder.py -v
+pytest tests -v
 ```
 
-## Test Suite Overview
+Some cosmology comparisons are skipped when optional Python dependencies are
+not installed.
 
-The test suite includes:
+## Focused Runner
 
-- **Python Unit Tests** (`test_gridder.py`): Comprehensive pytest-based tests
-  - File-based grid point reading (new feature)
-  - Uniform grid generation
-  - Output validation
-  - Error handling and edge cases
-
-- **Integration Tests** (`run_tests.sh`): End-to-end workflow tests
-  - Simple test (1 particle, predictable results)
-  - File grid test (reading grid points from files)
-  - Random grid test (if enabled)
-
-- **CI/CD** (`.github/workflows/test.yml`): Automated testing on GitHub
-  - Serial build tests
-  - MPI build tests
-  - Debug build tests
-
-## Simple Test
-
-The simple test creates a minimal test case with predictable results:
-
-- **1 particle** with mass = 1.0 at the center of the simulation box
-- **3 kernel radii**: 0.5, 1.0, and 2.0
-- **Expected results** for the grid point at center:
-  - Kernel radius 0.5: mass = 0.0 (particle outside sphere)
-  - Kernel radius 1.0: mass = 1.0 (particle inside sphere) ✅
-  - Kernel radius 2.0: mass = 1.0 (particle inside sphere)
-
-## Running Tests
-
-### Recommended: Use Master Test Runner
 ```bash
 ./tests/run_tests.sh --all
 ```
 
-### Quick Test (Original)
+`run_tests.sh` is a focused build and integration runner, not an exhaustive
+wrapper around every pytest module or custom-suite mode. Use `pytest tests -v`
+and the commands below for broader coverage.
+
+## Custom Suite
+
 ```bash
-cd tests
-./run_simple_test.sh
+# Serial
+python3 tests/test_suite.py --mode serial \
+  --serial-executable ./build/parent_gridder
+
+# MPI
+python3 tests/test_suite.py --mode mpi \
+  --mpi-executable ./build_mpi/parent_gridder --ranks 2
+
+# Compare serial and MPI output
+python3 tests/test_suite.py --mode comparison \
+  --serial-executable ./build/parent_gridder \
+  --mpi-executable ./build_mpi/parent_gridder --ranks 2
 ```
 
-### Python Unit Tests
+The custom suite exercises particle loading, kernel calculations, and MPI
+paths. Some MPI checks are smoke tests or inspect diagnostic messages rather
+than exhaustively validating every exchanged value.
+
+## Simple Sanity Test
+
 ```bash
-# All tests
-pytest tests/test_gridder.py -v
-
-# File grid point tests only
-pytest tests/test_gridder.py::TestFileGridPoints -v
-
-# Specific test
-pytest tests/test_gridder.py::TestFileGridPoints::test_valid_grid_points_file -v
+./tests/run_simple_test.sh
 ```
 
-### Manual Test Steps
+The generated centered particle is inside a centered radius-0.5 kernel. The
+runner is intended as a quick diagnostic and prints some numerical warnings
+without converting every warning into a failing exit status.
+
+Generate test input manually with:
+
 ```bash
-# 1. Create test data
-python3 make_test_snap.py --output tests/data/simple_test.hdf5 --cdim 3 --boxsize 10.0 --doner some_snapshot.hdf5 --simple
-
-# 2. Run gridder
-./parent_gridder tests/simple_test_params.yml 0
-
-# 3. Check results in tests/data/simple_test_grid.hdf5
+python3 tests/make_test_snap.py --help
 ```
 
-### Test Commands
-- `./run_simple_test.sh run` - Run the test (default)
-- `./run_simple_test.sh clean` - Clean up test files
-- `./run_simple_test.sh help` - Show help
-
-## Test Structure
-
-```
-tests/
-├── run_simple_test.sh          # Main test runner script
-├── simple_test_params.yml      # Parameters for simple test
-├── data/                       # Test data directory (created automatically)
-│   ├── donor_snapshot.hdf5     # Minimal donor file (created if needed)
-│   ├── simple_test.hdf5        # Test input snapshot
-│   └── simple_test_grid.hdf5   # Test output grid
-└── README.md                   # This file
-```
-
-## Test Features
-
-- **Automatic setup**: Creates test data and donor files as needed
-- **Error checking**: Validates each step and provides clear error messages
-- **Result verification**: Checks output file structure and expected values
-- **Colored output**: Easy to see test status and results
-- **Cleanup**: Option to clean up test files after running
-
-## Expected Output
-
-When the test passes, you should see:
-```
-==============================================
-          GRIDDER SIMPLE TEST RUNNER
-==============================================
-Step 1: Creating simple test snapshot...
-✓ Test snapshot created successfully
-Step 2: Running gridder on test data...
-✓ Gridder completed successfully  
-Step 3: Verifying results...
-✓ Found expected mass value of 1.0
-✓ Results verification passed
-==============================================
-✓ ALL TESTS PASSED!
-==============================================
-```
-
-This confirms that your gridder correctly calculates mass = 1.0 for a kernel radius of 1.0 in the simple test case.
+Generated files are written under `tests/data/` and are ignored by Git.

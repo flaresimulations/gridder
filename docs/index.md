@@ -1,57 +1,39 @@
 # FLARES-2 Gridder
 
-High-performance cosmological simulation gridding with spherical top hat kernels.
+The FLARES-2 Gridder computes matter overdensities at user-defined grid points
+with one or more spherical top-hat kernels. It reads cell-indexed HDF5
+snapshots and writes gridded HDF5 output.
 
-## Overview
+## Features
 
-The FLARES-2 Gridder is a C++ application designed for gridding cosmological simulations. It applies spherical top hat kernels to matter distributions, reading HDF5 snapshot files from simulations (primarily SWIFT outputs) and computing overdensities at grid points using multiple kernel radii simultaneously.
+- Uniform, random, and file-based grid points
+- Multiple kernel radii in one run
+- Octree particle searches
+- OpenMP threading and optional MPI domain decomposition
+- Chunked reads that avoid loading particles far from requested grid points
+- Serial snapshot conversion for compatible HDF5 inputs
 
-### Key Features
-
-- **Multiple Kernel Radii**: Compute overdensities for multiple smoothing scales in a single pass
-- **Hybrid Parallelization**: OpenMP threading + optional MPI for distributed memory
-- **Efficient I/O**: Chunked HDF5 reading with automatic optimization for sparse/dense grids
-- **Flexible Grids**: Support for uniform, random, and file-based grid point distributions
-- **Octree Spatial Indexing**: Hierarchical cell structure for efficient neighbor searches
-- **Production Ready**: Comprehensive test suite with 29 tests covering serial and MPI modes
-
-### Performance Characteristics
-
-| Feature | Single-Node (OpenMP) | Multi-Node (MPI + OpenMP) |
-|---------|---------------------|---------------------------|
-| Parallelization | Multi-threaded | Distributed + Multi-threaded |
-| Memory | Shared | Distributed with ghost cells |
-| I/O | Chunked HDF5 | Per-rank HDF5 files |
-| Scalability | Up to ~16 cores | Hundreds of cores |
-
-### Quick Example
+## Quick Example
 
 ```bash
-# Single-node with 8 OpenMP threads
-export OMP_NUM_THREADS=8
-./build/parent_gridder params.yml 1
+# Eight OpenMP threads
+./build/parent_gridder params.yml 8
 
-# Multi-node: 4 MPI ranks × 2 OpenMP threads = 8 cores
-export OMP_NUM_THREADS=2
-mpirun -n 4 ./build_mpi/parent_gridder params.yml 1
+# Four MPI ranks, two OpenMP threads per rank
+mpirun -n 4 ./build_mpi/parent_gridder params.yml 2
 ```
 
-## Documentation Structure
+The second positional argument always sets the OpenMP thread count, including
+in MPI builds.
 
-- **[Getting Started](getting-started/installation.md)**: Installation, quick start, and configuration
-- **[Parameter Reference](getting-started/parameters.md)**: Detailed parameter file documentation
-- **[Performance](performance/openmp.md)**: OpenMP and MPI optimization guides
-- **[Conversion Tool](conversion.md)**: Converting arbitrary simulation snapshots to gridder format
+## Documentation
 
-## Quick Links
+- [Quickstart](quickstart.md)
+- [Installation](installation.md)
+- [Parameter reference](parameters.md)
+- [Runtime arguments](runtime-arguments.md)
+- [Grid types](gridding.md)
+- [MPI execution](mpi.md)
+- [Snapshot conversion](conversion.md)
 
-- [Installation Guide](getting-started/installation.md)
-- [Quick Start Tutorial](getting-started/quickstart.md)
-- [Parameter File Reference](getting-started/parameters.md)
-- [Snapshot Conversion Guide](conversion.md)
-- [OpenMP Threading](performance/openmp.md)
-- [MPI Parallelization](performance/mpi.md)
-
-## Support
-
-For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/flaresimulations/gridder).
+Report problems through the [GitHub repository](https://github.com/flaresimulations/gridder).

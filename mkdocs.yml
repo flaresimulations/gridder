@@ -82,6 +82,7 @@ nav:
   - Runtime Arguments: runtime-arguments.md
   - Gridding: gridding.md
   - MPI: mpi.md
+  - Conversion: conversion.md
 
 extra:
   version:
