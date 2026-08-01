@@ -67,6 +67,34 @@ public:
   //! Vector of pointers to all useful cells (for efficient iteration)
   std::vector<Cell*> useful_cells;
 
+  //! Particle masses and flattened xyz positions. Cells store indices into
+  //! these simulation-owned arrays rather than Particle objects.
+  std::vector<double> particle_masses;
+  std::vector<double> particle_positions;
+
+  //! Append one particle and return its stable index.
+  ParticleIndex appendParticle(const double pos[3], double mass) {
+    const ParticleIndex index = particle_masses.size();
+    particle_positions.insert(particle_positions.end(), pos, pos + 3);
+    try {
+      particle_masses.push_back(mass);
+    } catch (...) {
+      particle_positions.resize(index * 3);
+      throw;
+    }
+    return index;
+  }
+
+  //! Return the xyz position associated with a particle index.
+  const double *particlePosition(ParticleIndex index) const {
+    return &particle_positions[index * 3];
+  }
+
+  //! Return the mass associated with a particle index.
+  double particleMass(ParticleIndex index) const {
+    return particle_masses[index];
+  }
+
   // Constructor prototype
   Simulation();
 

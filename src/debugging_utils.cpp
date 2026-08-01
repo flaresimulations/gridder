@@ -132,20 +132,21 @@ void validateParticleCellAssignment(Simulation *sim) {
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &cells[cid];
 
-    for (Particle *part : cell->particles) {
+    for (ParticleIndex part : cell->particles) {
+      const double *part_pos = sim->particlePosition(part);
       // Check if particle is within cell bounds
-      bool inside_x = (part->pos[0] >= cell->loc[0]) &&
-                      (part->pos[0] < cell->loc[0] + cell->width[0]);
-      bool inside_y = (part->pos[1] >= cell->loc[1]) &&
-                      (part->pos[1] < cell->loc[1] + cell->width[1]);
-      bool inside_z = (part->pos[2] >= cell->loc[2]) &&
-                      (part->pos[2] < cell->loc[2] + cell->width[2]);
+      bool inside_x = (part_pos[0] >= cell->loc[0]) &&
+                      (part_pos[0] < cell->loc[0] + cell->width[0]);
+      bool inside_y = (part_pos[1] >= cell->loc[1]) &&
+                      (part_pos[1] < cell->loc[1] + cell->width[1]);
+      bool inside_z = (part_pos[2] >= cell->loc[2]) &&
+                      (part_pos[2] < cell->loc[2] + cell->width[2]);
 
       if (!inside_x || !inside_y || !inside_z) {
         message("[DEBUG] ERROR: Particle at (%.3f, %.3f, %.3f) assigned to "
                 "cell %zu "
                 "with bounds [%.3f-%.3f, %.3f-%.3f, %.3f-%.3f]",
-                part->pos[0], part->pos[1], part->pos[2], cid, cell->loc[0],
+                part_pos[0], part_pos[1], part_pos[2], cid, cell->loc[0],
                 cell->loc[0] + cell->width[0], cell->loc[1],
                 cell->loc[1] + cell->width[1], cell->loc[2],
                 cell->loc[2] + cell->width[2]);
@@ -181,10 +182,11 @@ int bruteForceCountParticles(GridPoint *grid_point, Simulation *sim,
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &cells[cid];
 
-    for (Particle *part : cell->particles) {
-      double dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
-      double dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
-      double dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
+    for (ParticleIndex part : cell->particles) {
+      const double *part_pos = sim->particlePosition(part);
+      double dx = nearest(part_pos[0] - grid_point->loc[0], dim[0]);
+      double dy = nearest(part_pos[1] - grid_point->loc[1], dim[1]);
+      double dz = nearest(part_pos[2] - grid_point->loc[2], dim[2]);
       double r2 = dx * dx + dy * dy + dz * dz;
 
       if (r2 <= radius2) {

@@ -68,8 +68,8 @@ public:
   //! (as opposed to being a proxy cell needed only for other ranks)
   bool is_locally_useful = false;
 
-  //! Particles within the cell
-  std::vector<Particle *> particles;
+  //! Indices of particles within the simulation-owned property arrays
+  std::vector<ParticleIndex> particles;
 
   //! Grid points within the cell
   std::vector<GridPoint *> grid_points;
@@ -171,14 +171,15 @@ public:
   bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
   void split();
-  void addParticle(Particle *part, bool mark_useful = true);
-  void removeParticle(Particle *part) {
+  void addParticle(ParticleIndex part, double particle_mass,
+                   bool mark_useful = true);
+  void removeParticle(ParticleIndex part, double particle_mass) {
     auto it = std::find(this->particles.begin(), this->particles.end(), part);
     if (it != this->particles.end()) {
       *it = this->particles.back();
       this->particles.pop_back();
       this->part_count--;
-      this->mass -= part->mass;
+      this->mass -= particle_mass;
     } else {
       error("Particle not found in cell when trying to remove it");
     }

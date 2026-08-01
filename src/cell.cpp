@@ -8,6 +8,7 @@
 #include <memory>
 #include <new>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Local includes
@@ -32,7 +33,8 @@ bool Cell::inKernel(const GridPoint *grid_point,
 
   // Get the boxsize from the metadata
   Metadata *metadata = &Metadata::getInstance();
-  double *dim = metadata->sim->dim;
+  Simulation *sim = metadata->sim;
+  double *dim = sim->dim;
 
   // Get the minimum and maximum positions for the cell.
   const double thisx_min = this->loc[0];
@@ -73,7 +75,8 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
 
   // Get the boxsize from the metadata
   Metadata *metadata = &Metadata::getInstance();
-  double *dim = metadata->sim->dim;
+  Simulation *sim = metadata->sim;
+  double *dim = sim->dim;
 
   // Get cell centre and diagonal
   double cell_centre[3] = {this->loc[0] + this->width[0] / 2.0,
@@ -130,10 +133,10 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
   if (r2 > kernel_rad2) {
     // Use particles.size() instead of part_count to handle ranks with no local particles
     for (size_t p = 0; p < this->particles.size(); p++) {
-      Particle *part = this->particles[p];
-      const double p_dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
-      const double p_dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
-      const double p_dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
+      const double *part_pos = sim->particlePosition(this->particles[p]);
+      const double p_dx = nearest(part_pos[0] - grid_point->loc[0], dim[0]);
+      const double p_dy = nearest(part_pos[1] - grid_point->loc[1], dim[1]);
+      const double p_dz = nearest(part_pos[2] - grid_point->loc[2], dim[2]);
       const double p_r2 = p_dx * p_dx + p_dy * p_dy + p_dz * p_dz;
       if (p_r2 <= kernel_rad2) {
         error(
@@ -141,11 +144,12 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
             "dz=%f, r2=%f, part_r2=%f, kernel_rad2 = %f) "
             "(cell->loc = %f %f %f, cell->width = %f %f %f, "
             "grid_point->loc = "
-            "%f %f %f part->pos = %f %f %f, cell_extent=[%f-%f, %f-%f, %f-%f])",
+            "%f %f %f particle position = %f %f %f, "
+            "cell_extent=[%f-%f, %f-%f, %f-%f])",
             dx, dy, dz, r2, p_r2, kernel_rad2, this->loc[0], this->loc[1],
             this->loc[2], this->width[0], this->width[1], this->width[2],
             grid_point->loc[0], grid_point->loc[1], grid_point->loc[2],
-            part->pos[0], part->pos[1], part->pos[2], this->loc[0],
+            part_pos[0], part_pos[1], part_pos[2], this->loc[0],
             this->loc[0] + this->width[0], this->loc[1],
             this->loc[1] + this->width[1], this->loc[2],
             this->loc[2] + this->width[2]);
@@ -245,12 +249,13 @@ void Cell::split() {
   }
 
   // Loop over the particles and attach them to the right child
-  for (Particle *part : this->particles) {
+  for (ParticleIndex part : this->particles) {
 
     // Get the position of the particle
-    const double x = part->pos[0];
-    const double y = part->pos[1];
-    const double z = part->pos[2];
+    const double *part_pos = sim->particlePosition(part);
+    const double x = part_pos[0];
+    const double y = part_pos[1];
+    const double z = part_pos[2];
 
     // Calculate the child index based on the particle position
     int i = (x >= this->loc[0] + new_width[0]) ? 1 : 0;
@@ -269,7 +274,7 @@ void Cell::split() {
     }
 
     // Add the particle to the child cell
-    child->addParticle(part);
+    child->addParticle(part, sim->particleMass(part));
   }
 
   // Loop over the grid points and attach them to the right child
@@ -319,16 +324,16 @@ void Cell::split() {
 
   // Ensure all particles in this cell should be in this cell
   for (size_t p = 0; p < this->particles.size(); p++) {
-    Particle *part = this->particles[p];
-    if (part->pos[0] < this->loc[0] ||
-        part->pos[0] >= this->loc[0] + this->width[0] ||
-        part->pos[1] < this->loc[1] ||
-        part->pos[1] >= this->loc[1] + this->width[1] ||
-        part->pos[2] < this->loc[2] ||
-        part->pos[2] >= this->loc[2] + this->width[2]) {
+    const double *part_pos = sim->particlePosition(this->particles[p]);
+    if (part_pos[0] < this->loc[0] ||
+        part_pos[0] >= this->loc[0] + this->width[0] ||
+        part_pos[1] < this->loc[1] ||
+        part_pos[1] >= this->loc[1] + this->width[1] ||
+        part_pos[2] < this->loc[2] ||
+        part_pos[2] >= this->loc[2] + this->width[2]) {
       error("Particle %zu in cell %d is outside the cell bounds (%f, %f, %f) "
             "with width (%f, %f, %f)",
-            p, this->ph_ind, part->pos[0], part->pos[1], part->pos[2],
+            p, this->ph_ind, part_pos[0], part_pos[1], part_pos[2],
             this->width[0], this->width[1], this->width[2]);
     }
   }
@@ -376,14 +381,14 @@ void Cell::split() {
  *                    Set to false when moving stray particles to avoid
  *                    marking non-loaded cells as useful.
  */
-void Cell::addParticle(Particle *part, bool mark_useful) {
+void Cell::addParticle(const ParticleIndex part, const double particle_mass,
+                       const bool mark_useful) {
 
 #ifdef DEBUGGING_CHECKS
   // Check if the particle is already in the cell
   for (size_t i = 0; i < this->particles.size(); i++) {
     if (this->particles[i] == part) {
-      error("Particle already in cell %d (particle address: %p)", this->ph_ind,
-            part);
+      error("Particle index %zu already in cell %d", part, this->ph_ind);
     }
   }
 #endif
@@ -392,7 +397,7 @@ void Cell::addParticle(Particle *part, bool mark_useful) {
   try {
     this->particles.push_back(part);
     this->part_count++;
-    this->mass += part->mass;
+    this->mass += particle_mass;
   } catch (const std::bad_alloc &e) {
     error("Memory allocation failed while adding particle to cell. "
           "System out of memory. Error: %s",
@@ -584,6 +589,18 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
   size_t useful_cells_processed = 0;
 #endif
 
+  size_t particles_to_store = 0;
+  for (const ParticleChunk &chunk : chunks) {
+    for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
+      if (sim->cells[cid].shouldLoadParticles())
+        particles_to_store += sim->cell_part_counts[cid];
+    }
+  }
+  sim->particle_masses.reserve(sim->particle_masses.size() +
+                               particles_to_store);
+  sim->particle_positions.reserve(sim->particle_positions.size() +
+                                  particles_to_store * 3);
+
   // Read each chunk (all chunks belong to this rank)
   for (auto &chunk : chunks) {
 
@@ -601,7 +618,6 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
     }
 
     // Read positions - 2D array [npart, 3] (use hsize_t for HDF5 compatibility)
-    chunk.positions.resize(chunk.particle_count);
     std::vector<double> pos_flat(chunk.particle_count * 3);
     std::array<hsize_t, 2> pos_start = {static_cast<hsize_t>(chunk.start_particle_idx), 0};
     std::array<hsize_t, 2> pos_count = {static_cast<hsize_t>(chunk.particle_count), 3};
@@ -612,18 +628,11 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
             chunk.start_cell_id, chunk.end_cell_id);
     }
 
-    // Unpack flat array into array<double,3> - parallelizable
-    #pragma omp parallel for schedule(static)
-    for (size_t p = 0; p < chunk.particle_count; p++) {
-      chunk.positions[p] = {pos_flat[p * 3], pos_flat[p * 3 + 1],
-                            pos_flat[p * 3 + 2]};
-    }
-
     // Attach particles from chunks to cells
     std::vector<Cell> &cells = sim->cells;
     size_t particle_offset = 0;
     for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
-      size_t npart = cells[cid].part_count;
+      const size_t npart = sim->cell_part_counts[cid];
 
       // Check if we should load particles for this cell
       if (!cells[cid].shouldLoadParticles()) {
@@ -641,26 +650,27 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
 #endif
 
       // Attach particles to this cell
+      cells[cid].particles.reserve(cells[cid].particles.size() + npart);
+      double cell_mass = 0.0;
       for (size_t p = 0; p < npart; p++) {
-        cells[cid].particles.push_back(
-            new Particle(chunk.positions[particle_offset + p].data(),
-                         chunk.masses[particle_offset + p]));
+        const size_t chunk_index = particle_offset + p;
+        const double pos[3] = {pos_flat[chunk_index * 3],
+                               pos_flat[chunk_index * 3 + 1],
+                               pos_flat[chunk_index * 3 + 2]};
+        const double mass = chunk.masses[chunk_index];
+        cells[cid].particles.push_back(sim->appendParticle(pos, mass));
+        cell_mass += mass;
       }
 
-      // Calculate cell mass as sum of particle masses
-      cells[cid].mass = 0.0;
-      for (const auto *part : cells[cid].particles) {
-        cells[cid].mass += part->mass;
-      }
+      cells[cid].part_count = cells[cid].particles.size();
+      cells[cid].mass = cell_mass;
 
       particle_offset += npart;
     }
 
     // Clear chunk data immediately to save memory
     chunk.masses.clear();
-    chunk.positions.clear();
     chunk.masses.shrink_to_fit();
-    chunk.positions.shrink_to_fit();
 
     chunks_read++;
     total_particles_read += chunk.particle_count;
@@ -766,84 +776,141 @@ void assignPartsToCells(Simulation *sim) {
 #ifdef DEBUGGING_CHECKS
   size_t total_part_count = 0;
 #endif
+  size_t constructed_part_count = 0;
 
   const auto construction_start = std::chrono::high_resolution_clock::now();
 
+#ifndef WITH_MPI
+  // Adopt the HDF5 buffers directly as simulation-owned property arrays. Cells
+  // only need to build index vectors, eliminating Particle object construction
+  // and the duplicate position/mass allocation.
+  if (!masses.empty()) {
+    sim->particle_masses = std::move(masses);
+    sim->particle_positions = std::move(poss);
+
+    const double arrays_gib =
+        static_cast<double>((sim->particle_masses.size() +
+                             sim->particle_positions.size()) *
+                            sizeof(double)) /
+        (1024.0 * 1024.0 * 1024.0);
+    message("Particle property arrays adopted (SoA): count=%zu, storage=%.2f "
+            "GiB",
+            sim->particle_masses.size(), arrays_gib);
+
+    // Allocate all cell index vectors before entering the OpenMP region so
+    // allocation failures never need to propagate out of a parallel loop.
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+      Cell *cell = &cells[cid];
+      if (!cell->is_useful)
+        continue;
+
+      const size_t count = counts[cid];
+      constructed_part_count += count;
+#ifdef DEBUGGING_CHECKS
+      total_part_count += count;
+#endif
+      try {
+        cell->particles.resize(count);
+      } catch (const std::bad_alloc &e) {
+        error("Memory allocation failed while allocating indices for cell %zu "
+              "(%zu particles). System out of memory. Error: %s",
+              cid, count, e.what());
+      }
+    }
+
+#pragma omp parallel for schedule(static)
+    for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+      Cell *cell = &cells[cid];
+      if (!cell->is_useful)
+        continue;
+
+      const size_t offset = offsets[cid];
+      const size_t count = counts[cid];
+      double cell_mass = 0.0;
+      for (size_t local_index = 0; local_index < count; local_index++) {
+        const size_t particle_index = offset + local_index;
+        cell->particles[local_index] = particle_index;
+        cell_mass += sim->particleMass(particle_index);
+      }
+      cell->mass = cell_mass;
+      cell->part_count = count;
+    }
+  }
+#else
   // Only process cells if we have particle data
   // (skip if rank has no local particles in MPI mode)
   if (!masses.empty()) {
+    sim->particle_masses.reserve(masses.size());
+    sim->particle_positions.reserve(poss.size());
+
     // Loop over cells attaching particles and grid points
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 
       // Get the cell
       Cell *cell = &cells[cid];
 
-    // Skip unuseful cells
-    if (!cell->is_useful)
-      continue;
+      // Skip unuseful cells
+      if (!cell->is_useful)
+        continue;
 
-#ifdef WITH_MPI
-    // Skip if this cell isn't on this rank (proxy cells handled separately)
-    if (cell->rank != metadata->rank)
-      continue;
-#endif
+      // Skip if this cell isn't on this rank (proxy cells handled separately)
+      if (cell->rank != metadata->rank)
+        continue;
 
-    // Get the particle slice start and length
-    size_t offset = offsets[cid];
-    size_t count = counts[cid];
+      // Get the particle slice start and length
+      size_t offset = offsets[cid];
+      size_t count = counts[cid];
+      constructed_part_count += count;
 #ifdef DEBUGGING_CHECKS
-    total_part_count += count;
+      total_part_count += count;
 #endif
 
-    // Reserve space for the particles in the cell
-    try {
-      cell->particles.reserve(count);
-    } catch (const std::bad_alloc &e) {
-      error("Memory allocation failed while reserving space for particles in "
-            "cell %zu. System out of memory. Error: %s",
-            cid, e.what());
-    }
-
-#ifdef WITH_MPI
-    // Remove the offset to this rank
-    offset -= metadata->first_local_part_ind;
-#endif
-
-    // Skip empty cells
-    if (count == 0)
-      continue;
-
-    // Loop over the particle data making particles
-    for (size_t p = offset; p < offset + count; p++) {
-
-      // Get the mass and position of the particle
-      const double mass = masses[p];
-      const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
-
-      // Add the mass to the cell
-      cell->mass += mass;
-
-      // Attach the particle to the cell
+      // Reserve space for the particles in the cell
       try {
-        cell->particles.push_back(new Particle(pos, mass));
+        cell->particles.reserve(count);
       } catch (const std::bad_alloc &e) {
-        error("Memory allocation failed while adding particle to cell %zu "
-              "(current size: %zu particles). System out of memory. "
-              "Error: %s",
-              cid, cell->particles.size(), e.what());
+        error("Memory allocation failed while reserving space for particles in "
+              "cell %zu. System out of memory. Error: %s",
+              cid, e.what());
       }
 
+      // Remove the offset to this rank
+      offset -= metadata->first_local_part_ind;
+
+      // Skip empty cells
+      if (count == 0)
+        continue;
+
+      // Loop over the particle data making particles
+      for (size_t p = offset; p < offset + count; p++) {
+
+        // Get the mass and position of the particle
+        const double mass = masses[p];
+        const double pos[3] = {poss[p * 3], poss[p * 3 + 1], poss[p * 3 + 2]};
+
+        // Add the mass to the cell
+        cell->mass += mass;
+
+        // Append the particle properties and attach its stable index
+        try {
+          const ParticleIndex part = sim->appendParticle(pos, mass);
+          cell->particles.push_back(part);
+        } catch (const std::bad_alloc &e) {
+          error("Memory allocation failed while adding particle to cell %zu "
+                "(current size: %zu particles). System out of memory. "
+                "Error: %s",
+                cid, cell->particles.size(), e.what());
+        }
+
 #ifdef DEBUGGING_CHECKS
-      // Check the last particle we added is ok
-      if (cell->particles.back() == nullptr) {
-        error("Failed to add particle to cell %zu (current size: %zu "
-              "particles). System out of memory.",
-              cid, cell->particles.size());
-      }
+        // Check the last particle we added is ok
+        if (cell->particles.back() >= sim->particle_masses.size())
+          error("Invalid particle index added to cell %zu", cid);
 #endif
+      }
     }
   }
-  }  // End if (!masses.empty())
+#endif
 
   const double construction_seconds =
       std::chrono::duration<double>(
@@ -851,32 +918,19 @@ void assignPartsToCells(Simulation *sim) {
           .count();
   const double construction_rate =
       construction_seconds > 0.0
-          ? static_cast<double>(masses.size()) / construction_seconds
+          ? static_cast<double>(constructed_part_count) / construction_seconds
           : 0.0;
   const double minimum_storage_gib =
-      static_cast<double>(masses.size()) *
-      (sizeof(Particle) + sizeof(Particle *)) /
+      (static_cast<double>(sim->particle_masses.size() +
+                           sim->particle_positions.size()) *
+           sizeof(double) +
+       static_cast<double>(constructed_part_count) * sizeof(ParticleIndex)) /
       (1024.0 * 1024.0 * 1024.0);
-  message("Constructed %zu particles in %.3f s (%.3e particles/s)",
-          masses.size(), construction_seconds, construction_rate);
-  message("Particle objects and top-level pointers require at least %.2f GiB "
-          "before allocator and vector overhead",
+  message("Indexed %zu particles in %.3f s (%.3e particles/s)",
+          constructed_part_count, construction_seconds, construction_rate);
+  message("Particle property arrays and top-level indices require at least "
+          "%.2f GiB before vector overhead",
           minimum_storage_gib);
-
-  // Compute the total mass in the simulation from the masses vector
-  double total_mass = 0.0;
-#pragma omp parallel for reduction(+ : total_mass)
-  for (double mass : masses) {
-    total_mass += mass;
-  }
-
-#ifdef WITH_MPI
-  // Reduce the total mass
-  double global_total_mass = 0.0;
-  MPI_Allreduce(&total_mass, &global_total_mass, 1, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
-  total_mass = global_total_mass;
-#endif
 
 #ifdef DEBUGGING_CHECKS
   // Make sure we have attached all the particles (only count local cells in
@@ -924,7 +978,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   size_t moved_count = 0;
 
   // Initialise a vector to hold the particles we will send to each rank
-  std::vector<std::vector<Particle *>> send_particles(metadata->size);
+  std::vector<std::vector<ParticleIndex>> send_particles(metadata->size);
 
   // Only check and move particles if this rank has local particles
   // (skip if rank has no local particles in MPI mode, but still participate
@@ -947,10 +1001,12 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
         size_t idx = p - 1;
 
         // Get the particle
-        Particle *part = cell->particles[idx];
+        const ParticleIndex part = cell->particles[idx];
+        const double *part_pos = sim->particlePosition(part);
+        const double part_mass = sim->particleMass(part);
 
         // Get the cell containing this particle
-        Cell *containing_cell = getCellContainingPoint(part->pos);
+        Cell *containing_cell = getCellContainingPoint(part_pos);
 
         // If the particle is in the right cell, continue
         if (containing_cell == cell)
@@ -965,10 +1021,10 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
 
         // If the containing cell is local, move the particle to it
         if (containing_cell->rank == metadata->rank) {
-          containing_cell->addParticle(part);
+          containing_cell->addParticle(part, part_mass);
           moved_count++;
           // Remove the particle from the current cell after moving it locally
-          cell->removeParticle(part);
+          cell->removeParticle(part, part_mass);
           continue;
         }
 
@@ -982,7 +1038,7 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
         }
 
         // Remove the particle from the current cell
-        cell->removeParticle(part);
+        cell->removeParticle(part, part_mass);
       }
     }
   } else {
@@ -1030,12 +1086,13 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
       send_buffer.reserve(send_particles[rank].size() *
                           4); // 1 mass + 3 positions per particle
 
-      for (Particle *part : send_particles[rank]) {
+      for (ParticleIndex part : send_particles[rank]) {
+        const double *part_pos = sim->particlePosition(part);
         // Add the particle data to the buffer
-        send_buffer.push_back(part->mass);
-        send_buffer.push_back(part->pos[0]);
-        send_buffer.push_back(part->pos[1]);
-        send_buffer.push_back(part->pos[2]);
+        send_buffer.push_back(sim->particleMass(part));
+        send_buffer.push_back(part_pos[0]);
+        send_buffer.push_back(part_pos[1]);
+        send_buffer.push_back(part_pos[2]);
       }
 
       // Post the send
@@ -1078,10 +1135,10 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
       double pos[3] = {recv_buffer[i * 4 + 1], recv_buffer[i * 4 + 2],
                        recv_buffer[i * 4 + 3]};
 
-      // Create a new particle and add it to the correct cell
-      Particle *part = new Particle(pos, mass);
+      // Append the received properties and add the index to the correct cell
+      const ParticleIndex part = sim->appendParticle(pos, mass);
       Cell *containing_cell = getCellContainingPoint(pos);
-      containing_cell->addParticle(part);
+      containing_cell->addParticle(part, mass);
       moved_count++;
     }
   }
@@ -1122,12 +1179,13 @@ void checkAndMoveParticles(Simulation *sim) {
   }
 
   struct ParticleMove {
-    Particle *particle;
+    ParticleIndex particle;
     Cell *destination;
   };
 
-  // Each source cell is checked by exactly one thread, so misplaced particles
-  // can be collected without locks. No cell is mutated during this phase.
+  // Each source cell is checked by exactly one thread, so its particle vector
+  // can be compacted in place without locks. Destination cells are only
+  // updated after every source has finished being compacted.
   std::vector<std::vector<ParticleMove>> pending_moves(sim->nr_cells);
   size_t checked_count = 0;
   const auto validation_start = std::chrono::high_resolution_clock::now();
@@ -1140,11 +1198,21 @@ void checkAndMoveParticles(Simulation *sim) {
 
     checked_count += cell->particles.size();
     std::vector<ParticleMove> &cell_moves = pending_moves[cid];
-    for (Particle *part : cell->particles) {
-      Cell *containing_cell = getCellContainingPoint(part->pos);
-      if (containing_cell != cell)
+    size_t retained_count = 0;
+    double retained_mass = 0.0;
+    for (ParticleIndex part : cell->particles) {
+      const double *part_pos = sim->particlePosition(part);
+      Cell *containing_cell = getCellContainingPoint(part_pos);
+      if (containing_cell != cell) {
         cell_moves.push_back({part, containing_cell});
+      } else {
+        cell->particles[retained_count++] = part;
+        retained_mass += sim->particleMass(part);
+      }
     }
+    cell->particles.resize(retained_count);
+    cell->part_count = retained_count;
+    cell->mass = retained_mass;
   }
 
   const double validation_seconds =
@@ -1164,13 +1232,13 @@ void checkAndMoveParticles(Simulation *sim) {
               : 0.0,
           moved_count);
 
-  // Apply moves only after every thread has completed the read-only check.
+  // Apply moves only after every source vector has been compacted. This avoids
+  // an O(source size) pointer search for every misplaced particle.
   const auto move_start = std::chrono::high_resolution_clock::now();
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell *source = &cells[cid];
     for (const ParticleMove &move : pending_moves[cid]) {
-      move.destination->addParticle(move.particle, false);
-      source->removeParticle(move.particle);
+      move.destination->addParticle(move.particle,
+                                    sim->particleMass(move.particle), false);
     }
   }
 
@@ -1194,14 +1262,15 @@ void checkAndMoveParticles(Simulation *sim) {
   if (moved_count > 0) {
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
       Cell *cell = &cells[cid];
-      for (Particle *part : cell->particles) {
-        Cell *containing_cell = getCellContainingPoint(part->pos);
+      for (ParticleIndex part : cell->particles) {
+        const double *part_pos = sim->particlePosition(part);
+        Cell *containing_cell = getCellContainingPoint(part_pos);
         if (containing_cell != cell) {
-          int correct_cid = getCellIndexContainingPoint(part->pos);
+          int correct_cid = getCellIndexContainingPoint(part_pos);
           error("Particle at (%f, %f, %f) in cell %zu (%f-%f, %f-%f, %f-%f) "
                 "is in the wrong cell. getCellContainingPoint says it should "
                 "be in cell %d (%f-%f, %f-%f, %f-%f)",
-                part->pos[0], part->pos[1], part->pos[2], cid, cell->loc[0],
+                part_pos[0], part_pos[1], part_pos[2], cid, cell->loc[0],
                 cell->loc[0] + cell->width[0], cell->loc[1],
                 cell->loc[1] + cell->width[1], cell->loc[2],
                 cell->loc[2] + cell->width[2], correct_cid,
@@ -1213,14 +1282,14 @@ void checkAndMoveParticles(Simulation *sim) {
                 containing_cell->loc[2] + containing_cell->width[2]);
         }
 
-        if (part->pos[0] < cell->loc[0] ||
-            part->pos[0] >= cell->loc[0] + cell->width[0] ||
-            part->pos[1] < cell->loc[1] ||
-            part->pos[1] >= cell->loc[1] + cell->width[1] ||
-            part->pos[2] < cell->loc[2] ||
-            part->pos[2] >= cell->loc[2] + cell->width[2]) {
+        if (part_pos[0] < cell->loc[0] ||
+            part_pos[0] >= cell->loc[0] + cell->width[0] ||
+            part_pos[1] < cell->loc[1] ||
+            part_pos[1] >= cell->loc[1] + cell->width[1] ||
+            part_pos[2] < cell->loc[2] ||
+            part_pos[2] >= cell->loc[2] + cell->width[2]) {
           error("Particle at (%f, %f, %f) in cell %zu is out of bounds",
-                part->pos[0], part->pos[1], part->pos[2], cid);
+                part_pos[0], part_pos[1], part_pos[2], cid);
         }
       }
     }
@@ -1511,12 +1580,7 @@ void cleanupNonUsefulCells(Simulation *sim) {
     // This cell is neither useful nor a proxy - deallocate its particles
     if (!cell->particles.empty()) {
       particles_deallocated += cell->particles.size();
-      memory_freed += cell->particles.size() * sizeof(Particle);
-
-      // Delete particle objects
-      for (Particle *part : cell->particles) {
-        delete part;
-      }
+      memory_freed += cell->particles.capacity() * sizeof(ParticleIndex);
 
       // Clear and shrink the vector to free memory
       cell->particles.clear();
@@ -1531,7 +1595,8 @@ void cleanupNonUsefulCells(Simulation *sim) {
   }
 
   if (cells_cleaned > 0) {
-    message("Cleaned up %zu cells: deallocated %zu particles, freed %.2f MB",
+    message("Cleaned up %zu cells: detached particle indices=%zu, freed %.2f "
+            "MB of cell index storage",
             cells_cleaned, particles_deallocated,
             memory_freed / (1024.0 * 1024.0));
   }

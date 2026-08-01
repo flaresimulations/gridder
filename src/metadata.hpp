@@ -5,7 +5,6 @@
 #define METADATA_HPP
 
 // Standard includes
-#include <array>
 #include <limits>
 #include <string>
 #include <vector>
@@ -35,9 +34,8 @@ struct ParticleChunk {
   size_t grid_point_count = 0;   ///< Total number of grid points in this chunk
   int reading_rank = 0; ///< MPI rank assigned to read this chunk (0 in serial)
 
-  // Temporary storage after reading (cleared after use)
-  std::vector<double> masses;                   ///< Particle masses
-  std::vector<std::array<double, 3>> positions; ///< Particle positions
+  // Temporary mass storage after reading (cleared after use)
+  std::vector<double> masses;
 };
 
 // This is a Singleton class to store the necessary metadata used in the

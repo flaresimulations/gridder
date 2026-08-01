@@ -759,6 +759,8 @@ Output:
         assert result.returncode == 0, (
             f"Gridder failed\nstdout: {result.stdout}\nstderr: {result.stderr}"
         )
+        assert "using full read strategy" in result.stdout
+        assert "Particle property arrays adopted (SoA): count=2" in result.stdout
         assert "found 1 misplaced particles" in result.stdout
         assert "Moved 1 particles" in result.stdout
 
@@ -771,6 +773,92 @@ Output:
         }
         assert np.isclose(mass_by_position[(1.5, 1.5, 1.5)], 2.0)
         assert np.isclose(mass_by_position[(7.5, 7.5, 7.5)], 3.0)
+
+    def test_indexed_particle_cleanup_after_move(self, build_gridder, tmp_path):
+        """A particle index moved to a non-useful cell is safely detached."""
+        snapshot = tmp_path / "indexed_particle_cleanup.hdf5"
+        grid_file = tmp_path / "grid_points.txt"
+        params = tmp_path / "params.yml"
+
+        # Store the particle in useful cell 0, but place it physically in the
+        # central cell. Grid points cover the box except for the central cell's
+        # immediate neighbourhood, leaving that destination non-useful while
+        # still selecting the full-read strategy.
+        with h5py.File(snapshot, "w") as handle:
+            header = handle.create_group("Header")
+            header.attrs["BoxSize"] = np.array([11.0, 11.0, 11.0])
+            header.attrs["NumPart_Total"] = np.array(
+                [0, 1, 0, 0, 0, 0], dtype=np.uint64
+            )
+            header.attrs["Redshift"] = 0.0
+
+            particles = handle.create_group("PartType1")
+            particles.create_dataset(
+                "Coordinates", data=np.array([[5.5, 5.5, 5.5]])
+            )
+            particles.create_dataset("Masses", data=np.array([2.0]))
+
+            cells = handle.create_group("Cells")
+            metadata = cells.create_group("Meta-data")
+            metadata.attrs["dimension"] = np.array([11, 11, 11], dtype=np.int32)
+            metadata.attrs["size"] = np.array([1.0, 1.0, 1.0])
+
+            counts = np.zeros(11**3, dtype=np.int32)
+            counts[0] = 1
+            offsets = np.ones(11**3, dtype=np.int32)
+            offsets[0] = 0
+            cells.create_group("Counts").create_dataset("PartType1", data=counts)
+            cells.create_group("OffsetsInFile").create_dataset(
+                "PartType1", data=offsets
+            )
+
+        grid_points = []
+        for ix in range(11):
+            for iy in range(11):
+                for iz in range(11):
+                    if (
+                        ix in range(3, 8)
+                        and iy in range(3, 8)
+                        and iz in range(3, 8)
+                    ):
+                        continue
+                    grid_points.append(f"{ix + 0.5} {iy + 0.5} {iz + 0.5}")
+        grid_file.write_text("\n".join(grid_points) + "\n")
+
+        params.write_text(
+            f"""Kernels:
+  nkernels: 1
+  kernel_radius_1: 0.1
+Grid:
+  type: file
+  grid_file: {grid_file}
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+Tree:
+  max_leaf_count: 200
+Input:
+  filepath: {snapshot}
+Output:
+  filepath: {tmp_path}
+  basename: output.hdf5
+  write_masses: 1
+"""
+        )
+
+        result = subprocess.run(
+            [str(build_gridder), str(params), "4"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"Gridder failed\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "using full read strategy" in result.stdout
+        assert "Particle property arrays adopted (SoA): count=1" in result.stdout
+        assert "found 1 misplaced particles" in result.stdout
+        assert "Cleaned up 1 cells: detached particle indices=1" in result.stdout
 
 
 # ============================================================================

@@ -35,14 +35,14 @@ void GridPoint::initializeKernels(const std::size_t kernel_count) {
 /**
  * @brief Add a particle to the grid point
  *
- * @param part The particle to add
+ * @param particle_mass The mass of the particle to add
  * @param kernel_index The index of the kernel to update
  */
-void GridPoint::add_particle(const Particle *part,
+void GridPoint::add_particle(const double particle_mass,
                              const std::size_t kernel_index) {
   KernelAccumulator &kernel = this->kernel_data[kernel_index];
   kernel.count++;
-  kernel.mass += part->mass;
+  kernel.mass += particle_mass;
 }
 
 /**

@@ -23,23 +23,25 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
 
   // Get the boxsize from the metadata
   Metadata *metadata = &Metadata::getInstance();
-  double *dim = metadata->sim->dim;
+  Simulation *sim = metadata->sim;
+  double *dim = sim->dim;
 
   // Loop over the particles in the cell and assign them to the grid point
   // Use particles.size() instead of part_count to handle ranks with no local particles
   for (size_t p = 0; p < cell->particles.size(); p++) {
-    Particle *part = cell->particles[p];
+    const ParticleIndex part = cell->particles[p];
+    const double *part_pos = sim->particlePosition(part);
 
     // Get the distance between the particle and the grid point
-    double dx = nearest(part->pos[0] - grid_point->loc[0], dim[0]);
-    double dy = nearest(part->pos[1] - grid_point->loc[1], dim[1]);
-    double dz = nearest(part->pos[2] - grid_point->loc[2], dim[2]);
+    double dx = nearest(part_pos[0] - grid_point->loc[0], dim[0]);
+    double dy = nearest(part_pos[1] - grid_point->loc[1], dim[1]);
+    double dz = nearest(part_pos[2] - grid_point->loc[2], dim[2]);
     double r2 = dx * dx + dy * dy + dz * dz;
 
     // If the particle is within the kernel radius of the grid point then
     // assign it
     if (r2 <= kernel_rad2) {
-      grid_point->add_particle(part, kernel_index);
+      grid_point->add_particle(sim->particleMass(part), kernel_index);
     }
   }
 }

@@ -22,7 +22,7 @@ public:
   // Prototypes for member functions (defined in grid_point.cpp)
   GridPoint(double loc[3]);
   void initializeKernels(std::size_t kernel_count);
-  void add_particle(const Particle *part, std::size_t kernel_index);
+  void add_particle(double particle_mass, std::size_t kernel_index);
   void add_cell(std::size_t cell_part_count, double cell_mass,
                 std::size_t kernel_index);
   double getOverDensity(std::size_t kernel_index, double kernel_radius,

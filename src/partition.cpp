@@ -504,10 +504,12 @@ void exchangeProxyCells(Simulation *sim) {
       // Use particles.size() instead of part_count to handle ranks with no
       // local particles
       for (size_t p = 0; p < cell->particles.size(); p++) {
-        particle_data.push_back(cell->particles[p]->mass);
-        particle_data.push_back(cell->particles[p]->pos[0]);
-        particle_data.push_back(cell->particles[p]->pos[1]);
-        particle_data.push_back(cell->particles[p]->pos[2]);
+        const ParticleIndex part = cell->particles[p];
+        const double *part_pos = sim->particlePosition(part);
+        particle_data.push_back(sim->particleMass(part));
+        particle_data.push_back(part_pos[0]);
+        particle_data.push_back(part_pos[1]);
+        particle_data.push_back(part_pos[2]);
       }
 
       // Post the send
@@ -574,7 +576,7 @@ void exchangeProxyCells(Simulation *sim) {
                        recv_particle_data[p * 4 + 2],
                        recv_particle_data[p * 4 + 3]};
 
-      Particle *part = new Particle(pos, mass);
+      const ParticleIndex part = sim->appendParticle(pos, mass);
       cell->particles.push_back(part);
       cell->mass += mass;
     }

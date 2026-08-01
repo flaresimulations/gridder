@@ -35,11 +35,9 @@ Simulation::Simulation() {
  * @brief Destructor - clean up dynamically allocated particles and cells.
  */
 Simulation::~Simulation() {
-  // Delete all particles allocated with raw pointers
+  // Particle properties are owned by the simulation arrays. Cells only store
+  // indices, so only the dynamically allocated child cells need deletion.
   for (Cell &cell : this->cells) {
-    for (Particle *part : cell.particles) {
-      delete part;
-    }
     // Recursively delete child cells (they will handle their own particles)
     deleteChildCells(&cell);
   }
