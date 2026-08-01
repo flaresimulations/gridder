@@ -1,6 +1,8 @@
 // Standard includes
+#include <algorithm>
 #include <cmath>
 #include <memory>
+#include <numeric>
 #include <vector>
 
 // Local includes
@@ -9,17 +11,26 @@
 #include "metadata.hpp"
 #include "simulation.hpp"
 
+namespace {
+struct KernelTraversalContext {
+  std::vector<double> sorted_radii2;
+  std::vector<size_t> original_indices;
+};
+} // namespace
+
 /**
  * @brief Function to assign particles to a grid point.
  *
  * @param cell The cell to assign particles to grid points within.
  * @param grid_point The grid point to assign particles to.
- * @param kernel_index The index of the kernel accumulator to update.
- * @param kernel_rad2 The squared kernel radius.
+ * @param kernels Sorted kernel radii and their original accumulator indices.
+ * @param kernel_begin First unresolved radius in the sorted arrays.
+ * @param kernel_end One past the last unresolved radius.
  */
 static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
-                                 const size_t kernel_index,
-                                 const double kernel_rad2) {
+                                const KernelTraversalContext &kernels,
+                                const size_t kernel_begin,
+                                const size_t kernel_end) {
 
   // Get the boxsize from the metadata
   Metadata *metadata = &Metadata::getInstance();
@@ -38,11 +49,18 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
     double dz = nearest(part_pos[2] - grid_point->loc[2], dim[2]);
     double r2 = dx * dx + dy * dy + dz * dz;
 
-    // If the particle is within the kernel radius of the grid point then
-    // assign it
-    if (r2 <= kernel_rad2) {
-      grid_point->add_particle(sim->particleMass(part), kernel_index);
-    }
+    // The containing radii form a suffix because radii are sorted. Locate the
+    // first match once, then update it and every larger unresolved kernel.
+    const auto first_containing = std::lower_bound(
+        kernels.sorted_radii2.begin() + kernel_begin,
+        kernels.sorted_radii2.begin() + kernel_end, r2);
+    const size_t first_index =
+        static_cast<size_t>(first_containing - kernels.sorted_radii2.begin());
+    if (first_index == kernel_end)
+      continue;
+    const double particle_mass = sim->particleMass(part);
+    for (size_t k = first_index; k < kernel_end; k++)
+      grid_point->add_particle(particle_mass, kernels.original_indices[k]);
   }
 }
 
@@ -61,15 +79,17 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
  *
  * @param cell The cell to assign particles to grid points within
  * @param other The other cell to assign particles from
- * @param kernel_index The index of the kernel accumulator to update
- * @param kernel_rad2 The squared kernel radius
+ * @param kernels Sorted kernel radii and original accumulator indices
+ * @param kernel_begin First unresolved radius
+ * @param kernel_end One past the last unresolved radius
  */
 static void recursivePairPartsToPoints(Cell *cell, Cell *other,
-                                        const size_t kernel_index,
-                                        const double kernel_rad2) {
+                                       const KernelTraversalContext &kernels,
+                                       const size_t kernel_begin,
+                                       const size_t kernel_end) {
 
   // Ensure we have grid points, otherwise there's nothing to add to
-  if (cell->grid_points.size() == 0)
+  if (cell->grid_points.size() == 0 || kernel_begin == kernel_end)
     return;
 
   // Ensure the other cell has particles, otherwise there's nothing to add
@@ -80,8 +100,8 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
   // the cell tree was constructed such that the leaves have only 1 grid point)
   if (cell->grid_points.size() > 1) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
-      recursivePairPartsToPoints(cell->children[i], other, kernel_index,
-                                  kernel_rad2);
+      recursivePairPartsToPoints(cell->children[i], other, kernels,
+                                 kernel_begin, kernel_end);
     }
     return;
   }
@@ -96,30 +116,42 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
   // Get the single grid point in this leaf
   GridPoint *grid_point = cell->grid_points[0];
 
-  // Early exit if the cells are too far apart.
-  if (other->outsideKernel(grid_point, kernel_rad2))
+  // Outside decisions form a prefix of the sorted radii. Discard that prefix.
+  size_t overlap_begin = kernel_begin;
+  while (overlap_begin < kernel_end &&
+         other->outsideKernel(grid_point,
+                              kernels.sorted_radii2[overlap_begin]))
+    overlap_begin++;
+  if (overlap_begin == kernel_end)
     return;
 
-  // Can we just add the whole cell to the grid point?
-  if (other->inKernel(grid_point, kernel_rad2)) {
-    grid_point->add_cell(other->part_count, other->mass, kernel_index);
-    return;
+  // Whole-cell acceptance forms a suffix. Accumulate that suffix immediately;
+  // only the middle range of partially overlapping radii needs more work.
+  size_t inside_begin = overlap_begin;
+  while (inside_begin < kernel_end &&
+         !other->inKernel(grid_point, kernels.sorted_radii2[inside_begin]))
+    inside_begin++;
+  for (size_t k = inside_begin; k < kernel_end; k++) {
+    grid_point->add_cell(other->part_count, other->mass,
+                         kernels.original_indices[k]);
   }
+  if (overlap_begin == inside_begin)
+    return;
 
   // Internal cells retain aggregate count and mass but release their particle
   // indices after splitting. For a partial overlap, always descend until an
   // unsplit leaf supplies the indices that need explicit distance checks.
   if (other->is_split) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
-      recursivePairPartsToPoints(cell, other->children[i], kernel_index,
-                                  kernel_rad2);
+      recursivePairPartsToPoints(cell, other->children[i], kernels,
+                                 overlap_begin, inside_begin);
     }
     return;
   }
 
   // Ok, we can't just add the whole cell to the grid point, instead check
   // the particles in the other cell
-  addPartsToGridPoint(other, grid_point, kernel_index, kernel_rad2);
+  addPartsToGridPoint(other, grid_point, kernels, overlap_begin, inside_begin);
 }
 
 /**
@@ -131,14 +163,18 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
  * is where a cell only contains a single grid point.
  *
  * @param cell The cell to assign particles to grid points within.
- * @param kernel_index The index of the kernel accumulator to update.
- * @param kernel_rad2 The squared kernel radius.
+ * @param kernels Sorted kernel radii and original accumulator indices.
+ * @param kernel_begin First unresolved radius.
+ * @param kernel_end One past the last unresolved radius.
  */
-static void recursiveSelfPartsToPoints(Cell *cell, const size_t kernel_index,
-                                        const double kernel_rad2) {
+static void recursiveSelfPartsToPoints(Cell *cell,
+                                       const KernelTraversalContext &kernels,
+                                       const size_t kernel_begin,
+                                       const size_t kernel_end) {
 
   // Ensure we have grid points and particles
-  if (cell->grid_points.size() == 0 || cell->part_count == 0)
+  if (cell->grid_points.size() == 0 || cell->part_count == 0 ||
+      kernel_begin == kernel_end)
     return;
 
   // Split cells do not retain particle indices. Recurse even when this cell
@@ -146,41 +182,45 @@ static void recursiveSelfPartsToPoints(Cell *cell, const size_t kernel_index,
   // particle-bearing children and their siblings.
   if (cell->is_split) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
-      recursiveSelfPartsToPoints(cell->children[i], kernel_index, kernel_rad2);
+      recursiveSelfPartsToPoints(cell->children[i], kernels, kernel_begin,
+                                 kernel_end);
 
       // And do the pair assignment
       for (int j = 0; j < Cell::OCTREE_CHILDREN; j++) {
         if (i == j)
           continue;
         recursivePairPartsToPoints(cell->children[i], cell->children[j],
-                                    kernel_index, kernel_rad2);
+                                   kernels, kernel_begin, kernel_end);
       }
     }
   } else {
-
-    // Ensure we only have 1 grid point now we are in a leaf
     if (cell->grid_points.size() > 1) {
       error("We shouldn't be able to find a leaf with more than 1 grid point "
             "(leaf->grid_points.size()=%d",
             cell->grid_points.size());
     }
 
-    // Get the single grid point in this leaf
-    GridPoint &grid_point = *cell->grid_points[0];
-
-    // If the diagonal of the cell is less than the kernel radius then we can
-    // just add the whole cell to the grid point since the entire cell is
-    // within the kernel radius
+    GridPoint *grid_point = cell->grid_points[0];
     const double cell_diag = cell->width[0] * cell->width[0] +
                              cell->width[1] * cell->width[1] +
                              cell->width[2] * cell->width[2];
-    if (cell_diag <= kernel_rad2) {
-      grid_point.add_cell(cell->part_count, cell->mass, kernel_index);
-      return;
-    }
 
-    // Associate particles to the single grid point
-    addPartsToGridPoint(cell, cell->grid_points[0], kernel_index, kernel_rad2);
+    // Preserve the original self-cell shortcut: radii at least as large as
+    // the cell diagonal contain every particle because the grid point lies in
+    // this leaf. Only smaller radii require explicit particle distances.
+    const auto first_containing_cell = std::lower_bound(
+        kernels.sorted_radii2.begin() + kernel_begin,
+        kernels.sorted_radii2.begin() + kernel_end, cell_diag);
+    const size_t inside_begin = static_cast<size_t>(
+        first_containing_cell - kernels.sorted_radii2.begin());
+    for (size_t k = inside_begin; k < kernel_end; k++) {
+      grid_point->add_cell(cell->part_count, cell->mass,
+                           kernels.original_indices[k]);
+    }
+    if (kernel_begin < inside_begin) {
+      addPartsToGridPoint(cell, grid_point, kernels, kernel_begin,
+                          inside_begin);
+    }
   }
 }
 
@@ -196,6 +236,31 @@ static void recursiveSelfPartsToPoints(Cell *cell, const size_t kernel_index,
 void getKernelMasses(Simulation *sim, Grid *grid) {
 
   tic();
+
+  KernelTraversalContext kernels;
+  kernels.original_indices.resize(grid->kernel_radii.size());
+  std::iota(kernels.original_indices.begin(), kernels.original_indices.end(),
+            size_t{0});
+  std::stable_sort(
+      kernels.original_indices.begin(), kernels.original_indices.end(),
+      [&](const size_t lhs, const size_t rhs) {
+        const double lhs_radius = grid->kernel_radii[lhs];
+        const double rhs_radius = grid->kernel_radii[rhs];
+        return lhs_radius * lhs_radius < rhs_radius * rhs_radius;
+      });
+  kernels.sorted_radii2.reserve(grid->kernel_radii.size());
+  for (size_t kernel_index : kernels.original_indices) {
+    const double radius = grid->kernel_radii[kernel_index];
+    kernels.sorted_radii2.push_back(radius * radius);
+  }
+
+  if (kernels.sorted_radii2.empty()) {
+    toc("Computing kernel masses");
+    return;
+  }
+
+  message("Using one fused octree traversal for %zu kernel radii",
+          kernels.sorted_radii2.size());
 
 #ifdef WITH_MPI
   // Get the metadata instance for MPI rank checking
@@ -222,23 +287,13 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
     Cell *cell = sim->useful_cells[i];
 #endif
 
-    // Loop over kernels
-    for (size_t kernel_index = 0; kernel_index < grid->kernel_radii.size();
-         kernel_index++) {
+    // Traverse the tree once for all radii, preserving the original kernel
+    // accumulator indices through the sorted traversal context.
+    recursiveSelfPartsToPoints(cell, kernels, 0, kernels.sorted_radii2.size());
 
-      // Compute squared kernel radius
-      const double kernel_rad = grid->kernel_radii[kernel_index];
-      double kernel_rad2 = kernel_rad * kernel_rad;
-
-      // Recursively assign particles within a cell to the grid points within
-      // the cell
-      recursiveSelfPartsToPoints(cell, kernel_index, kernel_rad2);
-
-      // Recursively assign particles within any neighbours to the grid points
-      // within a cell
-      for (Cell *neighbour : cell->neighbours) {
-        recursivePairPartsToPoints(cell, neighbour, kernel_index, kernel_rad2);
-      }
+    for (Cell *neighbour : cell->neighbours) {
+      recursivePairPartsToPoints(cell, neighbour, kernels, 0,
+                                 kernels.sorted_radii2.size());
     }
   }
   toc("Computing kernel masses");

@@ -869,7 +869,7 @@ class TestOctreeParticleStorage:
     """Tests for leaf-only particle-index storage in split octrees."""
 
     def test_single_grid_point_deep_particle_tree(self, build_gridder, tmp_path):
-        """A partial kernel remains correct after internal indices are freed."""
+        """Unsorted fused kernels remain correct in a deep particle tree."""
         snapshot = tmp_path / "deep_particle_tree.hdf5"
         grid_file = tmp_path / "grid_points.txt"
         params = tmp_path / "params.yml"
@@ -878,11 +878,14 @@ class TestOctreeParticleStorage:
         axis = np.linspace(4.2, 5.8, 5)
         positions = np.array(np.meshgrid(axis, axis, axis)).reshape(3, -1).T
         masses = np.arange(1, len(positions) + 1, dtype=np.float64)
-        kernel_radius = 0.65
-        expected_mass = masses[
-            np.sum((positions - np.array([5.0, 5.0, 5.0])) ** 2, axis=1)
-            <= kernel_radius**2
-        ].sum()
+        kernel_radii = [1.2, 0.25, 0.65]
+        particle_r2 = np.sum(
+            (positions - np.array([5.0, 5.0, 5.0])) ** 2, axis=1
+        )
+        expected_masses = [
+            masses[particle_r2 <= kernel_radius**2].sum()
+            for kernel_radius in kernel_radii
+        ]
 
         with h5py.File(snapshot, "w") as handle:
             header = handle.create_group("Header")
@@ -913,8 +916,10 @@ class TestOctreeParticleStorage:
         grid_file.write_text("5.0 5.0 5.0\n")
         params.write_text(
             f"""Kernels:
-  nkernels: 1
-  kernel_radius_1: {kernel_radius}
+  nkernels: 3
+  kernel_radius_1: {kernel_radii[0]}
+  kernel_radius_2: {kernel_radii[1]}
+  kernel_radius_3: {kernel_radii[2]}
 Grid:
   type: file
   grid_file: {grid_file}
@@ -945,8 +950,11 @@ Output:
         assert "0 in internal cells" in result.stdout
 
         with h5py.File(output, "r") as handle:
-            actual_mass = handle["Grids/Kernel_0/GridPointMasses"][0]
-        assert np.isclose(actual_mass, expected_mass)
+            actual_masses = [
+                handle[f"Grids/Kernel_{index}/GridPointMasses"][0]
+                for index in range(len(kernel_radii))
+            ]
+        assert np.allclose(actual_masses, expected_masses)
 
 
 # ============================================================================
