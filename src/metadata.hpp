@@ -6,6 +6,7 @@
 
 // Standard includes
 #include <array>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -85,13 +86,13 @@ public:
 
 #ifdef WITH_MPI
   //! How many cells do we have locally?
-  int nr_local_cells;
+  size_t nr_local_cells = 0;
 
   //! How many particles do we have locally?
-  int nr_local_particles;
+  size_t nr_local_particles = 0;
 
   //! Index of first particle on this rank (legacy - used for old partitioning)
-  int first_local_part_ind = -1;
+  size_t first_local_part_ind = std::numeric_limits<size_t>::max();
 
   //! Particle chunks for two-phase I/O optimization
   std::vector<ParticleChunk> particle_chunks;

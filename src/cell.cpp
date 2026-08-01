@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <new>
 #include <string>
@@ -312,8 +313,8 @@ void Cell::split() {
     child_part_count += this->children[i]->part_count;
   }
   if (child_part_count != this->part_count)
-    error("Particle count mismatch in cell (child_part_count = %d, "
-          "this->part_count = %d)",
+    error("Particle count mismatch in cell (child_part_count = %zu, "
+          "this->part_count = %zu)",
           child_part_count, this->part_count);
 
   // Ensure all particles in this cell should be in this cell
@@ -698,8 +699,8 @@ void assignPartsToCells(Simulation *sim) {
   Metadata *metadata = &Metadata::getInstance();
 
   // Unpack the cell particle counts and offsets
-  std::vector<int> &counts = sim->cell_part_counts;
-  std::vector<int> &offsets = sim->cell_part_starts;
+  std::vector<size_t> &counts = sim->cell_part_counts;
+  std::vector<size_t> &offsets = sim->cell_part_starts;
 
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
@@ -713,7 +714,8 @@ void assignPartsToCells(Simulation *sim) {
 #ifdef WITH_MPI
   // In MPI mode, only read if this rank has local particles
   // (but still participate in MPI_Allreduce later)
-  if (metadata->nr_local_particles > 0 && metadata->first_local_part_ind >= 0) {
+  if (metadata->nr_local_particles > 0 &&
+      metadata->first_local_part_ind != std::numeric_limits<size_t>::max()) {
     // Open the HDF5 file
     HDF5Helper hdf(metadata->input_file);
 
@@ -892,9 +894,9 @@ void assignPartsToCells(Simulation *sim) {
 #endif
   }
   if (total_part_count != total_cell_part_count) {
-    error("Particle count mismatch (total_part_count = %d, "
+    error("Particle count mismatch (total_part_count = %zu, "
           "total_cell_part_count = "
-          "%d)",
+          "%zu)",
           total_part_count, total_cell_part_count);
   }
 #endif
@@ -927,7 +929,8 @@ static void checkAndMoveParticlesMPI(Simulation *sim) {
   // Only check and move particles if this rank has local particles
   // (skip if rank has no local particles in MPI mode, but still participate
   // in MPI_Alltoall later)
-  if (metadata->nr_local_particles > 0 && metadata->first_local_part_ind >= 0) {
+  if (metadata->nr_local_particles > 0 &&
+      metadata->first_local_part_ind != std::numeric_limits<size_t>::max()) {
     // Loop over the cells and check the particles
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
 

@@ -163,6 +163,43 @@ bool HDF5Helper::isVirtualDataset(const std::string &datasetName) {
   return is_virtual;
 }
 
+std::vector<hsize_t>
+HDF5Helper::getDatasetDimensions(const std::string &datasetName) {
+  if (!file_open) {
+    error("Cannot inspect dataset dimensions: file is not open");
+  }
+
+  hid_t dataset_id = H5Dopen(file_id, datasetName.c_str(), H5P_DEFAULT);
+  if (dataset_id < 0) {
+    error("Failed to open dataset '%s'", datasetName.c_str());
+  }
+
+  hid_t dataspace_id = H5Dget_space(dataset_id);
+  if (dataspace_id < 0) {
+    H5Dclose(dataset_id);
+    error("Failed to open dataspace for dataset '%s'", datasetName.c_str());
+  }
+
+  const int rank = H5Sget_simple_extent_ndims(dataspace_id);
+  if (rank < 0) {
+    H5Sclose(dataspace_id);
+    H5Dclose(dataset_id);
+    error("Failed to read rank for dataset '%s'", datasetName.c_str());
+  }
+
+  std::vector<hsize_t> dimensions(static_cast<size_t>(rank));
+  if (rank > 0 &&
+      H5Sget_simple_extent_dims(dataspace_id, dimensions.data(), nullptr) < 0) {
+    H5Sclose(dataspace_id);
+    H5Dclose(dataset_id);
+    error("Failed to read dimensions for dataset '%s'", datasetName.c_str());
+  }
+
+  H5Sclose(dataspace_id);
+  H5Dclose(dataset_id);
+  return dimensions;
+}
+
 /**
  * @brief Create transfer property list for I/O operations
  *

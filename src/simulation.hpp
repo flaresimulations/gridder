@@ -56,10 +56,10 @@ public:
   std::vector<Cell> cells;
 
   //! The number of particles in each cell
-  std::vector<int> cell_part_counts;
+  std::vector<size_t> cell_part_counts;
 
   //! The indices to the particles in each cell in the simulation output
-  std::vector<int> cell_part_starts;
+  std::vector<size_t> cell_part_starts;
 
   //! Vector of pointers to locally useful cells (for efficient iteration)
   std::vector<Cell*> locally_useful_cells;

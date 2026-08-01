@@ -178,6 +178,12 @@ public:
    */
   bool isVirtualDataset(const std::string &datasetName);
 
+  /**
+   * @brief Return the dimensions of an existing dataset.
+   * @param datasetName Name of the dataset to inspect.
+   */
+  std::vector<hsize_t> getDatasetDimensions(const std::string &datasetName);
+
 #ifdef WITH_MPI
   /**
    * @brief Get the MPI rank (only available in MPI builds)

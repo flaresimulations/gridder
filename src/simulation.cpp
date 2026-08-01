@@ -1,5 +1,6 @@
 // Standard includes
 #include <cmath>
+#include <limits>
 
 // Local includes
 #include "simulation.hpp"
@@ -92,7 +93,7 @@ void Simulation::readSimulationData() {
   // Report interesting things but only on rank 0
   if (metadata->rank == 0) {
     message("Redshift: %f", this->redshift);
-    message("Running with %d dark matter particles", this->nr_dark_matter);
+    message("Running with %zu dark matter particles", this->nr_dark_matter);
     message("Running with %d cells", this->nr_cells);
     message("Cdim: %d %d %d", this->cdim[0], this->cdim[1], this->cdim[2]);
     message("Box size: %f %f %f", this->dim[0], this->dim[1], this->dim[2]);
@@ -100,13 +101,70 @@ void Simulation::readSimulationData() {
             this->width[2]);
   }
 
-  // Read the number of particles in each cell
-  hdf.readDataset<int>(std::string("Cells/Counts/PartType1"),
-                       this->cell_part_counts);
+  const std::vector<hsize_t> mass_dims =
+      hdf.getDatasetDimensions("PartType1/Masses");
+  const std::vector<hsize_t> position_dims =
+      hdf.getDatasetDimensions("PartType1/Coordinates");
+
+  if (mass_dims.size() != 1) {
+    error("PartType1/Masses must be one-dimensional");
+  }
+  if (position_dims.size() != 2 || position_dims[1] != 3) {
+    error("PartType1/Coordinates must have shape (N, 3)");
+  }
+  if (mass_dims[0] != position_dims[0]) {
+    error("Particle dataset size mismatch: Masses has %llu rows but "
+          "Coordinates has %llu",
+          static_cast<unsigned long long>(mass_dims[0]),
+          static_cast<unsigned long long>(position_dims[0]));
+  }
+  if (mass_dims[0] > std::numeric_limits<size_t>::max()) {
+    error("Particle dataset contains too many rows for this platform");
+  }
+
+  const size_t dataset_particle_count = static_cast<size_t>(mass_dims[0]);
+  if (this->nr_dark_matter != dataset_particle_count) {
+    error("Header particle count (%zu) does not match PartType1 datasets (%zu)",
+          this->nr_dark_matter, dataset_particle_count);
+  }
+
+  // Read the number of particles and 64-bit-safe starting offset for each cell.
+  hdf.readDataset<size_t>(std::string("Cells/Counts/PartType1"),
+                          this->cell_part_counts);
 
   // Read the start index of the particles in each cell
-  hdf.readDataset<int>(std::string("Cells/OffsetsInFile/PartType1"),
-                       this->cell_part_starts);
+  hdf.readDataset<size_t>(std::string("Cells/OffsetsInFile/PartType1"),
+                          this->cell_part_starts);
+
+  if (this->cell_part_counts.size() != this->nr_cells ||
+      this->cell_part_starts.size() != this->nr_cells) {
+    error("Cell metadata size mismatch: expected %zu cells, found %zu counts "
+          "and %zu offsets",
+          this->nr_cells, this->cell_part_counts.size(),
+          this->cell_part_starts.size());
+  }
+
+  size_t expected_offset = 0;
+  for (size_t cid = 0; cid < this->nr_cells; cid++) {
+    const size_t offset = this->cell_part_starts[cid];
+    const size_t count = this->cell_part_counts[cid];
+
+    if (offset != expected_offset) {
+      error("Invalid particle offset for cell %zu: expected %zu, found %zu",
+            cid, expected_offset, offset);
+    }
+    if (count > dataset_particle_count - expected_offset) {
+      error("Particle range for cell %zu exceeds dataset: offset=%zu, "
+            "count=%zu, particles=%zu",
+            cid, offset, count, dataset_particle_count);
+    }
+    expected_offset += count;
+  }
+
+  if (expected_offset != dataset_particle_count) {
+    error("Cell particle counts sum to %zu but datasets contain %zu particles",
+          expected_offset, dataset_particle_count);
+  }
 
   hdf.close();
 

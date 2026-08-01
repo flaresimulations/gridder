@@ -18,7 +18,7 @@ void getTopCells(Simulation *sim, Grid *grid) {
   const double width[3] = {sim->width[0], sim->width[1], sim->width[2]};
   const size_t nr_cells = sim->nr_cells;
   const int cdim[3] = {sim->cdim[0], sim->cdim[1], sim->cdim[2]};
-  const std::vector<int> counts = sim->cell_part_counts;
+  const std::vector<size_t> &counts = sim->cell_part_counts;
 
 // Loop over the cells and create them, storing the counts for domain
 // decomposition

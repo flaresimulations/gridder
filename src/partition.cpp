@@ -54,10 +54,10 @@ void partitionCells(Simulation *sim) {
   }
 
   // Intialise an array to hold the number of particles on each rank
-  std::vector<int> rank_part_counts(size, 0);
+  std::vector<size_t> rank_part_counts(size, 0);
 
   // How many particles would we expect per rank for a perfect partition?
-  const int particles_per_rank = sim->nr_dark_matter / size;
+  const size_t particles_per_rank = sim->nr_dark_matter / size;
 
   // Loop over cells and assign them to ranks such that the first
   // particles_per_rank are on rank 0, the next particles_per_rank on rank 1,
@@ -68,7 +68,7 @@ void partitionCells(Simulation *sim) {
     Cell *cell = &sim->cells[cid];
 
     // Get the number of particles in the cell
-    int part_count = cell->part_count;
+    const size_t part_count = cell->part_count;
 
     // Assign this rank to the cell
     cell->rank = std::min(select, size - 1);
@@ -81,7 +81,9 @@ void partitionCells(Simulation *sim) {
     }
 
     // If this is our first local cell set the first local particle index
-    if (metadata->first_local_part_ind == -1 && select == rank) {
+    if (metadata->first_local_part_ind ==
+            std::numeric_limits<size_t>::max() &&
+        select == rank) {
       metadata->first_local_part_ind = sim->cell_part_starts[cid];
     }
 
@@ -95,8 +97,8 @@ void partitionCells(Simulation *sim) {
   }
 
   // Report the number of particles on each rank
-  message("Rank %d has %d local particles", rank, rank_part_counts[rank]);
-  message("Rank %d has %d local cells", rank, metadata->nr_local_cells);
+  message("Rank %d has %zu local particles", rank, rank_part_counts[rank]);
+  message("Rank %d has %zu local cells", rank, metadata->nr_local_cells);
 
 #ifdef DEBUGGING_CHECKS
   // Ensure everyone agrees on the cell locations
