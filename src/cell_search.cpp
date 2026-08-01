@@ -106,12 +106,10 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
     return;
   }
 
-  // Get an instance of the metadata
-  Metadata &metadata = Metadata::getInstance();
-
-  // If the other cell is split then we need to recurse over the children before
-  // trying to add the particles
-  if (other->is_split && other->part_count > metadata.max_leaf_count) {
+  // Internal cells retain aggregate count and mass but release their particle
+  // indices after splitting. For a partial overlap, always descend until an
+  // unsplit leaf supplies the indices that need explicit distance checks.
+  if (other->is_split) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
       recursivePairPartsToPoints(cell, other->children[i], kernel_index,
                                   kernel_rad2);
@@ -143,8 +141,10 @@ static void recursiveSelfPartsToPoints(Cell *cell, const size_t kernel_index,
   if (cell->grid_points.size() == 0 || cell->part_count == 0)
     return;
 
-  // If the cell is split then we need to recurse over the children
-  if (cell->is_split && cell->grid_points.size() > 1) {
+  // Split cells do not retain particle indices. Recurse even when this cell
+  // contains only one grid point so self interactions are gathered from its
+  // particle-bearing children and their siblings.
+  if (cell->is_split) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
       recursiveSelfPartsToPoints(cell->children[i], kernel_index, kernel_rad2);
 

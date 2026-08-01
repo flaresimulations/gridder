@@ -862,6 +862,94 @@ Output:
 
 
 # ============================================================================
+# Octree Particle Storage Tests
+# ============================================================================
+
+class TestOctreeParticleStorage:
+    """Tests for leaf-only particle-index storage in split octrees."""
+
+    def test_single_grid_point_deep_particle_tree(self, build_gridder, tmp_path):
+        """A partial kernel remains correct after internal indices are freed."""
+        snapshot = tmp_path / "deep_particle_tree.hdf5"
+        grid_file = tmp_path / "grid_points.txt"
+        params = tmp_path / "params.yml"
+        output = tmp_path / "output.hdf5"
+
+        axis = np.linspace(4.2, 5.8, 5)
+        positions = np.array(np.meshgrid(axis, axis, axis)).reshape(3, -1).T
+        masses = np.arange(1, len(positions) + 1, dtype=np.float64)
+        kernel_radius = 0.65
+        expected_mass = masses[
+            np.sum((positions - np.array([5.0, 5.0, 5.0])) ** 2, axis=1)
+            <= kernel_radius**2
+        ].sum()
+
+        with h5py.File(snapshot, "w") as handle:
+            header = handle.create_group("Header")
+            header.attrs["BoxSize"] = np.array([10.0, 10.0, 10.0])
+            header.attrs["NumPart_Total"] = np.array(
+                [0, len(positions), 0, 0, 0, 0], dtype=np.uint64
+            )
+            header.attrs["Redshift"] = 0.0
+
+            particles = handle.create_group("PartType1")
+            particles.create_dataset("Coordinates", data=positions)
+            particles.create_dataset("Masses", data=masses)
+
+            cells = handle.create_group("Cells")
+            metadata = cells.create_group("Meta-data")
+            metadata.attrs["dimension"] = np.array([3, 3, 3], dtype=np.int32)
+            metadata.attrs["size"] = np.array([10.0 / 3.0] * 3)
+
+            counts = np.zeros(27, dtype=np.int32)
+            counts[13] = len(positions)
+            offsets = np.full(27, len(positions), dtype=np.int32)
+            offsets[13] = 0
+            cells.create_group("Counts").create_dataset("PartType1", data=counts)
+            cells.create_group("OffsetsInFile").create_dataset(
+                "PartType1", data=offsets
+            )
+
+        grid_file.write_text("5.0 5.0 5.0\n")
+        params.write_text(
+            f"""Kernels:
+  nkernels: 1
+  kernel_radius_1: {kernel_radius}
+Grid:
+  type: file
+  grid_file: {grid_file}
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+Tree:
+  max_leaf_count: 4
+Input:
+  filepath: {snapshot}
+Output:
+  filepath: {tmp_path}
+  basename: output.hdf5
+  write_masses: 1
+"""
+        )
+
+        result = subprocess.run(
+            [str(build_gridder), str(params), "4"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"Gridder failed\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert "Retained 125 particle indices after splitting" in result.stdout
+        assert "0 in internal cells" in result.stdout
+
+        with h5py.File(output, "r") as handle:
+            actual_mass = handle["Grids/Kernel_0/GridPointMasses"][0]
+        assert np.isclose(actual_mass, expected_mass)
+
+
+# ============================================================================
 # Large Particle Metadata Tests
 # ============================================================================
 

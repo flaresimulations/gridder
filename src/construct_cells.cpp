@@ -9,6 +9,25 @@
 #include "grid_point.hpp"
 #include "simulation.hpp"
 
+namespace {
+struct ParticleIndexStorage {
+  size_t entries = 0;
+  size_t capacity = 0;
+  size_t internal_entries = 0;
+};
+
+void accumulateParticleIndexStorage(const Cell *cell,
+                                    ParticleIndexStorage &storage) {
+  storage.entries += cell->particles.size();
+  storage.capacity += cell->particles.capacity();
+  if (cell->is_split) {
+    storage.internal_entries += cell->particles.size();
+    for (const Cell *child : cell->children)
+      accumulateParticleIndexStorage(child, storage);
+  }
+}
+} // namespace
+
 void getTopCells(Simulation *sim, Grid *grid) {
 
   tic();
@@ -160,6 +179,21 @@ void splitCells(Simulation *sim) {
 
   message("Split %zu useful cells", sim->useful_cells.size());
 #endif
+
+  ParticleIndexStorage index_storage;
+  for (const Cell &cell : sim->cells)
+    accumulateParticleIndexStorage(&cell, index_storage);
+
+  const double logical_gib =
+      static_cast<double>(index_storage.entries * sizeof(ParticleIndex)) /
+      (1024.0 * 1024.0 * 1024.0);
+  const double capacity_gib =
+      static_cast<double>(index_storage.capacity * sizeof(ParticleIndex)) /
+      (1024.0 * 1024.0 * 1024.0);
+  message("Retained %zu particle indices after splitting (%.2f GiB logical, "
+          "%.2f GiB capacity; %zu in internal cells)",
+          index_storage.entries, logical_gib, capacity_gib,
+          index_storage.internal_entries);
 
   message("Maximum depth in the tree: %d", sim->max_depth);
 

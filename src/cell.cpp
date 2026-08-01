@@ -305,12 +305,6 @@ void Cell::split() {
     child->addGridPoint(this->grid_points[p]);
   }
 
-  // Loop over the children and recursively split them if they have too many
-  for (int i = 0; i < OCTREE_CHILDREN; i++) {
-    Cell *child = this->children[i];
-    child->split();
-  }
-
 #ifdef DEBUGGING_CHECKS
   // Make sure the sum of child particle counts is the same as the parent
   size_t child_part_count = 0;
@@ -371,6 +365,17 @@ void Cell::split() {
     }
   }
 #endif
+
+  // Particle indices are owned by leaves only. Release the parent allocation
+  // before recursively splitting children to avoid retaining one complete copy
+  // of the particle-index set at every tree depth. Aggregate count and mass
+  // remain available for whole-cell kernel acceptance.
+  std::vector<ParticleIndex>().swap(this->particles);
+
+  // Loop over the children and recursively split them if they have too many.
+  for (int i = 0; i < OCTREE_CHILDREN; i++) {
+    this->children[i]->split();
+  }
 }
 
 /**

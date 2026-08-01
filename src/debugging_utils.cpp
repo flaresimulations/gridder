@@ -172,27 +172,41 @@ void validateParticleCellAssignment(Simulation *sim) {
 /**
  * @brief Count particles within radius of a grid point (brute force check)
  */
+static int bruteForceCountParticlesInCell(const Cell *cell,
+                                          const GridPoint *grid_point,
+                                          const Simulation *sim,
+                                          const double radius2) {
+  if (cell->is_split) {
+    int count = 0;
+    for (const Cell *child : cell->children)
+      count +=
+          bruteForceCountParticlesInCell(child, grid_point, sim, radius2);
+    return count;
+  }
+
+  int count = 0;
+  const double *dim = sim->dim;
+  for (ParticleIndex part : cell->particles) {
+    const double *part_pos = sim->particlePosition(part);
+    const double dx = nearest(part_pos[0] - grid_point->loc[0], dim[0]);
+    const double dy = nearest(part_pos[1] - grid_point->loc[1], dim[1]);
+    const double dz = nearest(part_pos[2] - grid_point->loc[2], dim[2]);
+    const double r2 = dx * dx + dy * dy + dz * dz;
+    if (r2 <= radius2)
+      count++;
+  }
+  return count;
+}
+
 int bruteForceCountParticles(GridPoint *grid_point, Simulation *sim,
-                             double radius) {
+                              double radius) {
   int count = 0;
   double radius2 = radius * radius;
-  double *dim = sim->dim;
 
   std::vector<Cell> &cells = sim->cells;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    Cell *cell = &cells[cid];
-
-    for (ParticleIndex part : cell->particles) {
-      const double *part_pos = sim->particlePosition(part);
-      double dx = nearest(part_pos[0] - grid_point->loc[0], dim[0]);
-      double dy = nearest(part_pos[1] - grid_point->loc[1], dim[1]);
-      double dz = nearest(part_pos[2] - grid_point->loc[2], dim[2]);
-      double r2 = dx * dx + dy * dy + dz * dz;
-
-      if (r2 <= radius2) {
-        count++;
-      }
-    }
+    count += bruteForceCountParticlesInCell(&cells[cid], grid_point, sim,
+                                            radius2);
   }
 
   return count;
@@ -284,8 +298,24 @@ void validateGridPointsHaveParticles(Simulation *sim, Grid *grid) {
  * 3. Grid point counts match between parent and children
  */
 static void validateCellRecursive(Cell *cell, int *errors) {
-  if (!cell->is_split)
+  if (!cell->is_split) {
+    if (cell->particles.size() != cell->part_count) {
+      message("[DEBUG] ERROR: Leaf at (%.3f, %.3f, %.3f) has %zu particle "
+              "indices but part_count=%zu",
+              cell->loc[0], cell->loc[1], cell->loc[2],
+              cell->particles.size(), cell->part_count);
+      (*errors)++;
+    }
     return;
+  }
+
+  if (!cell->particles.empty()) {
+    message("[DEBUG] ERROR: Split cell at (%.3f, %.3f, %.3f) retained %zu "
+            "particle indices",
+            cell->loc[0], cell->loc[1], cell->loc[2],
+            cell->particles.size());
+    (*errors)++;
+  }
 
   // Check particle count consistency
   size_t child_part_count = 0;
