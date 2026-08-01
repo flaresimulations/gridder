@@ -782,7 +782,8 @@ class TestLargeParticleMetadata:
 
     def test_64_bit_cell_offsets(self, build_gridder, tmp_path):
         """Large sparse datasets are validated without truncating offsets."""
-        particle_count = 3_000_000_001
+        particle_count = 5_000_000_001
+        truncated_header_count = particle_count % (2**32)
         snapshot = tmp_path / "large_offsets.hdf5"
         grid_file = tmp_path / "empty_grid.txt"
         params = tmp_path / "params.yml"
@@ -793,7 +794,7 @@ class TestLargeParticleMetadata:
             header = handle.create_group("Header")
             header.attrs["BoxSize"] = np.array([1.0, 1.0, 2.0])
             header.attrs["NumPart_Total"] = np.array(
-                [0, particle_count, 0, 0, 0, 0], dtype=np.uint64
+                [0, truncated_header_count, 0, 0, 0, 0], dtype=np.uint64
             )
             header.attrs["Redshift"] = 0.0
 
@@ -814,11 +815,11 @@ class TestLargeParticleMetadata:
             metadata.attrs["size"] = np.array([1.0, 1.0, 1.0])
             cells.create_group("Counts").create_dataset(
                 "PartType1",
-                data=np.array([3_000_000_000, 1], dtype=np.uint64),
+                data=np.array([5_000_000_000, 1], dtype=np.uint64),
             )
             cells.create_group("OffsetsInFile").create_dataset(
                 "PartType1",
-                data=np.array([0, 3_000_000_000], dtype=np.uint64),
+                data=np.array([0, 5_000_000_000], dtype=np.uint64),
             )
 
         grid_file.write_text("")
@@ -855,6 +856,7 @@ Output:
             f"Running with {particle_count} dark matter particles"
             in result.stdout
         )
+        assert "using the dataset dimensions" in result.stdout
         assert "particle count" not in result.stderr.lower()
         assert "particle offset" not in result.stderr.lower()
 

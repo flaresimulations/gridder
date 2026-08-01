@@ -93,7 +93,6 @@ void Simulation::readSimulationData() {
   // Report interesting things but only on rank 0
   if (metadata->rank == 0) {
     message("Redshift: %f", this->redshift);
-    message("Running with %zu dark matter particles", this->nr_dark_matter);
     message("Running with %d cells", this->nr_cells);
     message("Cdim: %d %d %d", this->cdim[0], this->cdim[1], this->cdim[2]);
     message("Box size: %f %f %f", this->dim[0], this->dim[1], this->dim[2]);
@@ -124,9 +123,14 @@ void Simulation::readSimulationData() {
 
   const size_t dataset_particle_count = static_cast<size_t>(mass_dims[0]);
   if (this->nr_dark_matter != dataset_particle_count) {
-    error("Header particle count (%zu) does not match PartType1 datasets (%zu)",
-          this->nr_dark_matter, dataset_particle_count);
+    message("Warning: Header particle count (%zu) does not match PartType1 "
+            "datasets (%zu); using the dataset dimensions",
+            this->nr_dark_matter, dataset_particle_count);
+    this->nr_dark_matter = dataset_particle_count;
+    this->nr_particles[1] = dataset_particle_count;
   }
+  if (metadata->rank == 0)
+    message("Running with %zu dark matter particles", this->nr_dark_matter);
 
   // Read the number of particles and 64-bit-safe starting offset for each cell.
   hdf.readDataset<size_t>(std::string("Cells/Counts/PartType1"),
