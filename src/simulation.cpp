@@ -1,4 +1,5 @@
 // Standard includes
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -151,26 +152,53 @@ void Simulation::readSimulationData() {
           this->cell_part_counts.size(), this->cell_part_starts.size());
   }
 
-  size_t expected_offset = 0;
+  struct ParticleRange {
+    size_t offset;
+    size_t count;
+    size_t cell_id;
+  };
+
+  std::vector<ParticleRange> particle_ranges;
+  particle_ranges.reserve(this->nr_cells);
+  size_t total_cell_particles = 0;
   for (size_t cid = 0; cid < this->nr_cells; cid++) {
     const size_t offset = this->cell_part_starts[cid];
     const size_t count = this->cell_part_counts[cid];
 
-    if (offset != expected_offset) {
-      error("Invalid particle offset for cell %zu: expected %zu, found %zu",
-            cid, expected_offset, offset);
-    }
-    if (count > dataset_particle_count - expected_offset) {
+    if (offset > dataset_particle_count ||
+        count > dataset_particle_count - offset) {
       error("Particle range for cell %zu exceeds dataset: offset=%zu, "
             "count=%zu, particles=%zu",
             cid, offset, count, dataset_particle_count);
     }
-    expected_offset += count;
+    if (count > dataset_particle_count - total_cell_particles) {
+      error("Cell particle counts exceed dataset size at cell %zu", cid);
+    }
+    total_cell_particles += count;
+    if (count > 0)
+      particle_ranges.push_back({offset, count, cid});
   }
 
-  if (expected_offset != dataset_particle_count) {
+  if (total_cell_particles != dataset_particle_count) {
     error("Cell particle counts sum to %zu but datasets contain %zu particles",
-          expected_offset, dataset_particle_count);
+          total_cell_particles, dataset_particle_count);
+  }
+
+  // Cell IDs need not follow particle-file order. Sort non-empty ranges by
+  // their file offsets, then prove that they cover the datasets exactly once.
+  std::sort(particle_ranges.begin(), particle_ranges.end(),
+            [](const ParticleRange &left, const ParticleRange &right) {
+              return left.offset < right.offset;
+            });
+
+  size_t expected_offset = 0;
+  for (const ParticleRange &range : particle_ranges) {
+    if (range.offset != expected_offset) {
+      error("Particle ranges overlap or leave a gap before cell %zu: expected "
+            "offset %zu, found %zu",
+            range.cell_id, expected_offset, range.offset);
+    }
+    expected_offset += range.count;
   }
   if (offsets_have_end_sentinel &&
       this->cell_part_starts.back() != dataset_particle_count) {

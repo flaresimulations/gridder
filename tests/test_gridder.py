@@ -815,11 +815,11 @@ class TestLargeParticleMetadata:
             metadata.attrs["size"] = np.array([1.0, 1.0, 1.0])
             cells.create_group("Counts").create_dataset(
                 "PartType1",
-                data=np.array([5_000_000_000, 1], dtype=np.uint64),
+                data=np.array([1, 5_000_000_000], dtype=np.uint64),
             )
             cells.create_group("OffsetsInFile").create_dataset(
                 "PartType1",
-                data=np.array([0, 5_000_000_000], dtype=np.uint64),
+                data=np.array([5_000_000_000, 0], dtype=np.uint64),
             )
 
         grid_file.write_text("")
