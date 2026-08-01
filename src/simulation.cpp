@@ -136,12 +136,15 @@ void Simulation::readSimulationData() {
   hdf.readDataset<size_t>(std::string("Cells/OffsetsInFile/PartType1"),
                           this->cell_part_starts);
 
+  const bool offsets_have_end_sentinel =
+      this->cell_part_starts.size() == this->nr_cells + 1;
   if (this->cell_part_counts.size() != this->nr_cells ||
-      this->cell_part_starts.size() != this->nr_cells) {
-    error("Cell metadata size mismatch: expected %zu cells, found %zu counts "
-          "and %zu offsets",
-          this->nr_cells, this->cell_part_counts.size(),
-          this->cell_part_starts.size());
+      (this->cell_part_starts.size() != this->nr_cells &&
+       !offsets_have_end_sentinel)) {
+    error("Cell metadata size mismatch: expected %zu counts and %zu or %zu "
+          "offsets, found %zu counts and %zu offsets",
+          this->nr_cells, this->nr_cells, this->nr_cells + 1,
+          this->cell_part_counts.size(), this->cell_part_starts.size());
   }
 
   size_t expected_offset = 0;
@@ -165,6 +168,14 @@ void Simulation::readSimulationData() {
     error("Cell particle counts sum to %zu but datasets contain %zu particles",
           expected_offset, dataset_particle_count);
   }
+  if (offsets_have_end_sentinel &&
+      this->cell_part_starts.back() != dataset_particle_count) {
+    error("Final cell offset is %zu but datasets contain %zu particles",
+          this->cell_part_starts.back(), dataset_particle_count);
+  }
+
+  // Internally offsets are one-per-cell; discard an optional exclusive end.
+  this->cell_part_starts.resize(this->nr_cells);
 
   hdf.close();
 

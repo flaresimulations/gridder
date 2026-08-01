@@ -774,6 +774,92 @@ Output:
 
 
 # ============================================================================
+# Large Particle Metadata Tests
+# ============================================================================
+
+class TestLargeParticleMetadata:
+    """Tests for particle counts and offsets beyond signed 32-bit range."""
+
+    def test_64_bit_cell_offsets(self, build_gridder, tmp_path):
+        """Large sparse datasets are validated without truncating offsets."""
+        particle_count = 3_000_000_001
+        snapshot = tmp_path / "large_offsets.hdf5"
+        grid_file = tmp_path / "empty_grid.txt"
+        params = tmp_path / "params.yml"
+
+        # Chunked datasets with no written chunks provide realistic dimensions
+        # without allocating or storing billions of test particles.
+        with h5py.File(snapshot, "w") as handle:
+            header = handle.create_group("Header")
+            header.attrs["BoxSize"] = np.array([1.0, 1.0, 2.0])
+            header.attrs["NumPart_Total"] = np.array(
+                [0, particle_count, 0, 0, 0, 0], dtype=np.uint64
+            )
+            header.attrs["Redshift"] = 0.0
+
+            particles = handle.create_group("PartType1")
+            particles.create_dataset(
+                "Coordinates",
+                shape=(particle_count, 3),
+                dtype=np.float64,
+                chunks=(1, 3),
+            )
+            particles.create_dataset(
+                "Masses", shape=(particle_count,), dtype=np.float64, chunks=(1,)
+            )
+
+            cells = handle.create_group("Cells")
+            metadata = cells.create_group("Meta-data")
+            metadata.attrs["dimension"] = np.array([1, 1, 2], dtype=np.int32)
+            metadata.attrs["size"] = np.array([1.0, 1.0, 1.0])
+            cells.create_group("Counts").create_dataset(
+                "PartType1",
+                data=np.array([3_000_000_000, 1], dtype=np.uint64),
+            )
+            cells.create_group("OffsetsInFile").create_dataset(
+                "PartType1",
+                data=np.array([0, 3_000_000_000], dtype=np.uint64),
+            )
+
+        grid_file.write_text("")
+        params.write_text(
+            f"""Kernels:
+  nkernels: 1
+  kernel_radius_1: 0.1
+Grid:
+  type: file
+  grid_file: {grid_file}
+Cosmology:
+  h: 0.681
+  Omega_cdm: 0.256011
+  Omega_b: 0.048600
+Tree:
+  max_leaf_count: 200
+Input:
+  filepath: {snapshot}
+Output:
+  filepath: {tmp_path}
+  basename: unused.hdf5
+"""
+        )
+
+        result = subprocess.run(
+            [str(build_gridder), str(params), "1"],
+            capture_output=True,
+            text=True,
+        )
+
+        # An empty grid intentionally exits before particle arrays are read.
+        assert result.returncode == 1
+        assert (
+            f"Running with {particle_count} dark matter particles"
+            in result.stdout
+        )
+        assert "particle count" not in result.stderr.lower()
+        assert "particle offset" not in result.stderr.lower()
+
+
+# ============================================================================
 # Sanity Check Tests - Grid Points on Particle Positions
 # ============================================================================
 
