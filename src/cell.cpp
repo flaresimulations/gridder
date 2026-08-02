@@ -248,6 +248,33 @@ void Cell::split() {
     }
   }
 
+  auto positionChildIndex = [&](const double *part_pos) {
+    const int i = (part_pos[0] >= this->loc[0] + new_width[0]) ? 1 : 0;
+    const int j = (part_pos[1] >= this->loc[1] + new_width[1]) ? 1 : 0;
+    const int k = (part_pos[2] >= this->loc[2] + new_width[2]) ? 1 : 0;
+    return k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
+  };
+
+  // Count each child's exact requirement before distributing indices. This
+  // replaces repeated vector growth with one allocation per populated child
+  // and prevents excess capacity from accumulating in the leaves.
+  std::array<size_t, OCTREE_CHILDREN> child_part_counts{};
+  for (ParticleIndex part : this->particles) {
+    child_part_counts[positionChildIndex(sim->particlePosition(part))]++;
+  }
+
+  for (int child_index = 0; child_index < OCTREE_CHILDREN; child_index++) {
+    try {
+      this->children[child_index]->particles.reserve(
+          child_part_counts[child_index]);
+    } catch (const std::bad_alloc &e) {
+      error("Memory allocation failed while reserving %zu particle indices "
+            "for child %d at depth %d. Error: %s",
+            child_part_counts[child_index], child_index, this->depth + 1,
+            e.what());
+    }
+  }
+
   // Loop over the particles and attach them to the right child
   for (ParticleIndex part : this->particles) {
 
@@ -258,10 +285,7 @@ void Cell::split() {
     const double z = part_pos[2];
 
     // Calculate the child index based on the particle position
-    int i = (x >= this->loc[0] + new_width[0]) ? 1 : 0;
-    int j = (y >= this->loc[1] + new_width[1]) ? 1 : 0;
-    int k = (z >= this->loc[2] + new_width[2]) ? 1 : 0;
-    int child_index = k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
+    const int child_index = positionChildIndex(part_pos);
 
     // Attach the particle to the child cell
     Cell *child = this->children[child_index];

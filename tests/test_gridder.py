@@ -947,6 +947,7 @@ Output:
             f"Gridder failed\nstdout: {result.stdout}\nstderr: {result.stderr}"
         )
         assert "Retained 125 particle indices after splitting" in result.stdout
+        assert "capacity=125" in result.stdout
         assert "0 in internal cells" in result.stdout
 
         with h5py.File(output, "r") as handle:

@@ -190,10 +190,10 @@ void splitCells(Simulation *sim) {
   const double capacity_gib =
       static_cast<double>(index_storage.capacity * sizeof(ParticleIndex)) /
       (1024.0 * 1024.0 * 1024.0);
-  message("Retained %zu particle indices after splitting (%.2f GiB logical, "
-          "%.2f GiB capacity; %zu in internal cells)",
-          index_storage.entries, logical_gib, capacity_gib,
-          index_storage.internal_entries);
+  message("Retained %zu particle indices after splitting (capacity=%zu; %.2f "
+          "GiB logical, %.2f GiB capacity; %zu in internal cells)",
+          index_storage.entries, index_storage.capacity, logical_gib,
+          capacity_gib, index_storage.internal_entries);
 
   message("Maximum depth in the tree: %d", sim->max_depth);
 
