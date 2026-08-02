@@ -131,9 +131,14 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
 #ifdef DEBUGGING_CHECKS
   // Ensure we aren't reporting we're outside when particles are inside
   if (r2 > kernel_rad2) {
-    // Use particles.size() instead of part_count to handle ranks with no local particles
-    for (size_t p = 0; p < this->particles.size(); p++) {
-      const double *part_pos = sim->particlePosition(this->particles[p]);
+    const size_t stored_particle_count = sim->particle_ranges_enabled
+                                             ? this->part_count
+                                             : this->particles.size();
+    for (size_t p = 0; p < stored_particle_count; p++) {
+      const size_t particle_index = sim->particle_ranges_enabled
+                                        ? this->particle_offset + p
+                                        : this->particles[p];
+      const double *part_pos = sim->particlePosition(particle_index);
       const double p_dx = nearest(part_pos[0] - grid_point->loc[0], dim[0]);
       const double p_dy = nearest(part_pos[1] - grid_point->loc[1], dim[1]);
       const double p_dz = nearest(part_pos[2] - grid_point->loc[2], dim[2]);
@@ -165,6 +170,24 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
  * @brief Split the cell into 8 children.
  */
 void Cell::split() {
+
+  Metadata &metadata = Metadata::getInstance();
+  Simulation *sim = metadata.sim;
+  const bool needs_split =
+      this->part_count >= metadata.max_leaf_count ||
+      this->grid_points.size() > 1;
+  if (sim->particle_ranges_enabled && needs_split) {
+    std::vector<std::uint8_t> bucket_buffer(this->part_count);
+    this->split(bucket_buffer.empty() ? nullptr : bucket_buffer.data());
+  } else {
+    this->split(nullptr);
+  }
+}
+
+/**
+ * @brief Split a cell using an optional reusable particle-bucket buffer.
+ */
+void Cell::split(std::uint8_t *bucket_buffer) {
 
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
@@ -255,50 +278,132 @@ void Cell::split() {
     return k + OCTREE_DIM * j + OCTREE_DIM * OCTREE_DIM * i;
   };
 
-  // Count each child's exact requirement before distributing indices. This
-  // replaces repeated vector growth with one allocation per populated child
-  // and prevents excess capacity from accumulating in the leaves.
   std::array<size_t, OCTREE_CHILDREN> child_part_counts{};
-  for (ParticleIndex part : this->particles) {
-    child_part_counts[positionChildIndex(sim->particlePosition(part))]++;
-  }
+  std::array<double, OCTREE_CHILDREN> child_masses{};
+  std::array<size_t, OCTREE_CHILDREN + 1> bucket_offsets{};
 
-  for (int child_index = 0; child_index < OCTREE_CHILDREN; child_index++) {
-    try {
-      this->children[child_index]->particles.reserve(
-          child_part_counts[child_index]);
-    } catch (const std::bad_alloc &e) {
-      error("Memory allocation failed while reserving %zu particle indices "
-            "for child %d at depth %d. Error: %s",
-            child_part_counts[child_index], child_index, this->depth + 1,
-            e.what());
-    }
-  }
+  if (sim->particle_ranges_enabled) {
+    if (this->part_count > 0 && bucket_buffer == nullptr)
+      error("Missing particle bucket buffer for contiguous cell split");
 
-  // Loop over the particles and attach them to the right child
-  for (ParticleIndex part : this->particles) {
-
-    // Get the position of the particle
-    const double *part_pos = sim->particlePosition(part);
-    const double x = part_pos[0];
-    const double y = part_pos[1];
-    const double z = part_pos[2];
-
-    // Calculate the child index based on the particle position
-    const int child_index = positionChildIndex(part_pos);
-
-    // Attach the particle to the child cell
-    Cell *child = this->children[child_index];
-
-    if (child == nullptr) {
-      error("Child cell is null at index %d for particle at (%f, %f, %f) in "
-            "cell with location (%f, %f, %f) and width (%f, %f, %f)",
-            child_index, x, y, z, this->loc[0], this->loc[1], this->loc[2],
-            this->width[0], this->width[1], this->width[2]);
+    // Classify this contiguous range and collect the child aggregates.
+    for (size_t local_index = 0; local_index < this->part_count;
+         local_index++) {
+      const size_t particle_index = this->particle_offset + local_index;
+      const int child_index =
+          positionChildIndex(sim->particlePosition(particle_index));
+      bucket_buffer[local_index] = static_cast<std::uint8_t>(child_index);
+      child_part_counts[child_index]++;
+      child_masses[child_index] += sim->particleMass(particle_index);
     }
 
-    // Add the particle to the child cell
-    child->addParticle(part, sim->particleMass(part));
+    for (int child_index = 0; child_index < OCTREE_CHILDREN; child_index++) {
+      bucket_offsets[child_index + 1] =
+          bucket_offsets[child_index] + child_part_counts[child_index];
+    }
+
+    // SWIFT-style in-place eight-way partition. The temporary bucket labels
+    // travel with positions and masses while cycles place each record inside
+    // its child's contiguous subrange.
+    std::array<size_t, OCTREE_CHILDREN> bucket_filled{};
+    for (int bucket = 0; bucket < OCTREE_CHILDREN; bucket++) {
+      for (size_t local_index = bucket_offsets[bucket] + bucket_filled[bucket];
+           local_index < bucket_offsets[bucket + 1]; local_index++) {
+        int destination_bucket = bucket_buffer[local_index];
+        if (destination_bucket != bucket) {
+          const size_t global_index = this->particle_offset + local_index;
+          double temporary_pos[3] = {
+              sim->particle_positions[global_index * 3],
+              sim->particle_positions[global_index * 3 + 1],
+              sim->particle_positions[global_index * 3 + 2]};
+          double temporary_mass = sim->particle_masses[global_index];
+          std::uint8_t temporary_bucket = bucket_buffer[local_index];
+
+          while (destination_bucket != bucket) {
+            size_t target = bucket_offsets[destination_bucket] +
+                            bucket_filled[destination_bucket]++;
+            while (target < bucket_offsets[destination_bucket + 1] &&
+                   bucket_buffer[target] == destination_bucket) {
+              target++;
+              bucket_filled[destination_bucket]++;
+            }
+            if (target >= bucket_offsets[destination_bucket + 1])
+              error("Particle bucket partition exhausted child %d at depth %d",
+                    destination_bucket, this->depth);
+
+            const size_t global_target = this->particle_offset + target;
+            std::swap(temporary_pos[0],
+                      sim->particle_positions[global_target * 3]);
+            std::swap(temporary_pos[1],
+                      sim->particle_positions[global_target * 3 + 1]);
+            std::swap(temporary_pos[2],
+                      sim->particle_positions[global_target * 3 + 2]);
+            std::swap(temporary_mass, sim->particle_masses[global_target]);
+            std::swap(temporary_bucket, bucket_buffer[target]);
+            destination_bucket = temporary_bucket;
+          }
+
+          sim->particle_positions[global_index * 3] = temporary_pos[0];
+          sim->particle_positions[global_index * 3 + 1] = temporary_pos[1];
+          sim->particle_positions[global_index * 3 + 2] = temporary_pos[2];
+          sim->particle_masses[global_index] = temporary_mass;
+          bucket_buffer[local_index] = temporary_bucket;
+        }
+        bucket_filled[destination_bucket]++;
+      }
+    }
+
+    for (int child_index = 0; child_index < OCTREE_CHILDREN; child_index++) {
+      Cell *child = this->children[child_index];
+      child->particle_offset =
+          this->particle_offset + bucket_offsets[child_index];
+      child->part_count = child_part_counts[child_index];
+      child->mass = child_masses[child_index];
+      if (child->part_count > 0)
+        child->is_useful = true;
+    }
+
+#ifdef DEBUGGING_CHECKS
+    for (int child_index = 0; child_index < OCTREE_CHILDREN; child_index++) {
+      const Cell *child = this->children[child_index];
+      for (size_t p = 0; p < child->part_count; p++) {
+        const double *part_pos =
+            sim->particlePosition(child->particle_offset + p);
+        if (positionChildIndex(part_pos) != child_index)
+          error("Physical particle partition failed for child %d at depth %d",
+                child_index, this->depth + 1);
+      }
+    }
+#endif
+  } else {
+    // Indexed fallback used when the property arrays are not a complete live
+    // permutation (and currently for MPI builds).
+    for (ParticleIndex part : this->particles) {
+      child_part_counts[positionChildIndex(sim->particlePosition(part))]++;
+    }
+
+    for (int child_index = 0; child_index < OCTREE_CHILDREN; child_index++) {
+      try {
+        this->children[child_index]->particles.reserve(
+            child_part_counts[child_index]);
+      } catch (const std::bad_alloc &e) {
+        error("Memory allocation failed while reserving %zu particle indices "
+              "for child %d at depth %d. Error: %s",
+              child_part_counts[child_index], child_index, this->depth + 1,
+              e.what());
+      }
+    }
+
+    for (ParticleIndex part : this->particles) {
+      const double *part_pos = sim->particlePosition(part);
+      const int child_index = positionChildIndex(part_pos);
+      Cell *child = this->children[child_index];
+      if (child == nullptr) {
+        error("Child cell is null at index %d for particle at (%f, %f, %f)",
+              child_index, part_pos[0], part_pos[1], part_pos[2]);
+      }
+      child->addParticle(part, sim->particleMass(part));
+    }
   }
 
   // Loop over the grid points and attach them to the right child
@@ -341,8 +446,13 @@ void Cell::split() {
           child_part_count, this->part_count);
 
   // Ensure all particles in this cell should be in this cell
-  for (size_t p = 0; p < this->particles.size(); p++) {
-    const double *part_pos = sim->particlePosition(this->particles[p]);
+  const size_t stored_particle_count =
+      sim->particle_ranges_enabled ? this->part_count : this->particles.size();
+  for (size_t p = 0; p < stored_particle_count; p++) {
+    const size_t particle_index = sim->particle_ranges_enabled
+                                      ? this->particle_offset + p
+                                      : this->particles[p];
+    const double *part_pos = sim->particlePosition(particle_index);
     if (part_pos[0] < this->loc[0] ||
         part_pos[0] >= this->loc[0] + this->width[0] ||
         part_pos[1] < this->loc[1] ||
@@ -398,7 +508,13 @@ void Cell::split() {
 
   // Loop over the children and recursively split them if they have too many.
   for (int i = 0; i < OCTREE_CHILDREN; i++) {
-    this->children[i]->split();
+    if (sim->particle_ranges_enabled) {
+      std::uint8_t *child_buffer =
+          bucket_buffer == nullptr ? nullptr : bucket_buffer + bucket_offsets[i];
+      this->children[i]->split(child_buffer);
+    } else {
+      this->children[i]->split(nullptr);
+    }
   }
 }
 

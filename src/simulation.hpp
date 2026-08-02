@@ -72,6 +72,10 @@ public:
   std::vector<double> particle_masses;
   std::vector<double> particle_positions;
 
+  //! True once particle properties have been physically regrouped into
+  //! contiguous top-cell ranges ready for SWIFT-like recursive partitioning.
+  bool particle_ranges_enabled = false;
+
   //! Append one particle and return its stable index.
   ParticleIndex appendParticle(const double pos[3], double mass) {
     const ParticleIndex index = particle_masses.size();

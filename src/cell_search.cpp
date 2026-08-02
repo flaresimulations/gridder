@@ -37,10 +37,14 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
   Simulation *sim = metadata->sim;
   double *dim = sim->dim;
 
-  // Loop over the particles in the cell and assign them to the grid point
-  // Use particles.size() instead of part_count to handle ranks with no local particles
-  for (size_t p = 0; p < cell->particles.size(); p++) {
-    const ParticleIndex part = cell->particles[p];
+  // Range-mode leaves access physically contiguous properties directly. The
+  // indexed fallback retains the existing indirect lookup.
+  const size_t stored_particle_count =
+      sim->particle_ranges_enabled ? cell->part_count : cell->particles.size();
+  for (size_t p = 0; p < stored_particle_count; p++) {
+    const ParticleIndex part = sim->particle_ranges_enabled
+                                   ? cell->particle_offset + p
+                                   : cell->particles[p];
     const double *part_pos = sim->particlePosition(part);
 
     // Get the distance between the particle and the grid point

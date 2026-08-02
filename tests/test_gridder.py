@@ -696,9 +696,9 @@ class TestParticleCellValidation:
         params = tmp_path / "params.yml"
         output = tmp_path / "output.hdf5"
 
-        # Both particles are stored in cell 0 in the file. The second particle
-        # is physically located in cell 26 and must be moved by the validation
-        # pass. Distinct masses make both destinations easy to verify.
+        # The two file-cell assignments are swapped. Correcting them produces a
+        # non-identity top-cell permutation, and distinct masses verify that
+        # physical regrouping keeps each mass paired with its position.
         with h5py.File(snapshot, "w") as handle:
             header = handle.create_group("Header")
             header.attrs["BoxSize"] = np.array([9.0, 9.0, 9.0])
@@ -720,9 +720,11 @@ class TestParticleCellValidation:
             metadata.attrs["size"] = np.array([3.0, 3.0, 3.0])
 
             counts = np.zeros(27, dtype=np.int32)
-            counts[0] = 2
+            counts[0] = 1
+            counts[26] = 1
             offsets = np.full(27, 2, dtype=np.int32)
-            offsets[0] = 0
+            offsets[0] = 1
+            offsets[26] = 0
             cells.create_group("Counts").create_dataset("PartType1", data=counts)
             cells.create_group("OffsetsInFile").create_dataset(
                 "PartType1", data=offsets
@@ -761,8 +763,9 @@ Output:
         )
         assert "using full read strategy" in result.stdout
         assert "Particle property arrays adopted (SoA): count=2" in result.stdout
-        assert "found 1 misplaced particles" in result.stdout
-        assert "Moved 1 particles" in result.stdout
+        assert "found 2 misplaced particles" in result.stdout
+        assert "Moved 2 particles" in result.stdout
+        assert "2 records moved" in result.stdout
 
         with h5py.File(output, "r") as handle:
             positions = handle["Grids/GridPointPositions"][:]
@@ -859,6 +862,7 @@ Output:
         assert "Particle property arrays adopted (SoA): count=1" in result.stdout
         assert "found 1 misplaced particles" in result.stdout
         assert "Cleaned up 1 cells: detached particle indices=1" in result.stdout
+        assert "Keeping indexed particle storage" in result.stdout
 
 
 # ============================================================================
@@ -946,9 +950,9 @@ Output:
         assert result.returncode == 0, (
             f"Gridder failed\nstdout: {result.stdout}\nstderr: {result.stderr}"
         )
-        assert "Retained 125 particle indices after splitting" in result.stdout
-        assert "capacity=125" in result.stdout
-        assert "0 in internal cells" in result.stdout
+        assert "Physically regrouped 125 particle records" in result.stdout
+        assert "contiguous property ranges" in result.stdout
+        assert "no retained particle-index storage" in result.stdout
 
         with h5py.File(output, "r") as handle:
             actual_masses = [

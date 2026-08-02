@@ -1,7 +1,11 @@
 
 // Standard includes
+#include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <limits>
 #include <memory>
+#include <numeric>
 #include <vector>
 
 // Local includes
@@ -25,6 +29,154 @@ void accumulateParticleIndexStorage(const Cell *cell,
     for (const Cell *child : cell->children)
       accumulateParticleIndexStorage(child, storage);
   }
+}
+
+bool prepareContiguousParticleRanges(Simulation *sim) {
+#ifdef WITH_MPI
+  // Keep the existing indexed representation in MPI mode for now. MPI ranks
+  // can retain sent particles that are no longer referenced by a local cell,
+  // so their property arrays are not necessarily a live-particle permutation.
+  (void)sim;
+  return false;
+#else
+  const size_t particle_count = sim->particle_masses.size();
+  if (sim->particle_positions.size() != particle_count * 3)
+    error("Particle property array size mismatch before physical regrouping");
+
+  size_t live_particle_count = 0;
+  for (const Cell &cell : sim->cells) {
+    if (cell.particles.size() != cell.part_count) {
+      message("Cannot enable contiguous particle ranges: cell particle "
+              "metadata is inconsistent");
+      return false;
+    }
+    live_particle_count += cell.particles.size();
+  }
+
+  // A permutation can only reorder the arrays in place when every stored
+  // property record is represented exactly once. Fall back for runs where
+  // cleanup intentionally discarded particles from non-useful cells.
+  if (live_particle_count != particle_count) {
+    message("Keeping indexed particle storage: %zu live cell entries for %zu "
+            "property records",
+            live_particle_count, particle_count);
+    return false;
+  }
+
+  const auto regroup_start = std::chrono::high_resolution_clock::now();
+
+  // Keep top-cell chunks close to their original file ordering so the global
+  // permutation is near identity when only a small fraction was misplaced.
+  std::vector<size_t> cell_order(sim->nr_cells);
+  std::iota(cell_order.begin(), cell_order.end(), size_t{0});
+  std::stable_sort(cell_order.begin(), cell_order.end(),
+                   [&](const size_t lhs, const size_t rhs) {
+                     return sim->cell_part_starts[lhs] <
+                            sim->cell_part_starts[rhs];
+                   });
+
+  // permutation[new_index] = old_index. Release each top-cell vector as soon
+  // as its membership has been copied to limit the temporary memory overlap.
+  std::vector<ParticleIndex> permutation;
+  permutation.reserve(particle_count);
+  size_t output_offset = 0;
+  for (size_t cid : cell_order) {
+    Cell &cell = sim->cells[cid];
+    cell.particle_offset = output_offset;
+    permutation.insert(permutation.end(), cell.particles.begin(),
+                       cell.particles.end());
+    output_offset += cell.particles.size();
+    std::vector<ParticleIndex>().swap(cell.particles);
+  }
+
+  if (output_offset != particle_count)
+    error("Failed to construct a complete top-cell particle permutation");
+
+  // Validate bounds in all builds. Debug builds additionally prove that every
+  // old particle index appears exactly once, using the high bit of permutation
+  // entries as a temporary seen bit without another large allocation.
+  for (ParticleIndex index : permutation) {
+    if (index >= particle_count)
+      error("Particle permutation contains out-of-range index %zu", index);
+  }
+
+#ifdef DEBUGGING_CHECKS
+  constexpr size_t marker = size_t{1}
+                            << (std::numeric_limits<size_t>::digits - 1);
+  constexpr size_t value_mask = ~marker;
+  if (particle_count >= marker)
+    error("Particle count is too large for in-place permutation validation");
+
+  for (size_t i = 0; i < particle_count; i++) {
+    const size_t old_index = permutation[i] & value_mask;
+    if (old_index >= particle_count)
+      error("Particle permutation contains out-of-range index %zu", old_index);
+    if ((permutation[old_index] & marker) != 0)
+      error("Particle permutation contains duplicate index %zu", old_index);
+    permutation[old_index] |= marker;
+  }
+  for (ParticleIndex &index : permutation)
+    index &= value_mask;
+#endif
+
+  // Apply new[i] = old[permutation[i]] in place using disjoint permutation
+  // cycles. Positions and masses always move together.
+  const auto physical_reorder_start =
+      std::chrono::high_resolution_clock::now();
+  size_t reordered_particles = 0;
+  for (size_t start = 0; start < particle_count; start++) {
+    if (permutation[start] == start)
+      continue;
+
+    const double saved_pos[3] = {
+        sim->particle_positions[start * 3],
+        sim->particle_positions[start * 3 + 1],
+        sim->particle_positions[start * 3 + 2]};
+    const double saved_mass = sim->particle_masses[start];
+
+    size_t current = start;
+    while (true) {
+      const size_t source = permutation[current];
+      if (source == start) {
+        sim->particle_positions[current * 3] = saved_pos[0];
+        sim->particle_positions[current * 3 + 1] = saved_pos[1];
+        sim->particle_positions[current * 3 + 2] = saved_pos[2];
+        sim->particle_masses[current] = saved_mass;
+        permutation[current] = current;
+        reordered_particles++;
+        break;
+      }
+
+      sim->particle_positions[current * 3] =
+          sim->particle_positions[source * 3];
+      sim->particle_positions[current * 3 + 1] =
+          sim->particle_positions[source * 3 + 1];
+      sim->particle_positions[current * 3 + 2] =
+          sim->particle_positions[source * 3 + 2];
+      sim->particle_masses[current] = sim->particle_masses[source];
+      permutation[current] = current;
+      current = source;
+      reordered_particles++;
+    }
+  }
+
+  std::vector<ParticleIndex>().swap(permutation);
+  sim->particle_ranges_enabled = true;
+
+  const double regroup_seconds =
+      std::chrono::duration<double>(
+          std::chrono::high_resolution_clock::now() - regroup_start)
+          .count();
+  const double physical_reorder_seconds =
+      std::chrono::duration<double>(
+          std::chrono::high_resolution_clock::now() - physical_reorder_start)
+          .count();
+  message("Physically regrouped %zu particle records into contiguous top-cell "
+          "ranges in %.3f s (physical reorder %.3f s; %zu records moved)",
+          particle_count, regroup_seconds, physical_reorder_seconds,
+          reordered_particles);
+  return true;
+#endif
 }
 } // namespace
 
@@ -144,6 +296,8 @@ void getTopCells(Simulation *sim, Grid *grid) {
  */
 void splitCells(Simulation *sim) {
 
+  prepareContiguousParticleRanges(sim);
+
   tic();
 
 #ifdef WITH_MPI
@@ -180,20 +334,25 @@ void splitCells(Simulation *sim) {
   message("Split %zu useful cells", sim->useful_cells.size());
 #endif
 
-  ParticleIndexStorage index_storage;
-  for (const Cell &cell : sim->cells)
-    accumulateParticleIndexStorage(&cell, index_storage);
+  if (sim->particle_ranges_enabled) {
+    message("Particle tree uses contiguous property ranges with no retained "
+            "particle-index storage");
+  } else {
+    ParticleIndexStorage index_storage;
+    for (const Cell &cell : sim->cells)
+      accumulateParticleIndexStorage(&cell, index_storage);
 
-  const double logical_gib =
-      static_cast<double>(index_storage.entries * sizeof(ParticleIndex)) /
-      (1024.0 * 1024.0 * 1024.0);
-  const double capacity_gib =
-      static_cast<double>(index_storage.capacity * sizeof(ParticleIndex)) /
-      (1024.0 * 1024.0 * 1024.0);
-  message("Retained %zu particle indices after splitting (capacity=%zu; %.2f "
-          "GiB logical, %.2f GiB capacity; %zu in internal cells)",
-          index_storage.entries, index_storage.capacity, logical_gib,
-          capacity_gib, index_storage.internal_entries);
+    const double logical_gib =
+        static_cast<double>(index_storage.entries * sizeof(ParticleIndex)) /
+        (1024.0 * 1024.0 * 1024.0);
+    const double capacity_gib =
+        static_cast<double>(index_storage.capacity * sizeof(ParticleIndex)) /
+        (1024.0 * 1024.0 * 1024.0);
+    message("Retained %zu particle indices after splitting (capacity=%zu; %.2f "
+            "GiB logical, %.2f GiB capacity; %zu in internal cells)",
+            index_storage.entries, index_storage.capacity, logical_gib,
+            capacity_gib, index_storage.internal_entries);
+  }
 
   message("Maximum depth in the tree: %d", sim->max_depth);
 

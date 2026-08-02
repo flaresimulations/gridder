@@ -186,7 +186,12 @@ static int bruteForceCountParticlesInCell(const Cell *cell,
 
   int count = 0;
   const double *dim = sim->dim;
-  for (ParticleIndex part : cell->particles) {
+  const size_t stored_particle_count =
+      sim->particle_ranges_enabled ? cell->part_count : cell->particles.size();
+  for (size_t p = 0; p < stored_particle_count; p++) {
+    const ParticleIndex part = sim->particle_ranges_enabled
+                                   ? cell->particle_offset + p
+                                   : cell->particles[p];
     const double *part_pos = sim->particlePosition(part);
     const double dx = nearest(part_pos[0] - grid_point->loc[0], dim[0]);
     const double dy = nearest(part_pos[1] - grid_point->loc[1], dim[1]);
@@ -297,9 +302,18 @@ void validateGridPointsHaveParticles(Simulation *sim, Grid *grid) {
  * 2. Particle counts match between parent and children
  * 3. Grid point counts match between parent and children
  */
-static void validateCellRecursive(Cell *cell, int *errors) {
+static void validateCellRecursive(Cell *cell, Simulation *sim, int *errors) {
   if (!cell->is_split) {
-    if (cell->particles.size() != cell->part_count) {
+    if (sim->particle_ranges_enabled) {
+      if (!cell->particles.empty() ||
+          cell->particle_offset + cell->part_count >
+              sim->particle_masses.size()) {
+        message("[DEBUG] ERROR: Invalid contiguous particle range in leaf at "
+                "(%.3f, %.3f, %.3f)",
+                cell->loc[0], cell->loc[1], cell->loc[2]);
+        (*errors)++;
+      }
+    } else if (cell->particles.size() != cell->part_count) {
       message("[DEBUG] ERROR: Leaf at (%.3f, %.3f, %.3f) has %zu particle "
               "indices but part_count=%zu",
               cell->loc[0], cell->loc[1], cell->loc[2],
@@ -319,10 +333,20 @@ static void validateCellRecursive(Cell *cell, int *errors) {
 
   // Check particle count consistency
   size_t child_part_count = 0;
+  size_t expected_child_offset = cell->particle_offset;
   for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
     if (cell->children[i] != nullptr) {
+      if (sim->particle_ranges_enabled &&
+          cell->children[i]->particle_offset != expected_child_offset) {
+        message("[DEBUG] ERROR: Child %d at (%.3f, %.3f, %.3f) starts at "
+                "%zu instead of expected offset %zu",
+                i, cell->loc[0], cell->loc[1], cell->loc[2],
+                cell->children[i]->particle_offset, expected_child_offset);
+        (*errors)++;
+      }
       child_part_count += cell->children[i]->part_count;
-      validateCellRecursive(cell->children[i], errors);
+      expected_child_offset += cell->children[i]->part_count;
+      validateCellRecursive(cell->children[i], sim, errors);
     }
   }
 
@@ -332,6 +356,13 @@ static void validateCellRecursive(Cell *cell, int *errors) {
         "children have %zu total",
         cell->loc[0], cell->loc[1], cell->loc[2], cell->part_count,
         child_part_count);
+    (*errors)++;
+  }
+  if (sim->particle_ranges_enabled &&
+      expected_child_offset != cell->particle_offset + cell->part_count) {
+    message("[DEBUG] ERROR: Child ranges do not cover parent range at "
+            "(%.3f, %.3f, %.3f)",
+            cell->loc[0], cell->loc[1], cell->loc[2]);
     (*errors)++;
   }
 
@@ -359,7 +390,7 @@ void validateOctreeStructure(Simulation *sim) {
   std::vector<Cell> &cells = sim->cells;
 
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    validateCellRecursive(&cells[cid], &errors);
+    validateCellRecursive(&cells[cid], sim, &errors);
   }
 
   if (errors > 0) {

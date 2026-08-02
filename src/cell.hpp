@@ -6,6 +6,7 @@
 
 // Standard includes
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <omp.h>
@@ -70,6 +71,10 @@ public:
 
   //! Indices of particles within the simulation-owned property arrays
   std::vector<ParticleIndex> particles;
+
+  //! Start of this cell's contiguous particle-property range after physical
+  //! regrouping. The range length is part_count.
+  size_t particle_offset = 0;
 
   //! Grid points within the cell
   std::vector<GridPoint *> grid_points;
@@ -171,6 +176,7 @@ public:
   bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
   void split();
+  void split(std::uint8_t *bucket_buffer);
   void addParticle(ParticleIndex part, double particle_mass,
                    bool mark_useful = true);
   void removeParticle(ParticleIndex part, double particle_mass) {
