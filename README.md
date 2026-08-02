@@ -115,5 +115,5 @@ Build the MkDocs site with:
 ```
 
 Start with the [quickstart](docs/quickstart.md), then see the
-[grid types](docs/gridding.md), [MPI guide](docs/mpi.md), and
-[conversion guide](docs/conversion.md).
+[grid types](docs/gridding.md), [performance and memory model](docs/performance.md),
+[MPI guide](docs/mpi.md), and [conversion guide](docs/conversion.md).

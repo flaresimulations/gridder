@@ -51,10 +51,11 @@ void Simulation::deleteChildCells(Cell *cell) {
     for (int i = 0; i < Cell::OCTREE_CHILDREN; i++) {
       if (cell->children[i] != nullptr) {
         deleteChildCells(cell->children[i]);
-        delete cell->children[i];
         cell->children[i] = nullptr;
       }
     }
+    delete[] cell->children_block;
+    cell->children_block = nullptr;
   }
 }
 
@@ -68,18 +69,29 @@ void Simulation::readSimulationData() {
   // Set up the HDF5 object
   HDF5Helper hdf(metadata->input_file);
 
+  if (metadata->rank == 0) {
+    unsigned int hdf_major = 0, hdf_minor = 0, hdf_release = 0;
+    hbool_t hdf_threadsafe = 0;
+    if (H5get_libversion(&hdf_major, &hdf_minor, &hdf_release) >= 0 &&
+        H5is_library_threadsafe(&hdf_threadsafe) >= 0)
+      message("HDF5 library %u.%u.%u (thread-safe: %s; gridder I/O: serial)",
+              hdf_major, hdf_minor, hdf_release,
+              hdf_threadsafe ? "yes" : "no");
+  }
+
   // Read the metadata from the file
-  hdf.readAttribute<double>(std::string("Header"), std::string("Redshift"),
-                            this->redshift);
-  hdf.readAttribute<size_t[6]>(
-      std::string("Header"), std::string("NumPart_Total"), this->nr_particles);
+  if (!hdf.readAttribute<double>("Header", "Redshift", this->redshift))
+    error("Failed to read Header/Redshift");
+  if (!hdf.readAttribute<size_t[6]>("Header", "NumPart_Total",
+                                    this->nr_particles))
+    error("Failed to read Header/NumPart_Total");
   this->nr_dark_matter = this->nr_particles[1];
-  hdf.readAttribute<int[3]>(std::string("Cells/Meta-data"),
-                            std::string("dimension"), this->cdim);
-  hdf.readAttribute<double[3]>(std::string("Cells/Meta-data"),
-                               std::string("size"), this->width);
-  hdf.readAttribute<double[3]>(std::string("Header"), std::string("BoxSize"),
-                               this->dim);
+  if (!hdf.readAttribute<int[3]>("Cells/Meta-data", "dimension", this->cdim))
+    error("Failed to read Cells/Meta-data/dimension");
+  if (!hdf.readAttribute<double[3]>("Cells/Meta-data", "size", this->width))
+    error("Failed to read Cells/Meta-data/size");
+  if (!hdf.readAttribute<double[3]>("Header", "BoxSize", this->dim))
+    error("Failed to read Header/BoxSize");
 
   // Compute the inverse width of the cells
   for (int i = 0; i < 3; i++) {
@@ -132,12 +144,14 @@ void Simulation::readSimulationData() {
     message("Running with %zu dark matter particles", this->nr_dark_matter);
 
   // Read the number of particles and 64-bit-safe starting offset for each cell.
-  hdf.readDataset<size_t>(std::string("Cells/Counts/PartType1"),
-                          this->cell_part_counts);
+  if (!hdf.readDataset<size_t>("Cells/Counts/PartType1",
+                               this->cell_part_counts))
+    error("Failed to read Cells/Counts/PartType1");
 
   // Read the start index of the particles in each cell
-  hdf.readDataset<size_t>(std::string("Cells/OffsetsInFile/PartType1"),
-                          this->cell_part_starts);
+  if (!hdf.readDataset<size_t>("Cells/OffsetsInFile/PartType1",
+                               this->cell_part_starts))
+    error("Failed to read Cells/OffsetsInFile/PartType1");
 
   const bool offsets_have_end_sentinel =
       this->cell_part_starts.size() == this->nr_cells + 1;

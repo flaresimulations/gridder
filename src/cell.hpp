@@ -77,6 +77,9 @@ public:
   //! Child cells
   std::array<Cell *, OCTREE_CHILDREN> children;
 
+  //! Contiguous ownership block backing children (null for leaves)
+  Cell *children_block;
+
   //! Parent cell
   Cell *parent;
 
@@ -106,6 +109,7 @@ public:
     this->depth = 0;
     this->is_split = false;
     this->is_useful = false;
+    this->children_block = nullptr;
     for (int i = 0; i < OCTREE_CHILDREN; i++) {
       this->children[i] = nullptr;
     }
@@ -132,6 +136,7 @@ public:
 
     // Cell is never split at initialisation
     this->is_split = false;
+    this->children_block = nullptr;
 
     // Initialise the mass and particle count
     this->mass = 0.0;
@@ -170,7 +175,7 @@ public:
   bool inKernel(const GridPoint *grid_point, const double kernel_rad2) const;
   bool outsideKernel(const GridPoint *grid_point,
                      const double kernel_rad2) const;
-  void split();
+  int split();
   void addParticle(ParticleIndex part, double particle_mass,
                    bool mark_useful = true);
   void removeParticle(ParticleIndex part, double particle_mass) {

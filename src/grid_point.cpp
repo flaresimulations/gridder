@@ -1,6 +1,7 @@
 // Standard includes
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 
 // Local includes
@@ -29,7 +30,9 @@ GridPoint::GridPoint(double loc[3]) {
  * @param kernel_count The number of configured kernels
  */
 void GridPoint::initializeKernels(const std::size_t kernel_count) {
-  this->kernel_data.assign(kernel_count, KernelAccumulator{});
+  // The extra sentinel stores the negative end of suffix/range updates during
+  // the fused traversal. finalizeKernelRanges converts differences to values.
+  this->kernel_data.assign(kernel_count + 1, KernelAccumulator{});
 }
 
 /**
@@ -38,26 +41,36 @@ void GridPoint::initializeKernels(const std::size_t kernel_count) {
  * @param particle_mass The mass of the particle to add
  * @param kernel_index The index of the kernel to update
  */
-void GridPoint::add_particle(const double particle_mass,
-                             const std::size_t kernel_index) {
-  KernelAccumulator &kernel = this->kernel_data[kernel_index];
-  kernel.count++;
-  kernel.mass += particle_mass;
+void GridPoint::addKernelRange(const std::size_t particle_count,
+                               const double particle_mass,
+                               const std::size_t begin,
+                               const std::size_t end) {
+  if (begin >= end)
+    return;
+  if (particle_count >
+      static_cast<std::size_t>(std::numeric_limits<std::int64_t>::max()))
+    error("Kernel contribution exceeds the signed 64-bit count range");
+  const std::int64_t signed_count = static_cast<std::int64_t>(particle_count);
+  this->kernel_data[begin].count += signed_count;
+  this->kernel_data[begin].mass += particle_mass;
+  this->kernel_data[end].count -= signed_count;
+  this->kernel_data[end].mass -= particle_mass;
 }
 
-/**
- * @brief Add a cell to the grid point
- *
- * @param cell_part_count The number of particles in the cell
- * @param cell_mass The mass contained in the cell
- * @param kernel_index The index of the kernel to update
- */
-void GridPoint::add_cell(const std::size_t cell_part_count,
-                         const double cell_mass,
-                         const std::size_t kernel_index) {
-  KernelAccumulator &kernel = this->kernel_data[kernel_index];
-  kernel.count += cell_part_count;
-  kernel.mass += cell_mass;
+void GridPoint::finalizeKernelRanges(
+    const std::vector<std::size_t> &original_indices) {
+  std::vector<KernelAccumulator> finalized(original_indices.size());
+  std::int64_t running_count = 0;
+  double running_mass = 0.0;
+  for (std::size_t sorted_index = 0;
+       sorted_index < original_indices.size(); sorted_index++) {
+    running_count += this->kernel_data[sorted_index].count;
+    running_mass += this->kernel_data[sorted_index].mass;
+    KernelAccumulator &output = finalized[original_indices[sorted_index]];
+    output.count = running_count;
+    output.mass = running_mass;
+  }
+  this->kernel_data = std::move(finalized);
 }
 
 // Method to get over density inside kernel radius
@@ -81,8 +94,8 @@ double GridPoint::getMass(const std::size_t kernel_index) const {
 }
 
 // Method to get the particle count inside the kernel radius
-int GridPoint::getCount(const std::size_t kernel_index) const {
-  return static_cast<int>(this->kernel_data[kernel_index].count);
+std::int64_t GridPoint::getCount(const std::size_t kernel_index) const {
+  return this->kernel_data[kernel_index].count;
 }
 
 #ifdef DEBUGGING_CHECKS

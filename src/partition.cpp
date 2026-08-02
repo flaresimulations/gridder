@@ -234,39 +234,44 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
     return {};
   }
 
-  // Build initial chunks where consecutive cells have contiguous particles
+  // Sort selected cells by their actual file ranges. Cell IDs are spatial IDs
+  // and are not required to follow HDF5 particle order.
+  std::sort(useful_cells.begin(), useful_cells.end(), [sim](size_t lhs,
+                                                            size_t rhs) {
+    return sim->cell_part_starts[lhs] < sim->cell_part_starts[rhs];
+  });
+
+  // Build initial chunks where selected file ranges are contiguous.
   std::vector<ParticleChunk> chunks;
   ParticleChunk current_chunk;
-
-  current_chunk.start_cell_id = useful_cells[0];
-  current_chunk.end_cell_id = useful_cells[0];
   current_chunk.start_particle_idx = sim->cell_part_starts[useful_cells[0]];
   current_chunk.particle_count = sim->cell_part_counts[useful_cells[0]];
   current_chunk.grid_point_count = cells[useful_cells[0]].grid_points.size();
+  current_chunk.cell_ranges.push_back(
+      {useful_cells[0], sim->cell_part_starts[useful_cells[0]],
+       sim->cell_part_counts[useful_cells[0]]});
 
   for (size_t i = 1; i < useful_cells.size(); i++) {
     size_t cid = useful_cells[i];
-    size_t prev_cid = useful_cells[i - 1];
-
-    // Check if particles are contiguous in file
-    size_t expected_next_idx =
-        static_cast<size_t>(sim->cell_part_starts[prev_cid]) +
-        static_cast<size_t>(sim->cell_part_counts[prev_cid]);
+    const size_t expected_next_idx = current_chunk.start_particle_idx +
+                                     current_chunk.particle_count;
 
     if (static_cast<size_t>(sim->cell_part_starts[cid]) == expected_next_idx) {
       // Extend current chunk
-      current_chunk.end_cell_id = cid;
       current_chunk.particle_count += sim->cell_part_counts[cid];
       current_chunk.grid_point_count += cells[cid].grid_points.size();
+      current_chunk.cell_ranges.push_back(
+          {cid, sim->cell_part_starts[cid], sim->cell_part_counts[cid]});
     } else {
       // Gap found - finalize current chunk and start new one
       chunks.push_back(current_chunk);
 
-      current_chunk.start_cell_id = cid;
-      current_chunk.end_cell_id = cid;
+      current_chunk = ParticleChunk{};
       current_chunk.start_particle_idx = sim->cell_part_starts[cid];
       current_chunk.particle_count = sim->cell_part_counts[cid];
       current_chunk.grid_point_count = cells[cid].grid_points.size();
+      current_chunk.cell_ranges.push_back(
+          {cid, sim->cell_part_starts[cid], sim->cell_part_counts[cid]});
     }
   }
   chunks.push_back(current_chunk);
@@ -296,11 +301,13 @@ std::vector<ParticleChunk> prepareToReadParts(Simulation *sim) {
 
       if (gap_size < gap_threshold) {
         // Merge: extend last chunk to include gap and current chunk
-        last_merged.end_cell_id = current.end_cell_id;
         last_merged.particle_count =
             (current.start_particle_idx + current.particle_count) -
             last_merged.start_particle_idx;
         last_merged.grid_point_count += current.grid_point_count;
+        last_merged.cell_ranges.insert(last_merged.cell_ranges.end(),
+                                       current.cell_ranges.begin(),
+                                       current.cell_ranges.end());
       } else {
         // Gap too large - keep as separate chunk
         merged_chunks.push_back(current);

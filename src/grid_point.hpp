@@ -6,6 +6,7 @@
 
 // Standard includes
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 // Local includes
@@ -22,13 +23,13 @@ public:
   // Prototypes for member functions (defined in grid_point.cpp)
   GridPoint(double loc[3]);
   void initializeKernels(std::size_t kernel_count);
-  void add_particle(double particle_mass, std::size_t kernel_index);
-  void add_cell(std::size_t cell_part_count, double cell_mass,
-                std::size_t kernel_index);
+  void addKernelRange(std::size_t particle_count, double particle_mass,
+                      std::size_t begin, std::size_t end);
+  void finalizeKernelRanges(const std::vector<std::size_t> &original_indices);
   double getOverDensity(std::size_t kernel_index, double kernel_radius,
                         Simulation *sim) const;
   double getMass(std::size_t kernel_index) const;
-  int getCount(std::size_t kernel_index) const;
+  std::int64_t getCount(std::size_t kernel_index) const;
 
 #ifdef DEBUGGING_CHECKS
   void setBruteForceCount(std::size_t kernel_index, int count);
@@ -37,7 +38,7 @@ public:
 
 private:
   struct KernelAccumulator {
-    std::size_t count = 0;
+    std::int64_t count = 0;
     double mass = 0.0;
 #ifdef DEBUGGING_CHECKS
     int brute_force_count = -1;

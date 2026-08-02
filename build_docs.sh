@@ -31,46 +31,33 @@ fi
 PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
 echo -e "${GREEN}✓${NC} Found Python $PYTHON_VERSION"
 
-# Check if pip is available
-if ! command -v pip3 &> /dev/null; then
-    echo -e "${YELLOW}WARNING: pip3 not found, attempting to use python3 -m pip${NC}"
-    PIP_CMD="python3 -m pip"
-else
-    PIP_CMD="pip3"
-    echo -e "${GREEN}✓${NC} Found pip3"
+# Use the selected Python interpreter for installation and execution. This
+# avoids mixing environments when pip3 or mkdocs resolves through pyenv.
+if ! python3 -m pip --version &> /dev/null; then
+    echo -e "${RED}ERROR: pip is not available for python3${NC}"
+    exit 1
 fi
+echo -e "${GREEN}✓${NC} Found pip for python3"
 
-# Check if mkdocs is installed
-if ! command -v mkdocs &> /dev/null; then
-    echo -e "${YELLOW}MkDocs not found. Installing dependencies...${NC}"
+# Check all dependencies required by mkdocs.yml.
+if ! python3 -c "import mkdocs, material, mkdocs_autorefs" &> /dev/null; then
+    echo -e "${YELLOW}Documentation dependencies not found. Installing...${NC}"
     echo ""
 
-    # Install mkdocs and material theme
-    echo -e "${BLUE}Installing mkdocs-material (includes mkdocs)...${NC}"
-    $PIP_CMD install --user mkdocs-material
+    echo -e "${BLUE}Installing documentation requirements...${NC}"
+    python3 -m pip install --user -r requirements-docs.txt
 
     if [ $? -ne 0 ]; then
-        echo -e "${RED}ERROR: Failed to install mkdocs-material${NC}"
-        echo "Try running manually: pip3 install --user mkdocs-material"
+        echo -e "${RED}ERROR: Failed to install documentation requirements${NC}"
+        echo "Try running manually: python3 -m pip install --user -r requirements-docs.txt"
         exit 1
     fi
 
     echo -e "${GREEN}✓${NC} Dependencies installed successfully"
     echo ""
 else
-    MKDOCS_VERSION=$(mkdocs --version | cut -d' ' -f3)
-    echo -e "${GREEN}✓${NC} Found MkDocs $MKDOCS_VERSION"
-fi
-
-# Verify mkdocs-material is installed
-if ! python3 -c "import material" &> /dev/null; then
-    echo -e "${YELLOW}Installing mkdocs-material theme...${NC}"
-    $PIP_CMD install --user mkdocs-material
-
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}ERROR: Failed to install mkdocs-material theme${NC}"
-        exit 1
-    fi
+    MKDOCS_VERSION=$(python3 -m mkdocs --version)
+    echo -e "${GREEN}✓${NC} Found $MKDOCS_VERSION"
 fi
 
 echo ""
@@ -78,7 +65,7 @@ echo -e "${BLUE}Building documentation...${NC}"
 echo ""
 
 # Build the documentation
-mkdocs build --clean
+python3 -m mkdocs build --clean
 
 if [ $? -ne 0 ]; then
     echo ""
@@ -101,9 +88,9 @@ echo -e "  ${YELLOW}xdg-open site/index.html${NC}      (Linux)"
 echo -e "  ${YELLOW}start site/index.html${NC}         (Windows)"
 echo ""
 echo -e "To serve locally with live reload:"
-echo -e "  ${YELLOW}mkdocs serve${NC}"
+echo -e "  ${YELLOW}python3 -m mkdocs serve${NC}"
 echo -e "  Then open: ${BLUE}http://127.0.0.1:8000${NC}"
 echo ""
 echo -e "To deploy to GitHub Pages:"
-echo -e "  ${YELLOW}mkdocs gh-deploy${NC}"
+echo -e "  ${YELLOW}python3 -m mkdocs gh-deploy${NC}"
 echo ""

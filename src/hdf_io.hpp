@@ -168,6 +168,12 @@ public:
    */
   template <typename T, std::size_t Rank>
   bool readDatasetSlice(const std::string &datasetName, std::vector<T> &data,
+                         const std::array<hsize_t, Rank> &start,
+                         const std::array<hsize_t, Rank> &count);
+
+  /** Read a slice from a dataset kept open by the caller. */
+  template <typename T, std::size_t Rank>
+  bool readDatasetSlice(hid_t dataset_id, std::vector<T> &data,
                         const std::array<hsize_t, Rank> &start,
                         const std::array<hsize_t, Rank> &count);
 
@@ -721,6 +727,43 @@ bool HDF5Helper::validateSliceBounds(hid_t dataset_id,
   }
 
   return true;
+}
+
+template <typename T, std::size_t Rank>
+bool HDF5Helper::readDatasetSlice(
+    hid_t dataset_id, std::vector<T> &data,
+    const std::array<hsize_t, Rank> &start,
+    const std::array<hsize_t, Rank> &count) {
+  if (!file_open || dataset_id < 0)
+    return false;
+  if (!validateSliceBounds(dataset_id, start, count))
+    return false;
+
+  hsize_t total_elements = 1;
+  for (hsize_t extent : count)
+    total_elements *= extent;
+  data.resize(static_cast<size_t>(total_elements));
+
+  hid_t filespace_id = H5Dget_space(dataset_id);
+  if (filespace_id < 0)
+    return false;
+  if (H5Sselect_hyperslab(filespace_id, H5S_SELECT_SET, start.data(), nullptr,
+                          count.data(), nullptr) < 0) {
+    H5Sclose(filespace_id);
+    return false;
+  }
+  hid_t memspace_id = H5Screate_simple(Rank, count.data(), nullptr);
+  if (memspace_id < 0) {
+    H5Sclose(filespace_id);
+    return false;
+  }
+  hid_t plist_id = createTransferPlist();
+  const herr_t status = H5Dread(dataset_id, getHDF5Type<T>(), memspace_id,
+                                filespace_id, plist_id, data.data());
+  H5Pclose(plist_id);
+  H5Sclose(memspace_id);
+  H5Sclose(filespace_id);
+  return status >= 0;
 }
 
 #endif // HDF_IO_H_

@@ -598,8 +598,8 @@ Output:
             # Check that it reports useful cells (sparse grid optimization)
             assert "useful cells" in result.stdout.lower(), \
                 "Should report useful cell count"
-            # Note: Chunk-based loading only happens in MPI mode,
-            # serial mode uses traditional particle assignment
+            # The selected strategy depends on the fraction of useful
+            # top-level cells in both serial and MPI modes.
 
             # Verify output exists
             assert output_file.exists(), "Output file should be created"

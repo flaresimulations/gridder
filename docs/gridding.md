@@ -71,7 +71,10 @@ Kernels:
 ```
 
 Radii use the same comoving length units as coordinates. Larger radii generally
-visit more particles and therefore require more work.
+visit more particles and therefore require more work. The gridder evaluates all
+configured radii in one fused octree traversal and preserves their configured
+order in the output. See [Performance and Memory Model](performance.md) for the
+search and storage design.
 
 ## Choosing A Grid
 

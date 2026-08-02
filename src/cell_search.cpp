@@ -58,9 +58,8 @@ static void addPartsToGridPoint(Cell *cell, GridPoint *grid_point,
         static_cast<size_t>(first_containing - kernels.sorted_radii2.begin());
     if (first_index == kernel_end)
       continue;
-    const double particle_mass = sim->particleMass(part);
-    for (size_t k = first_index; k < kernel_end; k++)
-      grid_point->add_particle(particle_mass, kernels.original_indices[k]);
+    grid_point->addKernelRange(1, sim->particleMass(part), first_index,
+                               kernel_end);
   }
 }
 
@@ -131,10 +130,8 @@ static void recursivePairPartsToPoints(Cell *cell, Cell *other,
   while (inside_begin < kernel_end &&
          !other->inKernel(grid_point, kernels.sorted_radii2[inside_begin]))
     inside_begin++;
-  for (size_t k = inside_begin; k < kernel_end; k++) {
-    grid_point->add_cell(other->part_count, other->mass,
-                         kernels.original_indices[k]);
-  }
+  grid_point->addKernelRange(other->part_count, other->mass, inside_begin,
+                             kernel_end);
   if (overlap_begin == inside_begin)
     return;
 
@@ -213,10 +210,8 @@ static void recursiveSelfPartsToPoints(Cell *cell,
         kernels.sorted_radii2.begin() + kernel_end, cell_diag);
     const size_t inside_begin = static_cast<size_t>(
         first_containing_cell - kernels.sorted_radii2.begin());
-    for (size_t k = inside_begin; k < kernel_end; k++) {
-      grid_point->add_cell(cell->part_count, cell->mass,
-                           kernels.original_indices[k]);
-    }
+    grid_point->addKernelRange(cell->part_count, cell->mass, inside_begin,
+                               kernel_end);
     if (kernel_begin < inside_begin) {
       addPartsToGridPoint(cell, grid_point, kernels, kernel_begin,
                           inside_begin);
@@ -277,12 +272,12 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
   }
 
   // Loop over the local cells only
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < local_useful_cells.size(); i++) {
     Cell *cell = local_useful_cells[i];
 #else
   // In serial mode, use the useful_cells lookup vector directly
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
   for (size_t i = 0; i < sim->useful_cells.size(); i++) {
     Cell *cell = sim->useful_cells[i];
 #endif
@@ -295,6 +290,8 @@ void getKernelMasses(Simulation *sim, Grid *grid) {
       recursivePairPartsToPoints(cell, neighbour, kernels, 0,
                                  kernels.sorted_radii2.size());
     }
+    for (GridPoint *grid_point : cell->grid_points)
+      grid_point->finalizeKernelRanges(kernels.original_indices);
   }
   toc("Computing kernel masses");
 }

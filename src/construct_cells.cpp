@@ -132,6 +132,13 @@ void getTopCells(Simulation *sim, Grid *grid) {
         }
       }
     }
+
+    // Opposite periodic offsets alias when a dimension is even and the walk
+    // reaches half the box. Keep each physical neighbour exactly once.
+    std::sort(cell->neighbours.begin(), cell->neighbours.end());
+    cell->neighbours.erase(
+        std::unique(cell->neighbours.begin(), cell->neighbours.end()),
+        cell->neighbours.end());
   }
 
   toc("Creating top level cells");
@@ -145,6 +152,7 @@ void getTopCells(Simulation *sim, Grid *grid) {
 void splitCells(Simulation *sim) {
 
   tic();
+  int maximum_depth = 0;
 
 #ifdef WITH_MPI
   // Get the metadata instance for MPI rank checking
@@ -162,9 +170,9 @@ void splitCells(Simulation *sim) {
   }
 
   // Loop over locally useful cells on this rank and split them
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic) reduction(max : maximum_depth)
   for (size_t i = 0; i < cells_to_split.size(); i++) {
-    cells_to_split[i]->split();
+    maximum_depth = std::max(maximum_depth, cells_to_split[i]->split());
   }
 
   message("Rank %d: Split %zu locally useful cells", metadata->rank,
@@ -172,17 +180,26 @@ void splitCells(Simulation *sim) {
 #else
   // In serial mode, use the useful_cells lookup vector
   // Loop over useful cells and split them
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic) reduction(max : maximum_depth)
   for (size_t i = 0; i < sim->useful_cells.size(); i++) {
-    sim->useful_cells[i]->split();
+    maximum_depth = std::max(maximum_depth, sim->useful_cells[i]->split());
   }
 
   message("Split %zu useful cells", sim->useful_cells.size());
 #endif
 
+  sim->max_depth = maximum_depth;
+
   ParticleIndexStorage index_storage;
-  for (const Cell &cell : sim->cells)
-    accumulateParticleIndexStorage(&cell, index_storage);
+  std::vector<ParticleIndexStorage> top_storage(sim->cells.size());
+#pragma omp parallel for schedule(dynamic)
+  for (size_t cid = 0; cid < sim->cells.size(); cid++)
+    accumulateParticleIndexStorage(&sim->cells[cid], top_storage[cid]);
+  for (const ParticleIndexStorage &storage : top_storage) {
+    index_storage.entries += storage.entries;
+    index_storage.capacity += storage.capacity;
+    index_storage.internal_entries += storage.internal_entries;
+  }
 
   const double logical_gib =
       static_cast<double>(index_storage.entries * sizeof(ParticleIndex)) /

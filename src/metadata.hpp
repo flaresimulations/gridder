@@ -26,13 +26,21 @@ class Grid;
  *
  * Used in both serial and MPI builds for efficient sparse grid handling.
  */
+struct ParticleCellRange {
+  size_t cell_id = 0;            ///< Simulation cell represented by this range
+  size_t start_particle_idx = 0; ///< Range start in the HDF5 datasets
+  size_t particle_count = 0;     ///< Number of particles belonging to the cell
+};
+
 struct ParticleChunk {
-  size_t start_cell_id = 0;      ///< First cell ID in this chunk
-  size_t end_cell_id = 0;        ///< Last cell ID in this chunk
   size_t start_particle_idx = 0; ///< Starting index in HDF5 particle arrays
   size_t particle_count = 0;     ///< Total number of particles in this chunk
   size_t grid_point_count = 0;   ///< Total number of grid points in this chunk
   int reading_rank = 0; ///< MPI rank assigned to read this chunk (0 in serial)
+
+  // Explicit offset-sorted cell ranges. Cell IDs need not be ordered like the
+  // particle datasets, and merged chunks may contain unselected gap cells.
+  std::vector<ParticleCellRange> cell_ranges;
 
   // Temporary mass storage after reading (cleared after use)
   std::vector<double> masses;

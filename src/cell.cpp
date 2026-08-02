@@ -19,6 +19,37 @@
 #include "particle.hpp"
 #include "simulation.hpp"
 
+namespace {
+double periodicIntervalMinDistance(const double point, const double lower,
+                                   const double upper,
+                                   const double period) {
+  double minimum = period;
+  for (int image = -1; image <= 1; image++) {
+    const double image_lower = lower + image * period;
+    const double image_upper = upper + image * period;
+    const double distance = point < image_lower
+                                ? image_lower - point
+                                : (point > image_upper ? point - image_upper
+                                                       : 0.0);
+    minimum = std::min(minimum, distance);
+  }
+  return minimum;
+}
+
+double periodicIntervalMaxDistance(const double point, const double lower,
+                                   const double upper,
+                                   const double period) {
+  double maximum = std::max(std::fabs(nearest(lower - point, period)),
+                            std::fabs(nearest(upper - point, period)));
+  double antipode = std::fmod(point + period / 2.0, period);
+  if (antipode < 0.0)
+    antipode += period;
+  if (antipode >= lower && antipode <= upper)
+    maximum = period / 2.0;
+  return maximum;
+}
+} // namespace
+
 /**
  * @brief Is this cell within a grid point's kernel radius?
  *
@@ -50,12 +81,12 @@ bool Cell::inKernel(const GridPoint *grid_point,
   const double gridz = grid_point->loc[2];
 
   // Get the maximum distance between the particle and the grid point
-  const double dx = std::max({fabs(nearest(thisx_min - gridx, dim[0])),
-                              fabs(nearest(thisx_max - gridx, dim[0]))});
-  const double dy = std::max({fabs(nearest(thisy_min - gridy, dim[1])),
-                              fabs(nearest(thisy_max - gridy, dim[1]))});
-  const double dz = std::max({fabs(nearest(thisz_min - gridz, dim[2])),
-                              fabs(nearest(thisz_max - gridz, dim[2]))});
+  const double dx = periodicIntervalMaxDistance(gridx, thisx_min, thisx_max,
+                                                dim[0]);
+  const double dy = periodicIntervalMaxDistance(gridy, thisy_min, thisy_max,
+                                                dim[1]);
+  const double dz = periodicIntervalMaxDistance(gridz, thisz_min, thisz_max,
+                                                dim[2]);
   const double r2 = dx * dx + dy * dy + dz * dz;
 
   return r2 <= kernel_rad2;
@@ -78,55 +109,16 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
   Simulation *sim = metadata->sim;
   double *dim = sim->dim;
 
-  // Get cell centre and diagonal
-  double cell_centre[3] = {this->loc[0] + this->width[0] / 2.0,
-                           this->loc[1] + this->width[1] / 2.0,
-                           this->loc[2] + this->width[2] / 2.0};
-  double diag2 = this->width[0] * this->width[0] +
-                 this->width[1] * this->width[1] +
-                 this->width[2] * this->width[2];
-
-  // Get the distance between the grid point and the cell centre, accounting
-  // for periodic boundary conditions using the nearest function
-  double dx = nearest(grid_point->loc[0] - cell_centre[0], dim[0]);
-  double dy = nearest(grid_point->loc[1] - cell_centre[1], dim[1]);
-  double dz = nearest(grid_point->loc[2] - cell_centre[2], dim[2]);
-
-  // If the grid point is within the cell extent in a given dimension, then the
-  // minimum distance in that dimension is zero (the grid point overlaps the
-  // cell)
-  if (fabs(dx) < this->width[0] / 2.0)
-    dx = 0.0;
-  if (fabs(dy) < this->width[1] / 2.0)
-    dy = 0.0;
-  if (fabs(dz) < this->width[2] / 2.0)
-    dz = 0.0;
-
-  // If the grid point is not within the cell extent in a dimension, calculate
-  // the distance to the nearest cell face in that dimension, accounting for
-  // periodic boundary wrapping
-  if (dx != 0.0)
-    dx = fabs(dx) - this->width[0] / 2.0;
-  if (dy != 0.0)
-    dy = fabs(dy) - this->width[1] / 2.0;
-  if (dz != 0.0)
-    dz = fabs(dz) - this->width[2] / 2.0;
-
-  // Ensure all distances are non-negative (should already be the case, but
-  // adding this as a safety check)
-  dx = std::max(0.0, dx);
-  dy = std::max(0.0, dy);
-  dz = std::max(0.0, dz);
+  const double dx = periodicIntervalMinDistance(
+      grid_point->loc[0], this->loc[0], this->loc[0] + this->width[0], dim[0]);
+  const double dy = periodicIntervalMinDistance(
+      grid_point->loc[1], this->loc[1], this->loc[1] + this->width[1], dim[1]);
+  const double dz = periodicIntervalMinDistance(
+      grid_point->loc[2], this->loc[2], this->loc[2] + this->width[2], dim[2]);
 
   // Calculate the squared distance from the grid point to the nearest point
   // on the cell boundary
   double r2 = dx * dx + dy * dy + dz * dz;
-
-  // Subtract the cell diagonal (with a safety factor) to account for the fact
-  // that particles can be anywhere within the cell. We want to be conservative
-  // and only return "outside" if we're absolutely certain that NO particle in
-  // this cell could possibly be within the kernel radius.
-  r2 -= 1.1 * diag2; // Add a little bit of padding
 
 #ifdef DEBUGGING_CHECKS
   // Ensure we aren't reporting we're outside when particles are inside
@@ -164,15 +156,11 @@ bool Cell::outsideKernel(const GridPoint *grid_point,
 /**
  * @brief Split the cell into 8 children.
  */
-void Cell::split() {
+int Cell::split() {
 
   // Get the metadata instance
   Metadata *metadata = &Metadata::getInstance();
   Simulation *sim = metadata->sim;
-
-  // Update the max depth
-  if (this->depth > sim->max_depth)
-    sim->max_depth = this->depth;
 
 #ifdef DEBUGGING_CHECKS
 
@@ -196,7 +184,7 @@ void Cell::split() {
   if (this->part_count < metadata->max_leaf_count &&
       this->grid_points.size() <= 1) {
     this->is_split = false;
-    return;
+    return this->depth;
   }
 
   // Prevent infinite recursion from co-located particles
@@ -211,8 +199,17 @@ void Cell::split() {
   // Flag that we are splitting this cell
   this->is_split = true;
 
-  // Loop over the children creating the cells and attaching the particles and
-  // grid points
+  // Allocate all siblings contiguously to reduce allocator traffic and improve
+  // locality during recursive traversal.
+  try {
+    this->children_block = new Cell[OCTREE_CHILDREN];
+  } catch (const std::bad_alloc &e) {
+    error("Memory allocation failed while creating children at depth %d "
+          "(%zu particles): %s",
+          this->depth, this->part_count, e.what());
+  }
+
+  // Initialize child cells and attach the particles and grid points.
   for (int i = 0; i < OCTREE_DIM; i++) {
     for (int j = 0; j < OCTREE_DIM; j++) {
       for (int k = 0; k < OCTREE_DIM; k++) {
@@ -225,17 +222,8 @@ void Cell::split() {
         new_loc[1] = this->loc[1] + j * new_width[1];
         new_loc[2] = this->loc[2] + k * new_width[2];
 
-        // Create child cell using raw pointer allocation
-        Cell *child = nullptr;
-        try {
-          child = new Cell(new_loc, new_width, this, this->top);
-        } catch (const std::bad_alloc &e) {
-          error("Memory allocation failed while creating child cell (depth=%d, "
-                "particles=%zu). System out of memory. Try reducing "
-                "n_grid_points "
-                "or max_leaf_count parameters. Error: %s",
-                this->depth, this->part_count, e.what());
-        }
+        Cell *child = &this->children_block[iprogeny];
+        *child = Cell(new_loc, new_width, this, this->top);
 
 #ifdef WITH_MPI
         // Set the rank of the child
@@ -397,9 +385,10 @@ void Cell::split() {
   std::vector<ParticleIndex>().swap(this->particles);
 
   // Loop over the children and recursively split them if they have too many.
-  for (int i = 0; i < OCTREE_CHILDREN; i++) {
-    this->children[i]->split();
-  }
+  int maximum_depth = this->depth;
+  for (int i = 0; i < OCTREE_CHILDREN; i++)
+    maximum_depth = std::max(maximum_depth, this->children[i]->split());
+  return maximum_depth;
 }
 
 /**
@@ -610,9 +599,22 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
 
   // Open the HDF5 file
   HDF5Helper hdf(metadata->input_file);
+  hid_t mass_dataset =
+      H5Dopen(hdf.file_id, "PartType1/Masses", H5P_DEFAULT);
+  hid_t position_dataset =
+      H5Dopen(hdf.file_id, "PartType1/Coordinates", H5P_DEFAULT);
+  if (mass_dataset < 0 || position_dataset < 0) {
+    if (mass_dataset >= 0)
+      H5Dclose(mass_dataset);
+    if (position_dataset >= 0)
+      H5Dclose(position_dataset);
+    error("Failed to open particle datasets for sparse reading");
+  }
 
   int chunks_read = 0;
   size_t total_particles_read = 0;
+  double mass_read_seconds = 0.0;
+  double position_read_seconds = 0.0;
 #ifndef WITH_MPI
   size_t useful_particles = 0;
   size_t useful_cells_processed = 0;
@@ -620,9 +622,10 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
 
   size_t particles_to_store = 0;
   for (const ParticleChunk &chunk : chunks) {
-    for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
+    for (const ParticleCellRange &range : chunk.cell_ranges) {
+      const size_t cid = range.cell_id;
       if (sim->cells[cid].shouldLoadParticles())
-        particles_to_store += sim->cell_part_counts[cid];
+        particles_to_store += range.particle_count;
     }
   }
   sim->particle_masses.reserve(sim->particle_masses.size() +
@@ -640,32 +643,42 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
     std::array<hsize_t, 1> start_idx = {static_cast<hsize_t>(chunk.start_particle_idx)};
     std::array<hsize_t, 1> count = {static_cast<hsize_t>(chunk.particle_count)};
 
-    if (!hdf.readDatasetSlice<double>("PartType1/Masses", chunk.masses,
-                                      start_idx, count)) {
-      error("Failed to read particle masses for chunk %zu-%zu",
-            chunk.start_cell_id, chunk.end_cell_id);
+    const auto mass_read_start = std::chrono::steady_clock::now();
+    if (!hdf.readDatasetSlice<double>(mass_dataset, chunk.masses, start_idx,
+                                      count)) {
+      error("Failed to read particle masses for chunk at offset %zu",
+            chunk.start_particle_idx);
     }
+    mass_read_seconds += std::chrono::duration<double>(
+                             std::chrono::steady_clock::now() - mass_read_start)
+                             .count();
 
     // Read positions - 2D array [npart, 3] (use hsize_t for HDF5 compatibility)
     std::vector<double> pos_flat(chunk.particle_count * 3);
     std::array<hsize_t, 2> pos_start = {static_cast<hsize_t>(chunk.start_particle_idx), 0};
     std::array<hsize_t, 2> pos_count = {static_cast<hsize_t>(chunk.particle_count), 3};
 
-    if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", pos_flat,
-                                      pos_start, pos_count)) {
-      error("Failed to read particle positions for chunk %zu-%zu",
-            chunk.start_cell_id, chunk.end_cell_id);
+    const auto position_read_start = std::chrono::steady_clock::now();
+    if (!hdf.readDatasetSlice<double>(position_dataset, pos_flat, pos_start,
+                                      pos_count)) {
+      error("Failed to read particle positions for chunk at offset %zu",
+            chunk.start_particle_idx);
     }
+    position_read_seconds +=
+        std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                      position_read_start)
+            .count();
 
     // Attach particles from chunks to cells
     std::vector<Cell> &cells = sim->cells;
-    size_t particle_offset = 0;
-    for (size_t cid = chunk.start_cell_id; cid <= chunk.end_cell_id; cid++) {
-      const size_t npart = sim->cell_part_counts[cid];
+    for (const ParticleCellRange &range : chunk.cell_ranges) {
+      const size_t cid = range.cell_id;
+      const size_t npart = range.particle_count;
+      const size_t particle_offset =
+          range.start_particle_idx - chunk.start_particle_idx;
 
       // Check if we should load particles for this cell
       if (!cells[cid].shouldLoadParticles()) {
-        particle_offset += npart;
         // Reset part_count for cells where we're not loading particles
         cells[cid].part_count = 0;
         cells[cid].mass = 0.0;
@@ -693,19 +706,25 @@ void readParticlesInChunks([[maybe_unused]] Simulation *sim,
 
       cells[cid].part_count = cells[cid].particles.size();
       cells[cid].mass = cell_mass;
-
-      particle_offset += npart;
     }
 
     // Clear chunk data immediately to save memory
     chunk.masses.clear();
-    chunk.masses.shrink_to_fit();
 
     chunks_read++;
     total_particles_read += chunk.particle_count;
   }
 
+  H5Dclose(position_dataset);
+  H5Dclose(mass_dataset);
   hdf.close();
+
+  const double input_gib =
+      static_cast<double>(total_particles_read * 4 * sizeof(double)) /
+      (1024.0 * 1024.0 * 1024.0);
+  message("Sparse HDF5 reads: masses %.3f s, coordinates %.3f s, %d calls, "
+          "%.2f GiB",
+          mass_read_seconds, position_read_seconds, chunks_read * 2, input_gib);
 
   // Print summary statistics
 #ifdef WITH_MPI
@@ -748,7 +767,9 @@ void assignPartsToCells(Simulation *sim) {
   std::vector<double> masses;
   std::vector<double> poss;
 
-  const auto read_start = std::chrono::high_resolution_clock::now();
+  const auto read_start = std::chrono::steady_clock::now();
+  double mass_read_seconds = 0.0;
+  double position_read_seconds = 0.0;
 
 #ifdef WITH_MPI
   // In MPI mode, only read if this rank has local particles
@@ -763,19 +784,28 @@ void assignPartsToCells(Simulation *sim) {
         static_cast<hsize_t>(metadata->nr_local_particles)};
     std::array<hsize_t, 1> start_index = {
         static_cast<hsize_t>(metadata->first_local_part_ind)};
+    auto dataset_read_start = std::chrono::steady_clock::now();
     if (!hdf.readDatasetSlice<double>("PartType1/Masses", masses, start_index,
                                       mass_dims)) {
       error("Failed to read particle masses");
     }
+    mass_read_seconds = std::chrono::duration<double>(
+                            std::chrono::steady_clock::now() - dataset_read_start)
+                            .count();
 
     std::array<hsize_t, 2> pos_dims = {
         static_cast<hsize_t>(metadata->nr_local_particles), 3};
     std::array<hsize_t, 2> pos_start_index = {
         static_cast<hsize_t>(metadata->first_local_part_ind), 0};
+    dataset_read_start = std::chrono::steady_clock::now();
     if (!hdf.readDatasetSlice<double>("PartType1/Coordinates", poss,
                                       pos_start_index, pos_dims)) {
       error("Failed to read particle positions");
     }
+    position_read_seconds = std::chrono::duration<double>(
+                                std::chrono::steady_clock::now() -
+                                dataset_read_start)
+                                .count();
   } else {
     message("No local particles to read on this rank");
   }
@@ -784,23 +814,34 @@ void assignPartsToCells(Simulation *sim) {
   HDF5Helper hdf(metadata->input_file);
 
   // Read the particle data all at once
+  auto dataset_read_start = std::chrono::steady_clock::now();
   if (!hdf.readDataset<double>(std::string("PartType1/Masses"), masses)) {
     error("Failed to read particle masses");
   }
+  mass_read_seconds = std::chrono::duration<double>(
+                          std::chrono::steady_clock::now() - dataset_read_start)
+                          .count();
+  dataset_read_start = std::chrono::steady_clock::now();
   if (!hdf.readDataset<double>("PartType1/Coordinates", poss)) {
     error("Failed to read particle positions");
   }
+  position_read_seconds = std::chrono::duration<double>(
+                              std::chrono::steady_clock::now() -
+                              dataset_read_start)
+                              .count();
 #endif
 
   const double read_seconds =
       std::chrono::duration<double>(
-          std::chrono::high_resolution_clock::now() - read_start)
+          std::chrono::steady_clock::now() - read_start)
           .count();
   const double input_gib =
       static_cast<double>((masses.size() + poss.size()) * sizeof(double)) /
       (1024.0 * 1024.0 * 1024.0);
   message("Read %zu particle masses and coordinates in %.3f s (%.2f GiB)",
           masses.size(), read_seconds, input_gib);
+  message("HDF5 particle datasets: masses %.3f s, coordinates %.3f s",
+          mass_read_seconds, position_read_seconds);
 
 #ifdef DEBUGGING_CHECKS
   size_t total_part_count = 0;
@@ -1231,7 +1272,15 @@ void checkAndMoveParticles(Simulation *sim) {
     double retained_mass = 0.0;
     for (ParticleIndex part : cell->particles) {
       const double *part_pos = sim->particlePosition(part);
-      Cell *containing_cell = getCellContainingPoint(part_pos);
+      const bool inside_expected_cell =
+          part_pos[0] >= cell->loc[0] &&
+          part_pos[0] < cell->loc[0] + cell->width[0] &&
+          part_pos[1] >= cell->loc[1] &&
+          part_pos[1] < cell->loc[1] + cell->width[1] &&
+          part_pos[2] >= cell->loc[2] &&
+          part_pos[2] < cell->loc[2] + cell->width[2];
+      Cell *containing_cell =
+          inside_expected_cell ? cell : getCellContainingPoint(part_pos);
       if (containing_cell != cell) {
         cell_moves.push_back({part, containing_cell});
       } else {
@@ -1339,36 +1388,55 @@ void assignGridPointsToCells([[maybe_unused]] Simulation *sim, Grid *grid) {
 
   // Get the grid points
   std::vector<GridPoint> &grid_points = grid->grid_points;
+  std::vector<Cell> &cells = sim->cells;
+  std::vector<size_t> destinations(grid_points.size());
+  const int thread_count = omp_get_max_threads();
+  std::vector<size_t> thread_offsets(
+      static_cast<size_t>(thread_count) * sim->nr_cells, 0);
 
-#pragma omp parallel for
-  // Loop over the grid points assigning them to cells
+#pragma omp parallel for schedule(static)
   for (size_t gid = 0; gid < grid_points.size(); gid++) {
-
-    // Get the grid point
-    GridPoint *grid_point = &grid_points[gid];
-
-    // Get the cell this grid point is in
-    Cell *cell = getCellContainingPoint(grid_point->loc);
+    const size_t cid = static_cast<size_t>(
+        getCellIndexContainingPoint(grid_points[gid].loc));
+    destinations[gid] = cid;
+    thread_offsets[static_cast<size_t>(omp_get_thread_num()) * sim->nr_cells +
+                   cid]++;
 
     // If the cell is not local, nothing to do
 #ifdef WITH_MPI
     // Get the metadata instance for MPI rank checking
     Metadata *metadata = &Metadata::getInstance();
-    if (cell->rank != metadata->rank)
+    if (cells[cid].rank != metadata->rank)
       error("Grid point %zu is in cell %zu which is not local to this rank %d",
-            gid, getCellIndexContainingPoint(grid_point->loc), metadata->rank);
+            gid, cid, metadata->rank);
 #endif
+  }
 
-#pragma omp critical
-    {
-      // Attach the grid point to the cell
-      cell->grid_points.push_back(grid_point);
+  // Convert per-thread counts to disjoint insertion offsets. Static scheduling
+  // gives each thread a contiguous gid range, so concatenating thread ranges
+  // also preserves the original grid-point order within each cell.
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    size_t cell_count = 0;
+    for (int thread = 0; thread < thread_count; thread++) {
+      size_t &entry = thread_offsets[static_cast<size_t>(thread) *
+                                         sim->nr_cells +
+                                     cid];
+      const size_t count = entry;
+      entry = cell_count;
+      cell_count += count;
     }
+    cells[cid].grid_points.resize(cell_count);
+  }
+
+#pragma omp parallel for schedule(static)
+  for (size_t gid = 0; gid < grid_points.size(); gid++) {
+    const size_t cid = destinations[gid];
+    size_t &offset = thread_offsets[static_cast<size_t>(omp_get_thread_num()) *
+                                        sim->nr_cells +
+                                    cid];
+    cells[cid].grid_points[offset++] = &grid_points[gid];
   }
 #ifdef DEBUGGING_CHECKS
-
-  // Get the cells for debugging checks
-  std::vector<Cell> &cells = sim->cells;
 
   // Print cell assignment summary
   message("[DEBUG] Grid point to cell assignment summary:");
@@ -1424,32 +1492,28 @@ void limitToUsefulCells(Simulation *sim) {
   // Get the cells
   std::vector<Cell> &cells = sim->cells;
 
-  // Phase 1: Flag locally useful cells
-  // (cells with grid points or neighboring cells with grid points)
+  // Phase 1: Build locally useful flags in parallel. Atomic writes avoid races
+  // when several grid-bearing cells share a neighbour.
+  std::vector<int> locally_useful_flags(sim->nr_cells, 0);
+#pragma omp parallel for schedule(static)
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-
-    // Get the cell
-    Cell *cell = &cells[cid];
-
-    // Check if the cell is useful locally
-    if (cell->grid_points.size() > 0) {
-      cell->is_useful = true;
-#ifdef WITH_MPI
-      // Mark as locally useful (needed for THIS rank's grid points)
-      cell->is_locally_useful = true;
-#endif
-    } else {
+    if (cells[cid].grid_points.empty())
       continue;
+#pragma omp atomic write
+    locally_useful_flags[cid] = 1;
+    for (Cell *neighbour : cells[cid].neighbours) {
+      const size_t neighbour_id =
+          static_cast<size_t>(neighbour - cells.data());
+#pragma omp atomic write
+      locally_useful_flags[neighbour_id] = 1;
     }
-
-    // If we got here we have a useful cell, label neighbors as useful too
-    for (Cell *neighbour : cell->neighbours) {
-      neighbour->is_useful = true;
+  }
+#pragma omp parallel for schedule(static)
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    cells[cid].is_useful = locally_useful_flags[cid] != 0;
 #ifdef WITH_MPI
-      // Neighbors are also locally useful
-      neighbour->is_locally_useful = true;
+    cells[cid].is_locally_useful = locally_useful_flags[cid] != 0;
 #endif
-    }
   }
 
 #ifdef WITH_MPI
@@ -1486,6 +1550,7 @@ void limitToUsefulCells(Simulation *sim) {
 
   // Count the number of useful cells
   int useful_count = 0;
+#pragma omp parallel for reduction(+ : useful_count)
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     if (cells[cid].is_useful) {
       useful_count++;
@@ -1503,6 +1568,7 @@ void limitToUsefulCells(Simulation *sim) {
   // Phase 4: Zero particle counts for truly non-useful cells
   // Now it's safe because we know NO rank needs these cells
   int cleared_count = 0;
+#pragma omp parallel for reduction(+ : cleared_count)
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     Cell *cell = &cells[cid];
 
@@ -1517,7 +1583,7 @@ void limitToUsefulCells(Simulation *sim) {
 #endif
 
     // This cell is neither useful nor a proxy - zero its part_count
-    // so assignPartsToCells won't load particles for it
+  // so assignPartsToCells won't load particles for it
     cell->part_count = 0;
     cleared_count++;
   }

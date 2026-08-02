@@ -247,7 +247,10 @@ class GridderTest:
     def _run_gridder(self, param_file, nthreads=1):
         """Run the gridder executable"""
         if self.is_mpi:
-            cmd = ['mpirun', '-n', str(self.mpi_ranks), self.executable, str(param_file), str(nthreads)]
+            # MPI-specific assertions inspect per-rank diagnostics, so request
+            # verbosity 2 explicitly (snapshot 0 is the preceding argument).
+            cmd = ['mpirun', '-n', str(self.mpi_ranks), self.executable,
+                   str(param_file), str(nthreads), '0', '2']
         else:
             cmd = [self.executable, str(param_file), str(nthreads)]
 

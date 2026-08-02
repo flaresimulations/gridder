@@ -6,6 +6,9 @@
 
 // Standard includes
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <limits>
 #include <numeric>
 
 // Local includes
@@ -68,13 +71,17 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
   }
 
   // Loop over cells and collect grid point counts
-  std::vector<int> grid_point_counts(sim->nr_cells, 0);
+  std::vector<int64_t> grid_point_counts(sim->nr_cells, 0);
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-    grid_point_counts[cid] = static_cast<int>(cells[cid].grid_points.size());
+    if (cells[cid].grid_points.size() >
+        static_cast<size_t>(std::numeric_limits<int64_t>::max()))
+      error("Cell %zu has too many grid points for the output format", cid);
+    grid_point_counts[cid] =
+        static_cast<int64_t>(cells[cid].grid_points.size());
   }
 
   // Convert counts to start indices for cell lookup
-  std::vector<int> grid_point_start(sim->nr_cells, 0);
+  std::vector<int64_t> grid_point_start(sim->nr_cells, 0);
   for (size_t cid = 1; cid < sim->nr_cells; cid++) {
     grid_point_start[cid] =
         grid_point_start[cid - 1] + grid_point_counts[cid - 1];
@@ -87,12 +94,12 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
   }
 
   std::array<hsize_t, 1> sim_cell_dims = {static_cast<hsize_t>(sim->nr_cells)};
-  if (!hdf5.writeDataset<int, 1>("Cells/GridPointStart", grid_point_start,
+  if (!hdf5.writeDataset<int64_t, 1>("Cells/GridPointStart", grid_point_start,
                                  sim_cell_dims)) {
     error("Failed to write GridPointStart dataset");
     return;
   }
-  if (!hdf5.writeDataset<int, 1>("Cells/GridPointCounts", grid_point_counts,
+  if (!hdf5.writeDataset<int64_t, 1>("Cells/GridPointCounts", grid_point_counts,
                                  sim_cell_dims)) {
     error("Failed to write GridPointCounts dataset");
     return;
@@ -107,17 +114,39 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
     return;
   }
 
-  // Create dataset for grid positions
+  const auto assembly_start = std::chrono::steady_clock::now();
+
+  // Assemble positions once in cell-grouped output order. Cells own disjoint
+  // output ranges, so this CPU work is safe to parallelize without locks.
   std::array<hsize_t, 2> grid_point_positions_dims = {
       static_cast<hsize_t>(grid->n_grid_points), static_cast<hsize_t>(3)};
-  if (!hdf5.createDataset<double, 2>("Grids/GridPointPositions",
-                                     grid_point_positions_dims)) {
-    error("Failed to create GridPointPositions dataset");
-    return;
+  std::vector<double> grid_positions(static_cast<size_t>(grid->n_grid_points) *
+                                     3);
+#pragma omp parallel for schedule(static)
+  for (size_t cid = 0; cid < sim->nr_cells; cid++) {
+    size_t output_index = static_cast<size_t>(grid_point_start[cid]);
+    for (const GridPoint *gp : cells[cid].grid_points) {
+      grid_positions[output_index * 3] = gp->loc[0];
+      grid_positions[output_index * 3 + 1] = gp->loc[1];
+      grid_positions[output_index * 3 + 2] = gp->loc[2];
+      output_index++;
+    }
   }
 
-  // Track whether we've written positions
-  bool written_positions = false;
+  double assembly_seconds = std::chrono::duration<double>(
+                                std::chrono::steady_clock::now() -
+                                assembly_start)
+                                .count();
+  const auto dataset_write_start = std::chrono::steady_clock::now();
+  if (!hdf5.writeDataset<double, 2>("Grids/GridPointPositions",
+                                    grid_positions,
+                                    grid_point_positions_dims))
+    error("Failed to write GridPointPositions dataset");
+  std::vector<double>().swap(grid_positions);
+  double dataset_write_seconds = std::chrono::duration<double>(
+                                     std::chrono::steady_clock::now() -
+                                     dataset_write_start)
+                                     .count();
 
   // Loop over kernel radii and write grid data
   for (size_t kernel_idx = 0; kernel_idx < grid->kernel_radii.size(); kernel_idx++) {
@@ -135,164 +164,66 @@ void writeGridFileSerial(Simulation *sim, Grid *grid) {
       error("Failed to write KernelRadius attribute for kernel %zu", kernel_idx);
     }
 
-    // Create overdensity dataset for this kernel
     std::array<hsize_t, 1> grid_point_overdens_dims = {
         static_cast<hsize_t>(grid->n_grid_points)};
-    if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
-                                           "/GridPointOverDensities",
-                                       grid_point_overdens_dims)) {
-      error("Failed to create GridPointOverDensities dataset for kernel %zu (radius=%f)",
-            kernel_idx, kernel_rad);
-      continue;
-    }
-
-    // Create masses dataset if requested
-    if (metadata->write_masses) {
-      if (!hdf5.createDataset<double, 1>("Grids/" + kernel_name +
-                                             "/GridPointMasses",
-                                         grid_point_overdens_dims)) {
-        error("Failed to create GridPointMasses dataset for kernel %zu (radius=%f)",
-              kernel_idx, kernel_rad);
-        continue;
-      }
-    }
-
-    // Create particle count dataset from tree traversal algorithm
-    if (!hdf5.createDataset<int, 1>("Grids/" + kernel_name +
-                                        "/GridPointCounts",
-                                    grid_point_overdens_dims)) {
-      error("Failed to create GridPointCounts dataset for kernel %zu (radius=%f)",
-            kernel_idx, kernel_rad);
-      continue;
-    }
-
+    const auto kernel_assembly_start = std::chrono::steady_clock::now();
+    const size_t ngrid = static_cast<size_t>(grid->n_grid_points);
+    std::vector<double> overdensities(ngrid);
+    std::vector<double> masses(metadata->write_masses ? ngrid : 0);
+    std::vector<int64_t> counts(ngrid);
 #ifdef DEBUGGING_CHECKS
-    // In debug mode, also write brute force counts for validation
-    // These are computed by exhaustively checking every particle's distance
-    if (!hdf5.createDataset<int, 1>("Grids/" + kernel_name +
-                                        "/BruteForceGridPointCounts",
-                                    grid_point_overdens_dims)) {
-      error("Failed to create BruteForceGridPointCounts dataset for kernel %zu (radius=%f)",
-            kernel_idx, kernel_rad);
-      continue;
-    }
+    std::vector<int> brute_counts(ngrid);
 #endif
-
-    // Process each cell
+#pragma omp parallel for schedule(static)
     for (size_t cid = 0; cid < sim->nr_cells; cid++) {
-      Cell *cell = &cells[cid];
-
-      // Skip empty cells
-      if (cell->grid_points.size() == 0) {
-        continue;
-      }
-
-      const int start_idx = grid_point_start[cid];
-      const int count = grid_point_counts[cid];
-
-      // Prepare data arrays
-      std::vector<double> cell_grid_overdens;
-      std::vector<double> cell_grid_masses;
-      std::vector<int> cell_grid_counts;
-      std::vector<double> cell_grid_pos;
-      cell_grid_overdens.reserve(count);
-      cell_grid_counts.reserve(count);
-      cell_grid_pos.reserve(count * 3);
-      if (metadata->write_masses) {
-        cell_grid_masses.reserve(count);
-      }
+      size_t output_index = static_cast<size_t>(grid_point_start[cid]);
+      for (const GridPoint *gp : cells[cid].grid_points) {
+        overdensities[output_index] =
+            gp->getOverDensity(kernel_idx, kernel_rad, sim);
+        if (metadata->write_masses)
+          masses[output_index] = gp->getMass(kernel_idx);
+        counts[output_index] = gp->getCount(kernel_idx);
 #ifdef DEBUGGING_CHECKS
-      std::vector<int> cell_grid_brute_counts;
-      cell_grid_brute_counts.reserve(count);
+        brute_counts[output_index] = gp->getBruteForceCount(kernel_idx);
 #endif
+        output_index++;
+      }
+    }
+    assembly_seconds += std::chrono::duration<double>(
+                            std::chrono::steady_clock::now() -
+                            kernel_assembly_start)
+                            .count();
 
-      // Extract data from grid points
-      for (const GridPoint *gp : cell->grid_points) {
-        // Get overdensity for this kernel
-        cell_grid_overdens.push_back(
-            gp->getOverDensity(kernel_idx, kernel_rad, sim));
-
-        // Get masses if requested
-        if (metadata->write_masses) {
-          cell_grid_masses.push_back(gp->getMass(kernel_idx));
-        }
-
-        // Get particle counts from gridder algorithm
-        cell_grid_counts.push_back(gp->getCount(kernel_idx));
+    const auto kernel_write_start = std::chrono::steady_clock::now();
+    if (!hdf5.writeDataset<double, 1>(
+            "Grids/" + kernel_name + "/GridPointOverDensities",
+            overdensities, grid_point_overdens_dims))
+      error("Failed to write overdensities for kernel %zu", kernel_idx);
+    if (metadata->write_masses &&
+        !hdf5.writeDataset<double, 1>(
+            "Grids/" + kernel_name + "/GridPointMasses", masses,
+            grid_point_overdens_dims))
+      error("Failed to write masses for kernel %zu", kernel_idx);
+    if (!hdf5.writeDataset<int64_t, 1>(
+            "Grids/" + kernel_name + "/GridPointCounts", counts,
+            grid_point_overdens_dims))
+      error("Failed to write counts for kernel %zu", kernel_idx);
 
 #ifdef DEBUGGING_CHECKS
-        // Get brute force counts in debug mode
-        cell_grid_brute_counts.push_back(gp->getBruteForceCount(kernel_idx));
+    if (!hdf5.writeDataset<int, 1>(
+            "Grids/" + kernel_name + "/BruteForceGridPointCounts",
+            brute_counts, grid_point_overdens_dims))
+      error("Failed to write brute-force counts for kernel %zu", kernel_idx);
 #endif
-
-        // Store positions if not done yet
-        if (!written_positions) {
-          cell_grid_pos.push_back(gp->loc[0]);
-          cell_grid_pos.push_back(gp->loc[1]);
-          cell_grid_pos.push_back(gp->loc[2]);
-        }
-      }
-
-      // Write overdensity slice
-      if (!hdf5.writeDatasetSlice<double, 1>(
-              "Grids/" + kernel_name + "/GridPointOverDensities",
-              cell_grid_overdens, {static_cast<hsize_t>(start_idx)},
-              {static_cast<hsize_t>(count)})) {
-        error("Failed to write overdensity slice for cell %zu, kernel %zu (radius=%f)",
-              cid, kernel_idx, kernel_rad);
-        continue;
-      }
-
-      // Write masses slice if requested
-      if (metadata->write_masses && !cell_grid_masses.empty()) {
-        if (!hdf5.writeDatasetSlice<double, 1>(
-                "Grids/" + kernel_name + "/GridPointMasses", cell_grid_masses,
-                {static_cast<hsize_t>(start_idx)},
-                {static_cast<hsize_t>(count)})) {
-          error("Failed to write masses slice for cell %zu, kernel %zu (radius=%f)",
-                cid, kernel_idx, kernel_rad);
-        }
-      }
-
-      // Write gridder particle counts
-      if (!cell_grid_counts.empty()) {
-        if (!hdf5.writeDatasetSlice<int, 1>(
-                "Grids/" + kernel_name + "/GridPointCounts", cell_grid_counts,
-                {static_cast<hsize_t>(start_idx)},
-                {static_cast<hsize_t>(count)})) {
-          error("Failed to write counts slice for cell %zu, kernel %zu (radius=%f)",
-                cid, kernel_idx, kernel_rad);
-        }
-      }
-
-#ifdef DEBUGGING_CHECKS
-      // Write brute force counts in debug mode
-      if (!cell_grid_brute_counts.empty()) {
-        if (!hdf5.writeDatasetSlice<int, 1>(
-                "Grids/" + kernel_name + "/BruteForceGridPointCounts", cell_grid_brute_counts,
-                {static_cast<hsize_t>(start_idx)},
-                {static_cast<hsize_t>(count)})) {
-          error("Failed to write brute force counts slice for cell %zu, kernel %zu (radius=%f)",
-                cid, kernel_idx, kernel_rad);
-        }
-      }
-#endif
-
-      // Write position slice if needed
-      if (!written_positions && !cell_grid_pos.empty()) {
-        if (!hdf5.writeDatasetSlice<double, 2>(
-                "Grids/GridPointPositions", cell_grid_pos,
-                {static_cast<hsize_t>(start_idx), 0},
-                {static_cast<hsize_t>(count), 3})) {
-          error("Failed to write position slice for cell %d", cid);
-        }
-      }
-    } // End cell loop
-
-    // Mark positions as written after first kernel
-    written_positions = true;
+    dataset_write_seconds += std::chrono::duration<double>(
+                                 std::chrono::steady_clock::now() -
+                                 kernel_write_start)
+                                 .count();
 
   } // End kernel loop
+
+  message("Serial output preparation took %.3f s; dataset writes took %.3f s",
+          assembly_seconds, dataset_write_seconds);
 
   // Close the HDF5 file
   hdf5.close();
@@ -437,9 +368,12 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
 
     // Create overdensity arrays for each kernel
     std::vector<std::vector<double>> local_overdens(grid->kernel_radii.size());
+    std::vector<std::vector<int64_t>> local_counts(grid->kernel_radii.size());
     for (auto &overdens_vec : local_overdens) {
       overdens_vec.reserve(total_local_grid_points);
     }
+    for (auto &count_vec : local_counts)
+      count_vec.reserve(total_local_grid_points);
 
     // If we are writing out masses, we need to prepare a vector for them in
     // each kernel too
@@ -464,6 +398,7 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         for (size_t k = 0; k < grid->kernel_radii.size(); k++) {
           local_overdens[k].push_back(
               gp->getOverDensity(k, grid->kernel_radii[k], sim));
+          local_counts[k].push_back(gp->getCount(k));
         }
 
         // Store masses if desired
@@ -510,6 +445,11 @@ void writeGridFileParallel(Simulation *sim, Grid *grid) {
         error("Rank %d: Failed to write overdensity dataset for kernel %zu (radius=%f)",
               metadata->rank, kernel_idx, kernel_rad);
       }
+      if (!hdf5.writeDataset<int64_t, 1>(
+              "Grids/" + kernel_name + "/GridPointCounts",
+              local_counts[kernel_idx], overdens_dims))
+        error("Rank %d: Failed to write count dataset for kernel %zu",
+              metadata->rank, kernel_idx);
 
       // Write the masses if desired
       if (metadata->write_masses) {
@@ -647,6 +587,11 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
       error("Failed to create virtual overdensity dataset for kernel %zu (radius=%f)",
             kernel_idx, kernel_rad);
     }
+    if (!hdf5.createDataset<int64_t, 1>(
+            "Grids/" + kernel_name + "/GridPointCounts",
+            global_overdens_dims))
+      error("Failed to create virtual count dataset for kernel %zu",
+            kernel_idx);
 
     // Create masses dataset if requested
     if (metadata->write_masses) {
@@ -707,6 +652,17 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
                 rank, kernel_idx, kernel_rad);
         }
       }
+
+      std::vector<int64_t> rank_counts;
+      if (rank_file.readDataset("Grids/" + kernel_name +
+                                    "/GridPointCounts",
+                                rank_counts) &&
+          !hdf5.writeDatasetSlice<int64_t, 1>(
+              "Grids/" + kernel_name + "/GridPointCounts", rank_counts,
+              {static_cast<hsize_t>(rank_offsets[rank])},
+              {static_cast<hsize_t>(rank_grid_points[rank])}))
+        error("Failed to write count slice for rank %d, kernel %zu", rank,
+              kernel_idx);
     }
 
     // Read and write the masses if requested
@@ -733,25 +689,25 @@ void createVirtualFile(const std::string &base_filename, int num_ranks,
   }
 
   // Create cell lookup information for the combined data
-  std::vector<int> global_grid_point_counts(sim->nr_cells, 0);
-  std::vector<int> global_grid_point_start(sim->nr_cells, 0);
+  std::vector<int64_t> global_grid_point_counts(sim->nr_cells, 0);
+  std::vector<int64_t> global_grid_point_start(sim->nr_cells, 0);
 
   // Build global cell information from all ranks
   // (grid points remain in top-level cells throughout splitting)
-  int current_offset = 0;
+  int64_t current_offset = 0;
   for (size_t cid = 0; cid < sim->nr_cells; cid++) {
     global_grid_point_start[cid] = current_offset;
     global_grid_point_counts[cid] =
-        static_cast<int>(sim->cells[cid].grid_points.size());
+        static_cast<int64_t>(sim->cells[cid].grid_points.size());
     current_offset += global_grid_point_counts[cid];
   }
 
   // Write global cell datasets
   std::array<hsize_t, 1> cell_dims = {static_cast<hsize_t>(sim->nr_cells)};
-  hdf5.writeDataset<int, 1>("Cells/GridPointStart", global_grid_point_start,
-                            cell_dims);
-  hdf5.writeDataset<int, 1>("Cells/GridPointCounts", global_grid_point_counts,
-                            cell_dims);
+  hdf5.writeDataset<int64_t, 1>("Cells/GridPointStart", global_grid_point_start,
+                             cell_dims);
+  hdf5.writeDataset<int64_t, 1>("Cells/GridPointCounts", global_grid_point_counts,
+                             cell_dims);
 
   hdf5.close();
   message(
