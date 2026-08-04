@@ -20,6 +20,15 @@ COMMON_CENTRE_DATASETS = (
     "Group/Centers",
 )
 
+COMMON_MASS_DATASETS = (
+    "Groups/Masses",
+    "Groups/Mass",
+    "FOF/Masses",
+    "FOF/Mass",
+    "Group/Masses",
+    "Group/Mass",
+)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -49,6 +58,21 @@ def parse_args():
         help=(
             "HDF5 path to the halo centres. If omitted, common paths are "
             "checked and an unambiguous centre-like (N, 3) dataset is used."
+        ),
+    )
+    parser.add_argument(
+        "--mass-output-file",
+        "-m",
+        type=Path,
+        default=Path("fof_masses.txt"),
+        help="Output halo mass file (default: fof_masses.txt).",
+    )
+    parser.add_argument(
+        "--masses-dataset",
+        type=str,
+        help=(
+            "HDF5 path to the FOF halo masses. If omitted, common paths are "
+            "checked and an unambiguous mass-like dataset is used."
         ),
     )
     parser.add_argument(
@@ -131,6 +155,24 @@ def centre_like_datasets(handle):
     return matches
 
 
+def mass_like_datasets(handle):
+    """Find numeric one-dimensional datasets with mass-like names."""
+    matches = []
+
+    def inspect(name, item):
+        final_name = name.rsplit("/", maxsplit=1)[-1].lower()
+        if (
+            isinstance(item, h5py.Dataset)
+            and (len(item.shape) == 1 or (len(item.shape) == 2 and item.shape[1] == 1))
+            and np.issubdtype(item.dtype, np.number)
+            and (final_name == "mass" or final_name == "masses")
+        ):
+            matches.append(name)
+
+    handle.visititems(inspect)
+    return matches
+
+
 def choose_dataset(first_part, requested_dataset):
     """Resolve the centre dataset path from the first catalogue part."""
     with h5py.File(first_part, "r") as handle:
@@ -157,6 +199,35 @@ def choose_dataset(first_part, requested_dataset):
         raise ValueError(
             "Multiple possible centre datasets were found in "
             f"{first_part}: {candidates}. Select one with --centres-dataset."
+        )
+
+
+def choose_mass_dataset(first_part, requested_dataset):
+    """Resolve the FOF mass dataset path from the first catalogue part."""
+    with h5py.File(first_part, "r") as handle:
+        if requested_dataset:
+            dataset = requested_dataset.strip("/")
+            if dataset not in handle:
+                raise ValueError(
+                    f"Dataset '{dataset}' does not exist in {first_part}"
+                )
+            return dataset
+
+        for dataset in COMMON_MASS_DATASETS:
+            if dataset in handle:
+                return dataset
+
+        candidates = mass_like_datasets(handle)
+        if len(candidates) == 1:
+            return candidates[0]
+        if not candidates:
+            raise ValueError(
+                f"Could not find a mass-like dataset in {first_part}. Specify "
+                "its HDF5 path with --masses-dataset."
+            )
+        raise ValueError(
+            f"Multiple possible mass datasets were found in {first_part}: "
+            f"{candidates}. Select one with --masses-dataset."
         )
 
 
@@ -197,17 +268,57 @@ def inspect_parts(parts, dataset_path):
     return data_parts, counts
 
 
-def write_grid_points(parts, dataset_path, output_file, chunk_size, overwrite):
-    """Write all centres atomically in gridder text format."""
+def inspect_mass_parts(parts, dataset_path, expected_counts):
+    """Validate that one mass is stored for every extracted centre."""
+    counts = []
+    for part, expected_count in zip(parts, expected_counts, strict=True):
+        with h5py.File(part, "r") as handle:
+            if dataset_path not in handle:
+                raise ValueError(f"Dataset '{dataset_path}' is absent from {part}")
+            dataset = handle[dataset_path]
+            valid_shape = len(dataset.shape) == 1 or (
+                len(dataset.shape) == 2 and dataset.shape[1] == 1
+            )
+            if (
+                not isinstance(dataset, h5py.Dataset)
+                or not valid_shape
+                or not np.issubdtype(dataset.dtype, np.number)
+            ):
+                raise ValueError(
+                    f"Dataset '{dataset_path}' in {part} must be a numeric "
+                    f"one-dimensional array; found shape={dataset.shape}, "
+                    f"dtype={dataset.dtype}"
+                )
+            if dataset.shape[0] != expected_count:
+                raise ValueError(
+                    f"Centre/mass count mismatch in {part}: {expected_count} "
+                    f"centres but {dataset.shape[0]} masses"
+                )
+            counts.append(dataset.shape[0])
+    return counts
+
+
+def write_catalogue(
+    parts,
+    centres_dataset,
+    masses_dataset,
+    output_file,
+    mass_output_file,
+    chunk_size,
+    overwrite,
+):
+    """Write aligned centre and mass text files atomically."""
     if chunk_size <= 0:
         raise ValueError("--chunk-size must be positive")
-    if output_file.exists() and not overwrite:
-        raise ValueError(
-            f"Output file already exists: {output_file}. Use --overwrite to replace it."
-        )
+    for path in (output_file, mass_output_file):
+        if path.exists() and not overwrite:
+            raise ValueError(
+                f"Output file already exists: {path}. Use --overwrite to replace it."
+            )
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = None
+    mass_output_file.parent.mkdir(parents=True, exist_ok=True)
+    temporary_paths = []
     try:
         with tempfile.NamedTemporaryFile(
             mode="w",
@@ -215,28 +326,47 @@ def write_grid_points(parts, dataset_path, output_file, chunk_size, overwrite):
             prefix=f".{output_file.name}.",
             suffix=".tmp",
             delete=False,
-        ) as output:
-            temporary_path = Path(output.name)
+        ) as output, tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=mass_output_file.parent,
+            prefix=f".{mass_output_file.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as mass_output:
+            temporary_paths = [Path(output.name), Path(mass_output.name)]
             output.write("# SWIFT FOF halo centres for the gridder\n")
-            output.write(f"# HDF5 dataset: {dataset_path}\n")
+            output.write(f"# HDF5 dataset: {centres_dataset}\n")
+            mass_output.write("# SWIFT FOF halo masses in catalogue units\n")
+            mass_output.write(f"# HDF5 dataset: {masses_dataset}\n")
 
             for part in parts:
                 with h5py.File(part, "r") as handle:
-                    dataset = handle[dataset_path]
-                    for start in range(0, dataset.shape[0], chunk_size):
+                    positions = handle[centres_dataset]
+                    masses = handle[masses_dataset]
+                    for start in range(0, positions.shape[0], chunk_size):
                         centres = np.asarray(
-                            dataset[start : start + chunk_size], dtype=np.float64
+                            positions[start : start + chunk_size], dtype=np.float64
                         )
+                        mass_values = np.asarray(
+                            masses[start : start + chunk_size], dtype=np.float64
+                        ).reshape(-1)
                         if not np.all(np.isfinite(centres)):
                             raise ValueError(
                                 f"Non-finite centre coordinates found in {part}, "
                                 f"rows {start}:{start + centres.shape[0]}"
                             )
+                        if not np.all(np.isfinite(mass_values)):
+                            raise ValueError(
+                                f"Non-finite halo masses found in {part}, rows "
+                                f"{start}:{start + mass_values.shape[0]}"
+                            )
                         np.savetxt(output, centres, fmt="%.17g")
+                        np.savetxt(mass_output, mass_values, fmt="%.17g")
 
-        temporary_path.replace(output_file)
+        temporary_paths[0].replace(output_file)
+        temporary_paths[1].replace(mass_output_file)
     except Exception:
-        if temporary_path is not None:
+        for temporary_path in temporary_paths:
             temporary_path.unlink(missing_ok=True)
         raise
 
@@ -245,24 +375,30 @@ def main():
     args = parse_args()
     try:
         parts = discover_parts(args.fof_directory, args.expected_parts)
-        dataset_path = choose_dataset(parts[0], args.centres_dataset)
-        data_parts, counts = inspect_parts(parts, dataset_path)
-        write_grid_points(
+        centres_dataset = choose_dataset(parts[0], args.centres_dataset)
+        data_parts, counts = inspect_parts(parts, centres_dataset)
+        masses_dataset = choose_mass_dataset(data_parts[0], args.masses_dataset)
+        inspect_mass_parts(data_parts, masses_dataset, counts)
+        write_catalogue(
             data_parts,
-            dataset_path,
+            centres_dataset,
+            masses_dataset,
             args.output_file,
+            args.mass_output_file,
             args.chunk_size,
             args.overwrite,
         )
     except (OSError, ValueError) as error:
         raise SystemExit(f"Error: {error}") from error
 
-    print(f"Read dataset: {dataset_path}")
+    print(f"Read centres: {centres_dataset}")
+    print(f"Read masses: {masses_dataset}")
     print(
         f"Found {len(parts)} catalogue parts; read centre data from "
         f"{len(data_parts)} part(s) containing {sum(counts)} halos"
     )
     print(f"Wrote grid points to: {args.output_file}")
+    print(f"Wrote aligned masses to: {args.mass_output_file}")
 
 
 if __name__ == "__main__":
