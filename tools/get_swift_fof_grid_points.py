@@ -270,8 +270,13 @@ def inspect_parts(parts, dataset_path):
 
 def inspect_mass_parts(parts, dataset_path, expected_counts):
     """Validate that one mass is stored for every extracted centre."""
+    if len(parts) != len(expected_counts):
+        raise ValueError(
+            f"Internal part/count mismatch: {len(parts)} parts and "
+            f"{len(expected_counts)} expected counts"
+        )
     counts = []
-    for part, expected_count in zip(parts, expected_counts, strict=True):
+    for part, expected_count in zip(parts, expected_counts):
         with h5py.File(part, "r") as handle:
             if dataset_path not in handle:
                 raise ValueError(f"Dataset '{dataset_path}' is absent from {part}")
