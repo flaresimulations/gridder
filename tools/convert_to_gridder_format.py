@@ -35,6 +35,7 @@ created to provide a unified view of the data.
 """
 
 import argparse
+import re
 import sys
 import numpy as np
 import h5py
@@ -161,7 +162,28 @@ def get_mpi_info():
     return comm, rank, size, using_mpi
 
 
-def get_particle_count(input_file, masses_key, rank, size):
+def read_masses(f_in, args, start, count):
+    """
+    Read a slice of the masses dataset, or synthesize a constant array from
+    Header/MassTable when the dataset is absent (equal-mass snapshots need
+    not carry a per-particle Masses block).
+    """
+    if args.masses_key in f_in:
+        return f_in[args.masses_key][start:start + count]
+
+    m = re.search(r"PartType(\d)", args.masses_key)
+    if m and args.header_key in f_in and 'MassTable' in f_in[args.header_key].attrs:
+        mass = np.array(f_in[args.header_key].attrs['MassTable']).ravel()[int(m.group(1))]
+        if mass > 0:
+            return np.full(count, mass, dtype=np.float64)
+
+    raise KeyError(
+        f"Masses key '{args.masses_key}' not found and no positive "
+        f"{args.header_key}/MassTable entry to fall back on"
+    )
+
+
+def get_particle_count(input_file, masses_key, coordinates_key, rank, size):
     """
     Get total particle count and determine chunk for this rank.
 
@@ -171,10 +193,11 @@ def get_particle_count(input_file, masses_key, rank, size):
         count: Number of particles for this rank to process
     """
     with h5py.File(input_file, 'r') as f:
-        if masses_key not in f:
-            raise KeyError(f"Masses key '{masses_key}' not found in input file")
+        key = masses_key if masses_key in f else coordinates_key
+        if key not in f:
+            raise KeyError(f"Neither '{masses_key}' nor '{coordinates_key}' found in input file")
 
-        total_particles = f[masses_key].shape[0]
+        total_particles = f[key].shape[0]
 
     # Divide particles among ranks
     particles_per_rank = total_particles // size
@@ -334,11 +357,9 @@ def convert_file_serial(args):
         # Check input keys exist
         if args.coordinates_key not in f_in:
             raise KeyError(f"Coordinates key '{args.coordinates_key}' not found")
-        if args.masses_key not in f_in:
-            raise KeyError(f"Masses key '{args.masses_key}' not found")
 
         coords = f_in[args.coordinates_key][:]
-        masses = f_in[args.masses_key][:]
+        masses = read_masses(f_in, args, 0, coords.shape[0])
 
         npart = masses.shape[0]
 
@@ -419,7 +440,7 @@ def convert_file_mpi(args, comm, rank, size):
 
     # Get particle distribution
     total_particles, start_idx, count = get_particle_count(
-        args.input_file, args.masses_key, rank, size
+        args.input_file, args.masses_key, args.coordinates_key, rank, size
     )
 
     # Get box size (all ranks need this)
@@ -439,7 +460,7 @@ def convert_file_mpi(args, comm, rank, size):
     with h5py.File(args.input_file, 'r') as f_in:
         # Read this rank's chunk
         coords = f_in[args.coordinates_key][start_idx:start_idx + count]
-        masses = f_in[args.masses_key][start_idx:start_idx + count]
+        masses = read_masses(f_in, args, start_idx, count)
 
         # Validate shapes (same as serial mode)
         if coords.ndim != 2 or coords.shape[1] != 3:
