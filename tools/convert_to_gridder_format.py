@@ -35,6 +35,7 @@ created to provide a unified view of the data.
 """
 
 import argparse
+import re
 import sys
 import numpy as np
 import h5py
@@ -131,6 +132,26 @@ Examples:
         help="Box size [X, Y, Z] in same units as coordinates. If not provided, will try to read from Header/BoxSize"
     )
 
+    parser.add_argument(
+        "--synth-mass-dtype",
+        default="float64",
+        choices=("float32", "float64"),
+        help="Precision of the constant Masses array synthesised from "
+             "Header/MassTable when the snapshot carries no Masses dataset "
+             "(default: float64). float32 halves that array, and loses nothing "
+             "for an equal-mass snapshot. Ignored when a Masses dataset exists, "
+             "which is read at its own precision."
+    )
+
+    parser.add_argument(
+        "--no-compress",
+        dest="compress",
+        action="store_false",
+        help="Write the Coordinates and Masses datasets uncompressed. Compression "
+             "trades conversion time for output size, and both scale with particle "
+             "count; on large snapshots the gzip pass can dominate the runtime."
+    )
+
     return parser.parse_args()
 
 
@@ -161,7 +182,28 @@ def get_mpi_info():
     return comm, rank, size, using_mpi
 
 
-def get_particle_count(input_file, masses_key, rank, size):
+def read_masses(f_in, args, start, count):
+    """
+    Read a slice of the masses dataset, or synthesize a constant array from
+    Header/MassTable when the dataset is absent (equal-mass snapshots need
+    not carry a per-particle Masses block).
+    """
+    if args.masses_key in f_in:
+        return f_in[args.masses_key][start:start + count]
+
+    m = re.search(r"PartType(\d)", args.masses_key)
+    if m and args.header_key in f_in and 'MassTable' in f_in[args.header_key].attrs:
+        mass = np.array(f_in[args.header_key].attrs['MassTable']).ravel()[int(m.group(1))]
+        if mass > 0:
+            return np.full(count, mass, dtype=np.dtype(args.synth_mass_dtype))
+
+    raise KeyError(
+        f"Masses key '{args.masses_key}' not found and no positive "
+        f"{args.header_key}/MassTable entry to fall back on"
+    )
+
+
+def get_particle_count(input_file, masses_key, coordinates_key, rank, size):
     """
     Get total particle count and determine chunk for this rank.
 
@@ -171,10 +213,11 @@ def get_particle_count(input_file, masses_key, rank, size):
         count: Number of particles for this rank to process
     """
     with h5py.File(input_file, 'r') as f:
-        if masses_key not in f:
-            raise KeyError(f"Masses key '{masses_key}' not found in input file")
+        key = masses_key if masses_key in f else coordinates_key
+        if key not in f:
+            raise KeyError(f"Neither '{masses_key}' nor '{coordinates_key}' found in input file")
 
-        total_particles = f[masses_key].shape[0]
+        total_particles = f[key].shape[0]
 
     # Divide particles among ranks
     particles_per_rank = total_particles // size
@@ -260,8 +303,12 @@ def create_cell_structure(coords, masses, boxsize, cdim):
     npart = coords.shape[0]
     ncells = cdim ** 3
 
-    # Clamp coordinates to stay strictly within [0, boxsize) to avoid boundary issues
-    upper = np.nextafter(boxsize, np.full_like(boxsize, -np.inf))
+    # Clamp coordinates to stay strictly within [0, boxsize) to avoid boundary
+    # issues. Evaluate the bound in the coordinate dtype: boxsize is float64, and
+    # clipping float32 positions against it silently promotes them, doubling the
+    # array that is then sorted and written. nextafter must be taken in that same
+    # dtype -- casting a float64 bound down could round it back onto the boundary.
+    upper = np.nextafter(boxsize.astype(coords.dtype), -np.inf)
     coords = np.clip(coords, 0.0, upper)
 
     # Calculate cell size
@@ -334,11 +381,9 @@ def convert_file_serial(args):
         # Check input keys exist
         if args.coordinates_key not in f_in:
             raise KeyError(f"Coordinates key '{args.coordinates_key}' not found")
-        if args.masses_key not in f_in:
-            raise KeyError(f"Masses key '{args.masses_key}' not found")
 
         coords = f_in[args.coordinates_key][:]
-        masses = f_in[args.masses_key][:]
+        masses = read_masses(f_in, args, 0, coords.shape[0])
 
         npart = masses.shape[0]
 
@@ -377,18 +422,10 @@ def convert_file_serial(args):
             pt_group = f_out.create_group(args.particle_type)
 
             # Write sorted coordinates and masses
-            pt_group.create_dataset(
-                'Coordinates',
-                data=sorted_coords,
-                compression='gzip',
-                compression_opts=4
-            )
-            pt_group.create_dataset(
-                'Masses',
-                data=sorted_masses,
-                compression='gzip',
-                compression_opts=4
-            )
+            comp = ({'compression': 'gzip', 'compression_opts': 4}
+                    if args.compress else {})
+            pt_group.create_dataset('Coordinates', data=sorted_coords, **comp)
+            pt_group.create_dataset('Masses', data=sorted_masses, **comp)
 
             # Write cell structure
             write_cell_structure(f_out, cell_counts, cell_offsets, args.cdim, cell_size)
@@ -419,7 +456,7 @@ def convert_file_mpi(args, comm, rank, size):
 
     # Get particle distribution
     total_particles, start_idx, count = get_particle_count(
-        args.input_file, args.masses_key, rank, size
+        args.input_file, args.masses_key, args.coordinates_key, rank, size
     )
 
     # Get box size (all ranks need this)
@@ -439,7 +476,7 @@ def convert_file_mpi(args, comm, rank, size):
     with h5py.File(args.input_file, 'r') as f_in:
         # Read this rank's chunk
         coords = f_in[args.coordinates_key][start_idx:start_idx + count]
-        masses = f_in[args.masses_key][start_idx:start_idx + count]
+        masses = read_masses(f_in, args, start_idx, count)
 
         # Validate shapes (same as serial mode)
         if coords.ndim != 2 or coords.shape[1] != 3:
@@ -465,18 +502,10 @@ def convert_file_mpi(args, comm, rank, size):
         with h5py.File(rank_file, 'w') as f_out:
             pt_group = f_out.create_group(args.particle_type)
 
-            pt_group.create_dataset(
-                'Coordinates',
-                data=sorted_coords,
-                compression='gzip',
-                compression_opts=4
-            )
-            pt_group.create_dataset(
-                'Masses',
-                data=sorted_masses,
-                compression='gzip',
-                compression_opts=4
-            )
+            comp = ({'compression': 'gzip', 'compression_opts': 4}
+                    if args.compress else {})
+            pt_group.create_dataset('Coordinates', data=sorted_coords, **comp)
+            pt_group.create_dataset('Masses', data=sorted_masses, **comp)
 
             # Write cell structure for this rank
             write_cell_structure(f_out, cell_counts, cell_offsets, args.cdim, cell_size)
