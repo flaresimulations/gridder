@@ -132,6 +132,15 @@ Examples:
         help="Box size [X, Y, Z] in same units as coordinates. If not provided, will try to read from Header/BoxSize"
     )
 
+    parser.add_argument(
+        "--no-compress",
+        dest="compress",
+        action="store_false",
+        help="Write the Coordinates and Masses datasets uncompressed. Compression "
+             "trades conversion time for output size, and both scale with particle "
+             "count; on large snapshots the gzip pass can dominate the runtime."
+    )
+
     return parser.parse_args()
 
 
@@ -398,18 +407,10 @@ def convert_file_serial(args):
             pt_group = f_out.create_group(args.particle_type)
 
             # Write sorted coordinates and masses
-            pt_group.create_dataset(
-                'Coordinates',
-                data=sorted_coords,
-                compression='gzip',
-                compression_opts=4
-            )
-            pt_group.create_dataset(
-                'Masses',
-                data=sorted_masses,
-                compression='gzip',
-                compression_opts=4
-            )
+            comp = ({'compression': 'gzip', 'compression_opts': 4}
+                    if args.compress else {})
+            pt_group.create_dataset('Coordinates', data=sorted_coords, **comp)
+            pt_group.create_dataset('Masses', data=sorted_masses, **comp)
 
             # Write cell structure
             write_cell_structure(f_out, cell_counts, cell_offsets, args.cdim, cell_size)
@@ -486,18 +487,10 @@ def convert_file_mpi(args, comm, rank, size):
         with h5py.File(rank_file, 'w') as f_out:
             pt_group = f_out.create_group(args.particle_type)
 
-            pt_group.create_dataset(
-                'Coordinates',
-                data=sorted_coords,
-                compression='gzip',
-                compression_opts=4
-            )
-            pt_group.create_dataset(
-                'Masses',
-                data=sorted_masses,
-                compression='gzip',
-                compression_opts=4
-            )
+            comp = ({'compression': 'gzip', 'compression_opts': 4}
+                    if args.compress else {})
+            pt_group.create_dataset('Coordinates', data=sorted_coords, **comp)
+            pt_group.create_dataset('Masses', data=sorted_masses, **comp)
 
             # Write cell structure for this rank
             write_cell_structure(f_out, cell_counts, cell_offsets, args.cdim, cell_size)
