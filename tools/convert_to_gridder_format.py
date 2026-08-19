@@ -133,6 +133,17 @@ Examples:
     )
 
     parser.add_argument(
+        "--synth-mass-dtype",
+        default="float64",
+        choices=("float32", "float64"),
+        help="Precision of the constant Masses array synthesised from "
+             "Header/MassTable when the snapshot carries no Masses dataset "
+             "(default: float64). float32 halves that array, and loses nothing "
+             "for an equal-mass snapshot. Ignored when a Masses dataset exists, "
+             "which is read at its own precision."
+    )
+
+    parser.add_argument(
         "--no-compress",
         dest="compress",
         action="store_false",
@@ -184,7 +195,7 @@ def read_masses(f_in, args, start, count):
     if m and args.header_key in f_in and 'MassTable' in f_in[args.header_key].attrs:
         mass = np.array(f_in[args.header_key].attrs['MassTable']).ravel()[int(m.group(1))]
         if mass > 0:
-            return np.full(count, mass, dtype=np.float64)
+            return np.full(count, mass, dtype=np.dtype(args.synth_mass_dtype))
 
     raise KeyError(
         f"Masses key '{args.masses_key}' not found and no positive "
@@ -292,8 +303,12 @@ def create_cell_structure(coords, masses, boxsize, cdim):
     npart = coords.shape[0]
     ncells = cdim ** 3
 
-    # Clamp coordinates to stay strictly within [0, boxsize) to avoid boundary issues
-    upper = np.nextafter(boxsize, np.full_like(boxsize, -np.inf))
+    # Clamp coordinates to stay strictly within [0, boxsize) to avoid boundary
+    # issues. Evaluate the bound in the coordinate dtype: boxsize is float64, and
+    # clipping float32 positions against it silently promotes them, doubling the
+    # array that is then sorted and written. nextafter must be taken in that same
+    # dtype -- casting a float64 bound down could round it back onto the boundary.
+    upper = np.nextafter(boxsize.astype(coords.dtype), -np.inf)
     coords = np.clip(coords, 0.0, upper)
 
     # Calculate cell size
